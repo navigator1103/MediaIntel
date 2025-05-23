@@ -49,6 +49,21 @@ lerna-debug.log*
 .env.local
 
 # vercel
+
+# database files
+prisma/golden_rules.db
+prisma/*.db
+prisma/*.db-journal
+
+# backup files
+*.bak
+*.backup
+
+# session data
+data/sessions/
+
+# debugging scripts
+scripts/check-*.js
 .vercel
 
 # typescript
