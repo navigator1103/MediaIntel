@@ -1,0 +1,10 @@
+15|Google Ads|Create 1st party audiences (Retargeting + Customer Match). Leverage retargeting and 3rd party data audiences in observation mode in order to enrich campaign learnings and to exclude low performing ones.|Right Person|active|high
+16|Google Ads|Ensure brand is present in at least one headline per ad (but, remember, RSAs choose headlines for you). Also always utilise 'business logo' ad feature.|Right Place|active|high
+17|Google Ads|Ensure Ad Strength is at least "Good" (ideally "Excellent") for 70% + of ad spend and a Quality Score >7 for at least 55% of the budget (ideally up to 70%). Maximize consistency between chosen keywords, ad copy and landing page content.|Right Place|active|high
+18|Google Ads|Use Exact and Phrase Match, and use Broad Match only under Smart Bidding and close control of search terms - Broad Match shouldn't represent >30% of the budget, continuous testing recommended|Right Place|active|medium
+19|Google Ads|RSA usage should be maximised wherever possible. Use DSA campaigns excluding keywords used in exact match (guideline: to prevent over-automation, DSA shouldn't represent more than 15% of the budget on key categories - Face, Sun, Body, Men).|Right Place|active|high
+20|Google Ads|All major ad extensions relevant to our business & brands should be leveraged on every campaign (sitelinks, callouts etc.) Continuously review Google 'Creative Excellence Recommendation' guidelines.|Right Place|active|medium
+21|Google Ads|Use Smart Bidding - if this is not yet available in your territory you must avoid keywords appearing in multiple ad groups & exclude spend at low-performing hours if CPA is 30%+ above campaign average|Right Time|active|high
+22|Google Ads|Cap CPC bid to reflect product economics even in tCPA/ROAS strategy (use portfolio bid)|Right Cost|active|high
+23|Google Ads|Ensure automated bidding towards the right campaign KPI depending on campaign objective (CPQV/CPA/ROAS) and DSA campaigns|Right Cost|active|high
+24|Google Ads|Use qualification metrics (e.g.CPQV, CPA) as proxies for conversions where needed|Right Cost|active|medium

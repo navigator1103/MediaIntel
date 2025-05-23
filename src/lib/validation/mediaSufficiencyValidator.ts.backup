@@ -1,0 +1,862 @@
+import { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
+
+// Define validation rule types
+export interface ValidationRule {
+  field: string;
+  type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency';
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  validate: (value: any, record: any, allRecords: any[], masterData?: any) => boolean | Promise<boolean>;
+}
+
+// Define the validator class
+export class MediaSufficiencyValidator {
+  private rules: ValidationRule[] = [];
+  private masterData: any = {};
+
+  constructor(masterData?: any) {
+    if (masterData) {
+      this.masterData = masterData;
+    }
+    this.initializeRules();
+  }
+
+  // Helper function to parse numbers
+  private parseNumber(value: any): number | null {
+    if (value === undefined || value === null || value === '') return null;
+    
+    // If it's already a number, return it
+    if (typeof value === 'number') return value;
+    
+    // Try to parse the string as a number
+    const parsed = parseFloat(value.toString().replace(/,/g, ''));
+    return isNaN(parsed) ? null : parsed;
+  }
+  
+  // Helper function to parse dates
+  private parseDate(value: any): Date | null {
+    if (!value) return null;
+    
+    // If it's already a Date object, return it
+    if (value instanceof Date) return value;
+    
+    // Try standard date parsing
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) return date;
+    
+    // Try DD-MM-YY format (e.g., 01-Feb-25)
+    if (value.includes('-')) {
+      const parts = value.split('-');
+      if (parts.length === 3) {
+        // Handle abbreviated month names
+        const monthMap: { [key: string]: number } = {
+          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+        };
+        
+        const day = parseInt(parts[0]);
+        const monthStr = parts[1].toLowerCase();
+        let year = parseInt(parts[2]);
+        
+        // Handle 2-digit years
+        if (year < 100) {
+          year = year < 50 ? 2000 + year : 1900 + year;
+        }
+        
+        // Check if month is a name
+        if (isNaN(parseInt(monthStr))) {
+          const monthIndex = monthMap[monthStr.substring(0, 3)];
+          if (monthIndex !== undefined) {
+            return new Date(year, monthIndex, day);
+          }
+        } else {
+          // Month is a number
+          return new Date(year, parseInt(monthStr) - 1, day);
+        }
+      }
+    }
+    
+    // Try MM/DD/YY format
+    if (value.includes('/')) {
+      const parts = value.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[0]) - 1;
+        const day = parseInt(parts[1]);
+        let year = parseInt(parts[2]);
+        
+        // Handle 2-digit years
+        if (year < 100) {
+          year = year < 50 ? 2000 + year : 1900 + year;
+        }
+        
+        return new Date(year, month, day);
+      }
+    }
+    
+    return null;
+  }
+  
+  // Helper function to format dates
+  private formatDate(date: Date | null): string {
+    if (!date) return '';
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${year}-${month}-${day}`;
+  }
+  
+  // Helper function for fallback suggestion logic using JSON data
+  private fallbackGetSuggestion(value: any, record: any, masterData: any): any {
+    if (!masterData?.categoryToRanges) return value;
+    
+    const category = record.Category.toString().trim();
+    const range = value.toString().trim();
+    
+    // Get ranges for this category
+    const rangesForCategory = masterData.categoryToRanges[category] || [];
+    
+    if (rangesForCategory.length === 0) return value;
+    
+    // Try to find an exact match first
+    if (rangesForCategory.includes(range)) return range;
+    
+    // Try fuzzy matching
+    const normalizedRange = range.toLowerCase();
+    const normalizedRanges = rangesForCategory.map((r: string) => ({ 
+      original: r, 
+      normalized: r.toLowerCase() 
+    }));
+    
+    // Try to find a close match
+    const closeMatch = normalizedRanges.find((r: {normalized: string, original: string}) => r.normalized === normalizedRange);
+    if (closeMatch) return closeMatch.original;
+    
+    // Try to find a starts-with match
+    const startsWithMatch = normalizedRanges.find((r: {normalized: string, original: string}) => r.normalized.startsWith(normalizedRange));
+    if (startsWithMatch) return startsWithMatch.original;
+    
+    // Try to find a contains match
+    const containsMatch = normalizedRanges.find((r: {normalized: string, original: string}) => r.normalized.includes(normalizedRange));
+    if (containsMatch) return containsMatch.original;
+    
+    // If no match found, return the first range for this category as a suggestion
+    return rangesForCategory[0];
+  }
+  
+  // Initialize default validation rules
+  private initializeRules() {
+    // Required fields
+    const requiredFields = [
+      'Year', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 
+      'Start Date', 'End Date', 'Budget'
+    ];
+    
+    requiredFields.forEach(field => {
+      this.rules.push({
+        field,
+        type: 'required',
+        severity: 'critical',
+        message: `${field} is required`,
+        validate: (value) => {
+          return value !== undefined && value !== null && value.toString().trim() !== '';
+        }
+      });
+    });
+
+    // Year format validation
+    this.rules.push({
+      field: 'Year',
+      type: 'format',
+      severity: 'critical',
+      message: 'Year must be a valid 4-digit year',
+      validate: (value) => {
+        if (!value) return false;
+        const year = parseInt(value.toString());
+        return !isNaN(year) && year >= 2000 && year <= 2100;
+      },
+      /* Removed getSuggestion */
+        // Try to extract a 4-digit year
+        const match = value?.toString().match(/20\d{2}/);
+        if (match) return match[0];
+        
+        // Default to current year
+        return new Date().getFullYear();
+      }
+    });
+
+    // Date format validation
+    const dateFields = ['Start Date', 'End Date'];
+    dateFields.forEach(field => {
+      this.rules.push({
+        field,
+        type: 'format',
+        severity: 'critical',
+        message: `${field} must be a valid date`,
+        validate: (value) => {
+          if (!value) return false;
+          
+          // Try parsing different date formats
+          const date = this.parseDate(value);
+          return date !== null;
+        },
+        /* Removed getSuggestion */
+          // Try to parse the date
+          const date = this.parseDate(value);
+          
+          // If we can parse it, format it consistently
+          if (date) {
+            return this.formatDate(date);
+          }
+          
+          // Otherwise, suggest today's date
+          return this.formatDate(new Date());
+        }
+      });
+    });
+
+    // Country validation
+    this.rules.push({
+      field: 'Country',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Country must exist in the database',
+      validate: async (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        
+        const countryInput = value.toString().trim();
+        console.log(`Validating country: "${countryInput}"`);
+        
+        // Check if we have master data with countries
+        const masterDataJson = masterData || this.masterData || {};
+        
+        if (masterDataJson.countries && Array.isArray(masterDataJson.countries)) {
+          console.log('Using countries from master data');
+          
+          // Check if this country exists in the master data (case-insensitive)
+          const countryMatch = masterDataJson.countries.some((country: string | { name: string }) => {
+            if (typeof country === 'string') {
+              return country.toLowerCase() === countryInput.toLowerCase();
+            } else if (country && typeof country === 'object' && country.name) {
+              return country.name.toLowerCase() === countryInput.toLowerCase();
+            }
+            return false;
+          });
+          
+          if (countryMatch) {
+            console.log(`Country "${countryInput}" found in master data`);
+            return true;
+          }
+          
+          console.log(`Country "${countryInput}" not found in master data`);
+        }
+        
+        // Check if we're in a browser environment
+        const isBrowser = typeof window !== 'undefined';
+        
+        if (isBrowser) {
+          console.log('Browser environment detected, cannot perform database validation');
+          // In browser, we can only use the pre-loaded master data
+          // If we got here, it means the validation failed with the available data
+          return false;
+        }
+        
+        // Server-side validation can use Prisma
+        try {
+          console.log('Server-side validation for country');
+          
+          // Import PrismaClient dynamically to avoid issues with browser bundling
+          const { PrismaClient } = await import('@prisma/client');
+          const prisma = new PrismaClient();
+          
+          try {
+            // Find the country in the database
+            const country = await prisma.country.findFirst({
+              where: {
+                name: {
+                  equals: countryInput
+                }
+              }
+            });
+            
+            if (country) {
+              console.log(`Country "${countryInput}" found in database`);
+              return true;
+            }
+            
+            console.log(`Country "${countryInput}" not found in database`);
+            return false;
+          } finally {
+            await prisma.$disconnect();
+          }
+        } catch (error) {
+          console.error('Error during database validation:', error);
+          // If database validation fails, return false
+          return false;
+        }
+      },
+      /* Removed getSuggestion */
+        if (!value) return '';
+        
+        // Try to find a close match in the master data
+        const countryInput = value.toString().trim().toLowerCase();
+        const masterDataJson = this.masterData || {};
+        
+        if (masterDataJson.countries && Array.isArray(masterDataJson.countries)) {
+          // Create a normalized list of countries
+          const normalizedCountries = masterDataJson.countries.map((country: string | { name: string }) => {
+            if (typeof country === 'string') {
+              return { original: country, normalized: country.toLowerCase() };
+            } else if (country && typeof country === 'object' && country.name) {
+              return { original: country.name, normalized: country.name.toLowerCase() };
+            }
+            return { original: '', normalized: '' };
+          }).filter(c => c.original);
+          
+          // Try to find a close match
+          const exactMatch = normalizedCountries.find(c => c.normalized === countryInput);
+          if (exactMatch) return exactMatch.original;
+          
+          // Try to find a starts-with match
+          const startsWithMatch = normalizedCountries.find(c => c.normalized.startsWith(countryInput));
+          if (startsWithMatch) return startsWithMatch.original;
+          
+          // Try to find a contains match
+          const containsMatch = normalizedCountries.find(c => c.normalized.includes(countryInput));
+          if (containsMatch) return containsMatch.original;
+        }
+        
+        return value;
+      }
+    });
+
+    // Range-Category relationship validation
+    this.rules.push({
+      field: 'Range',
+      type: 'relationship',
+      severity: 'warning',
+      message: 'Range should belong to the specified Category',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !record.Category) return true;
+        
+        // Normalize the input values
+        const categoryInput = record.Category.toString().trim();
+        const rangeInput = value.toString().trim();
+        
+        console.log(`Validating Range: "${rangeInput}" for Category: "${categoryInput}"`);
+        
+        // Special case: If category and range are the same, consider it valid
+        if (categoryInput.toLowerCase() === rangeInput.toLowerCase()) {
+          console.log('Special case: Category and range are the same, considering valid');
+          return true;
+        }
+        
+        // Special case for Acne which we know can be in multiple categories
+        if (rangeInput.toLowerCase() === 'acne') {
+          console.log('Special case: Acne range detected');
+          
+          const validCategories = ['Face Cleansing', 'Men', 'Face Care', 'Acne'];
+          const isValid = validCategories.some((cat: string) => 
+            cat.toLowerCase() === categoryInput.toLowerCase()
+          );
+          console.log(`Acne validation result: ${isValid}`);
+          return isValid;
+        }
+        
+        // Special case for Milk which should be in Hand Body, not Face Care
+        if (rangeInput.toLowerCase() === 'milk') {
+          console.log('Special case: Milk range detected');
+          
+          // Define the correct category for Milk
+          const correctCategory = 'Hand Body';
+          const isValid = categoryInput.toLowerCase() === correctCategory.toLowerCase();
+          
+          console.log(`Milk validation result: ${isValid}, expected category: ${correctCategory}`);
+          return isValid;
+        }
+
+        // Special case for Luminous 630 which should be in Face Care
+        if (rangeInput.toLowerCase() === 'luminous 630') {
+          console.log('Special case: Luminous 630 range detected');
+          
+          // Define the correct category for Luminous 630
+          const correctCategory = 'Face Care';
+          const isValid = categoryInput.toLowerCase() === correctCategory.toLowerCase();
+          
+          console.log(`Luminous 630 validation result: ${isValid}, expected category: ${correctCategory}`);
+          return isValid;
+        }
+
+        // Special case for Pearl & Beauty which should be in Deo
+        if (rangeInput.toLowerCase() === 'pearl & beauty') {
+          console.log('Special case: Pearl & Beauty range detected');
+          
+          // Define the correct category for Pearl & Beauty
+          const correctCategory = 'Deo';
+          const isValid = categoryInput.toLowerCase() === correctCategory.toLowerCase();
+          
+          console.log(`Pearl & Beauty validation result: ${isValid}, expected category: ${correctCategory}`);
+          return isValid;
+        }
+
+        // Special case for Aloe which should be in Hand Body
+        if (rangeInput.toLowerCase() === 'aloe') {
+          console.log('Special case: Aloe range detected');
+          
+          // Define the correct category for Aloe
+          const correctCategory = 'Hand Body';
+          const isValid = categoryInput.toLowerCase() === correctCategory.toLowerCase();
+          
+          console.log(`Aloe validation result: ${isValid}, expected category: ${correctCategory}`);
+          return isValid;
+        }
+
+        // Special case for Soft which should be in Hand Body
+        if (rangeInput.toLowerCase() === 'soft') {
+          console.log('Special case: Soft range detected');
+          
+          // Define the correct category for Soft
+          const correctCategory = 'Hand Body';
+          const isValid = categoryInput.toLowerCase() === correctCategory.toLowerCase();
+          
+          console.log(`Soft validation result: ${isValid}, expected category: ${correctCategory}`);
+          return isValid;
+        }
+        
+        // Try to validate using the master data
+        let masterDataJson = this.masterData;
+        if (masterData) {
+          masterDataJson = masterData;
+        }
+        
+        // If we have the master data with ranges and categories, use it for validation
+        if (masterDataJson?.ranges && masterDataJson?.categories) {
+          // Find the range in the master data
+          const range = masterDataJson.ranges.find((r: any) => 
+            r.name.toLowerCase() === rangeInput.toLowerCase()
+          );
+          
+          if (range) {
+            // Find the category in the master data
+            const category = masterDataJson.categories.find((c: any) => 
+              c.name.toLowerCase() === categoryInput.toLowerCase()
+            );
+            
+            if (category) {
+              // Check if this range has a relationship with this category
+              // Note: This requires the master data to include the many-to-many relationships
+              // which may not be available in the current implementation
+              if (range.categoryId === category.id) {
+                return true;
+              }
+            }
+          }
+        }
+        
+        // If we couldn't validate using master data, use hardcoded rules
+        // This is a fallback until we can properly implement database validation
+        const knownPairs = [
+          { range: 'milk', category: 'hand body' },
+          { range: 'luminous 630', category: 'face care' },
+          { range: 'pearl & beauty', category: 'deo' },
+          { range: 'aloe', category: 'hand body' },
+          { range: 'soft', category: 'hand body' },
+          { range: 'body milk 5 in 1', category: 'hand body' }
+        ];
+        
+        const matchingPair = knownPairs.find(pair => 
+          pair.range.toLowerCase() === rangeInput.toLowerCase() && 
+          pair.category.toLowerCase() === categoryInput.toLowerCase()
+        );
+        
+        return !!matchingPair;
+      }
+    });
+
+    // Date range validation
+    this.rules.push({
+      field: 'End Date',
+      type: 'range',
+      severity: 'warning',
+      message: 'End Date should be after Start Date',
+      validate: (value, record) => {
+        if (!value || !record['Start Date']) return true;
+        
+        const startDate = this.parseDate(record['Start Date']);
+        const endDate = this.parseDate(value);
+        
+        if (!startDate || !endDate) return true;
+        
+        return endDate >= startDate;
+      },
+      /* Removed getSuggestion */
+        if (!value || !record['Start Date']) return value;
+        
+        const startDate = this.parseDate(record['Start Date']);
+        const endDate = this.parseDate(value);
+        
+        if (!startDate) return value;
+        if (!endDate || endDate < startDate) {
+          // Suggest an end date 30 days after the start date
+          const suggestedDate = new Date(startDate);
+          suggestedDate.setDate(startDate.getDate() + 30);
+          return this.formatDate(suggestedDate);
+        }
+        
+        return value;
+      }
+    });
+
+    // Budget format validation
+    this.rules.push({
+      field: 'Budget',
+      type: 'format',
+      severity: 'critical',
+      message: 'Budget must be a valid number',
+      validate: (value) => {
+        if (!value) return false;
+        
+        const budget = this.parseNumber(value);
+        if (budget === null) return false;
+        
+        return budget > 0;
+      },
+      /* Removed getSuggestion */
+        if (!value) return '0';
+        
+        const budget = this.parseNumber(value);
+        if (budget === null || budget <= 0) {
+          // Suggest a default budget based on other fields
+          if (record.Media && record.Media.toString().toLowerCase().includes('tv')) {
+            return '100000';
+          } else if (record.Media && record.Media.toString().toLowerCase().includes('digital')) {
+            return '50000';
+          } else {
+            return '10000';
+          }
+        }
+        
+        return value;
+      }
+    });
+
+    // Budget consistency validation with quarterly values
+    this.rules.push({
+      field: 'Budget',
+      type: 'consistency',
+      severity: 'critical',
+      message: 'Budget must equal the sum of Q1 Budget, Q2 Budget, Q3 Budget, and Q4 Budget',
+      validate: (value, record) => {
+        // Check if budget exists
+        if (!value) return true; // Skip validation if no budget
+        
+        const budget = this.parseNumber(value);
+        if (budget === null) return true; // Skip validation if budget is not a number
+        
+        // Check if all quarterly fields exist
+        const quarterlyFields = ['Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget'];
+        const hasAllQuarters = quarterlyFields.every(q => q in record);
+        if (!hasAllQuarters) return true; // Skip validation if not all quarters are present
+        
+        // Parse quarterly values
+        const q1 = this.parseNumber(record['Q1 Budget']) || 0;
+        const q2 = this.parseNumber(record['Q2 Budget']) || 0;
+        const q3 = this.parseNumber(record['Q3 Budget']) || 0;
+        const q4 = this.parseNumber(record['Q4 Budget']) || 0;
+        
+        // Calculate sum of quarters
+        const quarterSum = q1 + q2 + q3 + q4;
+        
+        // Allow for small rounding differences (0.01 or 0.1% of the budget, whichever is larger)
+        const tolerance = Math.max(0.01, budget * 0.001);
+        
+        // Check if budget equals sum of quarters within tolerance
+        return Math.abs(budget - quarterSum) <= tolerance;
+      },
+      /* Removed getSuggestion */
+        if (!value) return value;
+        
+        const budget = this.parseNumber(value);
+        if (budget === null) return value;
+        
+        // Check if all quarterly fields exist
+        const quarterlyFields = ['Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget'];
+        const hasAllQuarters = quarterlyFields.every(q => q in record);
+        if (!hasAllQuarters) return value;
+        
+        // Parse quarterly values
+        const q1 = this.parseNumber(record['Q1 Budget']) || 0;
+        const q2 = this.parseNumber(record['Q2 Budget']) || 0;
+        const q3 = this.parseNumber(record['Q3 Budget']) || 0;
+        const q4 = this.parseNumber(record['Q4 Budget']) || 0;
+        
+        // Calculate sum of quarters
+        const quarterSum = q1 + q2 + q3 + q4;
+        
+        // Suggest the sum of quarters as the budget
+        return quarterSum.toString();
+      }
+    });
+    
+    // Quarterly budgets consistency validation with total budget
+    const quarterlyFields = ['Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget'];
+    quarterlyFields.forEach(quarter => {
+      this.rules.push({
+        field: quarter,
+        type: 'consistency',
+        severity: 'warning',
+        message: `Quarterly budgets should sum to match Budget`,
+        validate: (value, record) => {
+          // Skip validation if no value or no budget
+          if (!value || !record.Budget) return true;
+          
+          // Check if all quarterly fields exist
+          const hasAllQuarters = quarterlyFields.every(q => q in record);
+          if (!hasAllQuarters) return true;
+          
+          // Parse budget and quarterly values
+          const budget = this.parseNumber(record.Budget);
+          if (budget === null) return true;
+          
+          const q1 = this.parseNumber(record['Q1 Budget']) || 0;
+          const q2 = this.parseNumber(record['Q2 Budget']) || 0;
+          const q3 = this.parseNumber(record['Q3 Budget']) || 0;
+          const q4 = this.parseNumber(record['Q4 Budget']) || 0;
+          
+          // Calculate sum of quarters
+          const quarterSum = q1 + q2 + q3 + q4;
+          
+          // Allow for small rounding differences (0.01 or 0.1% of the budget, whichever is larger)
+          const tolerance = Math.max(0.01, budget * 0.001);
+          
+          // Check if budget equals sum of quarters within tolerance
+          return Math.abs(budget - quarterSum) <= tolerance;
+        },
+        /* Removed getSuggestion */
+          if (!value || !record.Budget) return value;
+          
+          // Check if all quarterly fields exist
+          const hasAllQuarters = quarterlyFields.every(q => q in record);
+          if (!hasAllQuarters) return value;
+          
+          const budget = this.parseNumber(record.Budget);
+          if (budget === null) return value;
+          
+          // Parse quarterly values
+          const q1 = this.parseNumber(record['Q1 Budget']) || 0;
+          const q2 = this.parseNumber(record['Q2 Budget']) || 0;
+          const q3 = this.parseNumber(record['Q3 Budget']) || 0;
+          const q4 = this.parseNumber(record['Q4 Budget']) || 0;
+          
+          // Calculate sum of quarters
+          const currentSum = q1 + q2 + q3 + q4;
+          
+          // If sum is zero, distribute budget evenly
+          if (currentSum === 0) {
+            const evenDistribution = budget / 4;
+            return evenDistribution.toString();
+          }
+          
+          // If sum doesn't match budget, adjust this quarter proportionally
+          if (Math.abs(budget - currentSum) > 0.01) {
+            const currentQuarterValue = this.parseNumber(value) || 0;
+            const otherQuartersSum = currentSum - currentQuarterValue;
+            
+            // If this is the only quarter with a value, suggest the entire budget
+            if (otherQuartersSum === 0) return budget.toString();
+            
+            // Otherwise, calculate the value that would make the sum match the budget
+            const suggestedValue = budget - otherQuartersSum;
+            return Math.max(0, suggestedValue).toString();
+          }
+          
+          return value;
+        }
+      });
+    });
+    
+    // Format validation for quarterly budget values
+    quarterlyFields.forEach(quarter => {
+      this.rules.push({
+        field: quarter,
+        type: 'format',
+        severity: 'warning',
+        message: `${quarter} must be a valid number`,
+        validate: (value) => {
+          if (!value) return true; // Allow empty quarterly values
+          
+          const quarterValue = this.parseNumber(value);
+          if (quarterValue === null) return false;
+          
+          return quarterValue >= 0; // Quarterly values should be non-negative
+        },
+        /* Removed getSuggestion */
+          if (!value) return '0';
+          
+          const quarterValue = this.parseNumber(value);
+          if (quarterValue === null || quarterValue < 0) {
+            return '0';
+          }
+          
+          return value;
+        }
+      });
+    });
+  }
+  
+  // Validate a single record
+  public validateRecord(record: any, index: number, allRecords: any[]): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    
+    // Apply each validation rule
+    for (const rule of this.rules) {
+      // Skip if field doesn't exist in record
+      if (!(rule.field in record)) continue;
+      
+      const value = record[rule.field];
+      
+      try {
+        // For now, we'll handle async validation as synchronous
+        // This is because the current architecture expects synchronous validation
+        // In the future, this should be refactored to fully support async validation
+        const validationResult = rule.validate(value, record, allRecords, this.masterData);
+        
+        // If it's a Promise (async validation), we'll log a warning and treat it as valid
+        // This is a temporary solution until we can fully refactor for async support
+        if (validationResult instanceof Promise) {
+          console.warn(`Async validation detected for ${rule.field} but not supported in current architecture. Treating as valid.`);
+          continue;
+        }
+        
+        const isValid = validationResult;
+        
+        if (!isValid) {
+          const issue: ValidationIssue = {
+            rowIndex: index,
+            columnName: rule.field,
+            severity: rule.severity,
+            message: rule.message,
+            currentValue: value // Store the current value for comparison
+          };
+          
+          // No suggestions - removed
+          
+          issues.push(issue);
+        }
+      } catch (error: any) {
+        console.error(`Error validating ${rule.field} at row ${index + 1}:`, error);
+        // Add a validation issue for the error
+        issues.push({
+          rowIndex: index,
+          columnName: rule.field,
+          message: `Validation error: ${error.message || 'Unknown error'}`,
+          severity: 'critical',
+          currentValue: value
+        });
+      }
+    }
+    
+    return issues;
+  }
+  
+  // Validate all records
+  async validateAll(records: any[]): Promise<ValidationIssue[]> {
+    console.log(`Validating ${records.length} records...`);
+    console.log('Master data keys:', Object.keys(this.masterData));
+    
+    if (this.masterData.categoryToRanges) {
+      console.log('Using custom master data with category-range mappings');
+      console.log('Categories:', Object.keys(this.masterData.categoryToRanges));
+      console.log('Ranges with multiple categories:', 
+        Object.entries(this.masterData.rangeToCategories || {})
+          .filter((entry) => {
+            const [_, categories] = entry as [string, string[]];
+            return categories.length > 1;
+          })
+          .map((entry) => {
+            const [range, categories] = entry as [string, string[]];
+            return `${range}: ${categories.join(', ')}`;
+          })
+      );
+    }
+    
+    let allIssues: ValidationIssue[] = [];
+    
+    // Use for...of loop instead of forEach to allow await inside the loop
+    for (let index = 0; index < records.length; index++) {
+      const record = records[index];
+      
+      if (index < 3) {
+        console.log(`Validating record ${index}:`, record);
+      }
+      
+      const issues = this.validateRecord(record, index, records);
+      
+      if (issues.length > 0 && index < 5) {
+        console.log(`Record ${index} has ${issues.length} issues:`, issues);
+      }
+      
+      allIssues = [...allIssues, ...issues];
+    }
+    
+    console.log(`Validation complete. Found ${allIssues.length} issues.`);
+    return allIssues;
+  }
+
+  // Get validation summary
+  public getValidationSummary(issues: ValidationIssue[] | any) {
+    // Ensure issues is an array
+    if (!issues || !Array.isArray(issues)) {
+      console.error('getValidationSummary received non-array input:', issues);
+      // Return empty summary
+      return {
+        total: 0,
+        critical: 0,
+        warning: 0,
+        suggestion: 0,
+        byField: {}
+      };
+    }
+
+    const summary = {
+      total: issues.length,
+      critical: 0,
+      warning: 0,
+      suggestion: 0,
+      byField: {} as { [key: string]: number }
+    };
+    
+    issues.forEach(issue => {
+      // Skip invalid issues
+      if (!issue || typeof issue !== 'object') return;
+      
+      // Count by severity
+      if (issue.severity === 'critical') summary.critical++;
+      if (issue.severity === 'warning') summary.warning++;
+      if (issue.severity === 'suggestion') summary.suggestion++;
+      
+      // Count by field
+      const fieldName = issue.columnName || 'unknown';
+      if (!summary.byField[fieldName]) {
+        summary.byField[fieldName] = 0;
+      }
+      summary.byField[fieldName]++;
+    });
+    
+    return summary;
+  }
+
+  // Check if data can be imported (no critical issues)
+  public canImport(issues: ValidationIssue[] | any): boolean {
+    // Ensure issues is an array
+    if (!issues || !Array.isArray(issues)) {
+      console.error('canImport received non-array input:', issues);
+      return false;
+    }
+    
+    return !issues.some(issue => issue && issue.severity === 'critical');
+  }
+}
+
+export default MediaSufficiencyValidator;

@@ -1,0 +1,1240 @@
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line
+} from 'recharts';
+import { Spinner } from '@/components/ui/spinner';
+import Navigation from '@/components/Navigation';
+
+// Color palette for charts
+const COLORS = ['#1F4388', '#2A5CAA', '#3E7DCD', '#5E9FE0', '#7FBCE6', '#A0D8EC', '#C1E4F0', '#E2F0F6'];
+
+// Blue color palette specifically for the Media Share pie chart
+const BLUE_COLORS = ['#1F4388', '#2A5CAA', '#3E7DCD', '#5E9FE0', '#7FBCE6', '#A0D8EC', '#C1E4F0', '#E2F0F6'];
+
+// Types for our data
+interface Campaign {
+  id: number;
+  name: string;
+  year: number;
+  range: {
+    id: number;
+    name: string;
+    category: {
+      id: number;
+      name: string;
+    };
+  };
+  country: {
+    id: number;
+    name: string;
+    subRegion: {
+      id: number;
+      name: string;
+    };
+  };
+  mediaItems: Array<{
+    id: number;
+    totalBudget: number;
+    q1Budget: number | null;
+    q2Budget: number | null;
+    q3Budget: number | null;
+    q4Budget: number | null;
+    mediaSubtype: {
+      id: number;
+      name: string;
+      mediaType: {
+        id: number;
+        name: string;
+      };
+    };
+  }>;
+}
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface Country {
+  id: number;
+  name: string;
+  subRegionId: number;
+  subRegion: {
+    id: number;
+    name: string;
+  };
+}
+
+interface SubRegion {
+  id: number;
+  name: string;
+}
+
+interface MediaType {
+  id: number;
+  name: string;
+}
+
+interface DashboardData {
+  totalBudget: number;
+  mediaShareData: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  campaignDistributionData: Array<{
+    name: string;
+    value: number;
+    color: string;
+  }>;
+  quarterlyData: Array<{
+    quarter: string;
+    value: number;
+  }>;
+  totalCampaigns: number;
+  isFiltered?: boolean; // Flag to track if the data has been filtered
+}
+
+export default function GamePlanDashboard() {
+  const [selectedCountry, setSelectedCountry] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('2025');
+  const [selectedSubRegions, setSelectedSubRegions] = useState<number[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<number[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<{category?: string; mediaType?: string}>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  
+  // API data
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
+  const [countriesList, setCountriesList] = useState<Country[]>([]);
+  const [subRegionsList, setSubRegionsList] = useState<SubRegion[]>([]);
+  const [mediaTypesList, setMediaTypesList] = useState<MediaType[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  
+  // Filtered data based on selections
+  const [filteredCampaignData, setFilteredCampaignData] = useState<any[]>([]);
+  const [filteredQuarterlyData, setFilteredQuarterlyData] = useState<any[]>([]);
+  const [filteredShareData, setFilteredShareData] = useState<any[]>([]);
+  const [filteredCountryQuarterData, setFilteredCountryQuarterData] = useState<any[]>([]);
+  const [subMediaTypeData, setSubMediaTypeData] = useState<any[]>([]);
+  const [filteredCampaigns, setFilteredCampaigns] = useState<Campaign[]>([]);
+  
+  // Refs for charts to handle click outside
+  const barChartRef = useRef<HTMLDivElement>(null);
+  const pieChartRef = useRef<HTMLDivElement>(null);
+  
+  // Ref to track if data has been filtered already to prevent infinite loops
+  const isDataFiltered = useRef<boolean>(false);
+  
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.append('year', selectedYear);
+        if (selectedCountry !== 'all') {
+          params.append('country', selectedCountry);
+        }
+        
+        const response = await fetch(`/api/media-sufficiency?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        
+        const data = await response.json();
+        
+        setCampaigns(data.campaigns);
+        setCategoriesList(data.categories);
+        setCountriesList(data.countries);
+        setSubRegionsList(data.subRegions);
+        setMediaTypesList(data.mediaTypes);
+        setDashboardData(data.dashboardData);
+        
+        // Initialize filtered data
+        if (data.dashboardData) {
+          setFilteredCampaignData(data.dashboardData.campaignDistributionData);
+          setFilteredShareData(data.dashboardData.mediaShareData);
+          
+          // Create quarterly data table from campaigns
+          const quarterlyTableData = data.campaigns.map((campaign: Campaign) => {
+            // Calculate total budget for this campaign
+            const totalBudget = campaign.mediaItems.reduce(
+              (sum: number, item: any) => sum + (item.totalBudget || 0), 0
+            );
+            
+            // Calculate quarterly budgets
+            const q1Budget = campaign.mediaItems.reduce(
+              (sum: number, item: any) => sum + (item.q1Budget || 0), 0
+            );
+            const q2Budget = campaign.mediaItems.reduce(
+              (sum: number, item: any) => sum + (item.q2Budget || 0), 0
+            );
+            const q3Budget = campaign.mediaItems.reduce(
+              (sum: number, item: any) => sum + (item.q3Budget || 0), 0
+            );
+            const q4Budget = campaign.mediaItems.reduce(
+              (sum: number, item: any) => sum + (item.q4Budget || 0), 0
+            );
+            
+            // Calculate percentages
+            const q1Percent = totalBudget > 0 ? Math.round((q1Budget / totalBudget) * 100) : 0;
+            const q2Percent = totalBudget > 0 ? Math.round((q2Budget / totalBudget) * 100) : 0;
+            const q3Percent = totalBudget > 0 ? Math.round((q3Budget / totalBudget) * 100) : 0;
+            const q4Percent = totalBudget > 0 ? Math.round((q4Budget / totalBudget) * 100) : 0;
+            
+            return {
+              country: campaign.country.name,
+              campaign: campaign.name,
+              category: campaign.range.category.name,
+              q1: q1Budget > 0 ? `€ ${q1Budget.toLocaleString()}` : '',
+              q1Percent,
+              q2: q2Budget > 0 ? `${q2Percent}%` : '',
+              q3: q3Budget > 0 ? `${q3Percent}%` : '',
+              q4: q4Budget > 0 ? `${q4Percent}%` : ''
+            };
+          });
+          
+          setFilteredQuarterlyData(quarterlyTableData);
+          
+          // Create country quarter data by aggregating campaigns by country
+          const countryQuarterData = Object.values(
+            data.campaigns.reduce((acc: any, campaign: Campaign) => {
+              const countryName = campaign.country.name;
+              if (!acc[countryName]) {
+                acc[countryName] = {
+                  country: countryName,
+                  q1: 0,
+                  q2: 0,
+                  q3: 0,
+                  q4: 0,
+                  total: 0
+                };
+              }
+              
+              // Sum up budgets for each quarter
+              campaign.mediaItems.forEach((item: any) => {
+                acc[countryName].q1 += item.q1Budget || 0;
+                acc[countryName].q2 += item.q2Budget || 0;
+                acc[countryName].q3 += item.q3Budget || 0;
+                acc[countryName].q4 += item.q4Budget || 0;
+                acc[countryName].total += item.totalBudget || 0;
+              });
+              
+              return acc;
+            }, {})
+          ).map((item: any) => ({
+            ...item,
+            q1: item.q1 > 0 ? `€ ${item.q1.toLocaleString()}` : '-',
+            q2: item.q2 > 0 ? `€ ${item.q2.toLocaleString()}` : '-',
+            q3: item.q3 > 0 ? `€ ${item.q3.toLocaleString()}` : '-',
+            q4: item.q4 > 0 ? `€ ${item.q4.toLocaleString()}` : '-',
+          }));
+          
+          setFilteredCountryQuarterData(countryQuarterData);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [selectedYear, selectedCountry]);
+  
+  // Filter handlers
+  const toggleSubRegion = (id: number) => {
+    setSelectedSubRegions(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+    // Clear category filter if it's set
+    if (activeFilters.category) {
+      setActiveFilters(prev => ({ ...prev, category: undefined }));
+    }
+  };
+  
+  const toggleCountry = (id: number) => {
+    setSelectedCountries(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+    // Clear category filter if it's set
+    if (activeFilters.category) {
+      setActiveFilters(prev => ({ ...prev, category: undefined }));
+    }
+  };
+  
+  const toggleCategory = (id: number) => {
+    setSelectedCategories(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+    
+    // Update active filter to match if only one category is selected
+    const updatedCategories = selectedCategories.includes(id) 
+      ? selectedCategories.filter(item => item !== id) 
+      : [...selectedCategories, id];
+    
+    if (updatedCategories.length === 1) {
+      const categoryName = categoriesList.find(cat => cat.id === updatedCategories[0])?.name;
+      if (categoryName) {
+        setActiveFilters(prev => ({ ...prev, category: categoryName }));
+      }
+    } else if (activeFilters.category) {
+      // Clear category filter if multiple or no categories are selected
+      setActiveFilters(prev => ({ ...prev, category: undefined }));
+    }
+  };
+  
+  // Update sub-media type data
+  useEffect(() => {
+    if (campaigns.length > 0) {
+      // Define the sub-media types we want to track
+      const subMediaTypes = ['PM & FF', 'Open TV', 'Paid TV', 'Influencers', 'Influencer Amplification', 'Influencer Organic'];
+      const countrySubMediaMap = new Map();
+      
+      // Initialize the map with countries
+      filteredCampaigns.forEach(campaign => {
+        const countryName = campaign.country.name;
+        
+        if (!countrySubMediaMap.has(countryName)) {
+          const initialSubMediaData = {};
+          subMediaTypes.forEach(type => {
+            initialSubMediaData[type] = 0;
+          });
+          
+          countrySubMediaMap.set(countryName, {
+            country: countryName,
+            ...initialSubMediaData,
+            total: 0
+          });
+        }
+      });
+      
+      // Process campaign data to populate sub-media type values
+      filteredCampaigns.forEach(campaign => {
+        const countryName = campaign.country.name;
+        const countryData = countrySubMediaMap.get(countryName);
+        
+        campaign.mediaItems.forEach(item => {
+          // Map media subtypes to our defined categories
+          const subtypeName = item.mediaSubtype.name;
+          let mappedType = '';
+          
+          if (subtypeName.includes('TV') && subtypeName.includes('Open')) {
+            mappedType = 'Open TV';
+          } else if (subtypeName.includes('TV') && subtypeName.includes('Paid')) {
+            mappedType = 'Paid TV';
+          } else if (subtypeName.includes('PM') || subtypeName.includes('FF')) {
+            mappedType = 'PM & FF';
+          } else if (subtypeName.includes('Influencer') && subtypeName.includes('Amplification')) {
+            mappedType = 'Influencer Amplification';
+          } else if (subtypeName.includes('Influencer') && subtypeName.includes('Organic')) {
+            mappedType = 'Influencer Organic';
+          } else if (subtypeName.includes('Influencer')) {
+            mappedType = 'Influencers';
+          } else {
+            // Skip items that don't match our categories
+            return;
+          }
+          
+          // Add the budget to the appropriate category
+          if (subMediaTypes.includes(mappedType)) {
+            countryData[mappedType] += item.totalBudget || 0;
+            countryData.total += item.totalBudget || 0;
+          }
+        });
+      });
+      
+      // Convert percentages and format the data
+      const newSubMediaTypeData = Array.from(countrySubMediaMap.values())
+        .filter(item => item.total > 0) // Only include countries with data
+        .map(item => {
+          const result = { country: item.country };
+          
+          // Calculate percentages for each sub-media type
+          subMediaTypes.forEach(type => {
+            const percentage = item.total > 0 ? (item[type] / item.total) * 100 : 0;
+            result[type] = percentage.toFixed(1) + '%';
+          });
+          
+          return result;
+        });
+      
+      setSubMediaTypeData(newSubMediaTypeData);
+    }
+  }, [filteredCampaigns]);
+
+  // Apply filters to data
+  const applyFilters = () => {
+    if (!dashboardData) return;
+    
+    console.log('Applying filters:', { 
+      activeFilters, 
+      selectedCategories, 
+      selectedCountries, 
+      selectedSubRegions 
+    });
+    
+    // Start with all campaigns
+    let updatedFilteredCampaigns = [...campaigns];
+    
+    // Apply sidebar filters first
+    if (selectedSubRegions.length > 0) {
+      // Get countries in the selected subregions
+      const countryIds = countriesList
+        .filter(country => selectedSubRegions.includes(country.subRegion.id))
+        .map(country => country.id);
+      
+      // Filter campaigns by countries in the selected subregions
+      updatedFilteredCampaigns = updatedFilteredCampaigns.filter(campaign => 
+        countryIds.includes(campaign.country.id)
+      );
+    }
+    
+    if (selectedCountries.length > 0) {
+      // Filter campaigns by country
+      updatedFilteredCampaigns = updatedFilteredCampaigns.filter(campaign => 
+        selectedCountries.includes(campaign.country.id)
+      );
+    }
+    
+    if (selectedCategories.length > 0) {
+      // Get the category names from the IDs
+      const categoryIds = selectedCategories;
+      
+      // Filter campaigns by category
+      updatedFilteredCampaigns = updatedFilteredCampaigns.filter(campaign => 
+        categoryIds.includes(campaign.range.category.id)
+      );
+    }
+    
+    // Apply active filters (from chart clicks)
+    if (activeFilters.category) {
+      updatedFilteredCampaigns = updatedFilteredCampaigns.filter(campaign => 
+        campaign.range.category.name === activeFilters.category
+      );
+    }
+    
+    if (activeFilters.mediaType) {
+      updatedFilteredCampaigns = updatedFilteredCampaigns.filter(campaign => 
+        campaign.mediaItems.some(item => 
+          item.mediaSubtype.mediaType.name === activeFilters.mediaType
+        )
+      );
+    }
+    
+    // Update the filteredCampaigns state
+    setFilteredCampaigns(updatedFilteredCampaigns);
+    
+    console.log('Filtered campaigns:', updatedFilteredCampaigns.length);
+    
+    // Now generate the data for charts and tables based on filtered campaigns
+    
+    // 1. Media share data (pie chart)
+    const mediaTypeMap = new Map();
+    let totalBudgetSum = 0;
+    
+    updatedFilteredCampaigns.forEach(campaign => {
+      campaign.mediaItems.forEach(item => {
+        const mediaTypeName = item.mediaSubtype.mediaType.name;
+        const budget = item.totalBudget || 0;
+        totalBudgetSum += budget;
+        
+        if (mediaTypeMap.has(mediaTypeName)) {
+          mediaTypeMap.set(mediaTypeName, mediaTypeMap.get(mediaTypeName) + budget);
+        } else {
+          mediaTypeMap.set(mediaTypeName, budget);
+        }
+      });
+    });
+    
+    // Calculate percentages for each media type based on total budget
+    const newShareData = Array.from(mediaTypeMap.entries()).map(([name, value], index) => ({
+      name,
+      value,
+      percentage: totalBudgetSum > 0 ? (value / totalBudgetSum) * 100 : 0,
+      color: BLUE_COLORS[index % BLUE_COLORS.length] // Always use blue colors for media share
+    }));
+    
+    // 2. Campaign distribution data (bar chart)
+    const categoryMap = new Map();
+    
+    updatedFilteredCampaigns.forEach(campaign => {
+      const categoryName = campaign.range.category.name;
+      const budget = campaign.mediaItems.reduce((sum, item) => sum + (item.totalBudget || 0), 0);
+      
+      if (categoryMap.has(categoryName)) {
+        categoryMap.set(categoryName, categoryMap.get(categoryName) + budget);
+      } else {
+        categoryMap.set(categoryName, budget);
+      }
+    });
+    
+    const newCampaignData = Array.from(categoryMap.entries()).map(([name, value], index) => ({
+      name,
+      value,
+      color: COLORS[index % COLORS.length]
+    }));
+    
+    // 3. Quarterly data for the table
+    const campaignQuarterlyData = updatedFilteredCampaigns.map(campaign => {
+      // Calculate total budget for this campaign
+      const totalBudget = campaign.mediaItems.reduce(
+        (sum, item) => sum + (item.totalBudget || 0), 0
+      );
+      
+      // Calculate quarterly budgets
+      const q1Budget = campaign.mediaItems.reduce(
+        (sum, item) => sum + (item.q1Budget || 0), 0
+      );
+      const q2Budget = campaign.mediaItems.reduce(
+        (sum, item) => sum + (item.q2Budget || 0), 0
+      );
+      const q3Budget = campaign.mediaItems.reduce(
+        (sum, item) => sum + (item.q3Budget || 0), 0
+      );
+      const q4Budget = campaign.mediaItems.reduce(
+        (sum, item) => sum + (item.q4Budget || 0), 0
+      );
+      
+      // Calculate percentages
+      const q1Percent = totalBudget > 0 ? Math.round((q1Budget / totalBudget) * 100) : 0;
+      const q2Percent = totalBudget > 0 ? Math.round((q2Budget / totalBudget) * 100) : 0;
+      const q3Percent = totalBudget > 0 ? Math.round((q3Budget / totalBudget) * 100) : 0;
+      const q4Percent = totalBudget > 0 ? Math.round((q4Budget / totalBudget) * 100) : 0;
+      
+      return {
+        country: campaign.country.name,
+        campaign: campaign.name,
+        category: campaign.range.category.name,
+        totalBudget: totalBudget,
+        q1Budget: q1Budget,
+        q1: q1Budget > 0 ? `€ ${q1Budget.toLocaleString()}` : '-',
+        q1Percent,
+        q2Budget: q2Budget,
+        q2: q2Budget > 0 ? `€ ${q2Budget.toLocaleString()}` : '-',
+        q2Percent,
+        q3Budget: q3Budget,
+        q3: q3Budget > 0 ? `€ ${q3Budget.toLocaleString()}` : '-',
+        q3Percent,
+        q4Budget: q4Budget,
+        q4: q4Budget > 0 ? `€ ${q4Budget.toLocaleString()}` : '-',
+        q4Percent,
+        mediaTypes: [...new Set(campaign.mediaItems.map(item => item.mediaSubtype.mediaType.name))]
+      };
+    });
+    
+    // Calculate totals for all campaigns
+    const totalRow = {
+      country: 'Total',
+      campaign: '',
+      category: '',
+      totalBudget: 0,
+      q1Budget: 0,
+      q1: '',
+      q1Percent: 0,
+      q2Budget: 0,
+      q2: '',
+      q2Percent: 0,
+      q3Budget: 0,
+      q3: '',
+      q3Percent: 0,
+      q4Budget: 0,
+      q4: '',
+      q4Percent: 0,
+      mediaTypes: [],
+      isTotal: true
+    };
+    
+    // Sum up all values for the total row
+    campaignQuarterlyData.forEach(row => {
+      totalRow.totalBudget += row.totalBudget;
+      totalRow.q1Budget += row.q1Budget;
+      totalRow.q2Budget += row.q2Budget;
+      totalRow.q3Budget += row.q3Budget;
+      totalRow.q4Budget += row.q4Budget;
+    });
+    
+    // Format the total values
+    totalRow.q1 = totalRow.q1Budget > 0 ? `€ ${totalRow.q1Budget.toLocaleString()}` : '-';
+    totalRow.q2 = totalRow.q2Budget > 0 ? `€ ${totalRow.q2Budget.toLocaleString()}` : '-';
+    totalRow.q3 = totalRow.q3Budget > 0 ? `€ ${totalRow.q3Budget.toLocaleString()}` : '-';
+    totalRow.q4 = totalRow.q4Budget > 0 ? `€ ${totalRow.q4Budget.toLocaleString()}` : '-';
+    
+    // Calculate percentages for totals
+    if (totalRow.totalBudget > 0) {
+      totalRow.q1Percent = Math.round((totalRow.q1Budget / totalRow.totalBudget) * 100);
+      totalRow.q2Percent = Math.round((totalRow.q2Budget / totalRow.totalBudget) * 100);
+      totalRow.q3Percent = Math.round((totalRow.q3Budget / totalRow.totalBudget) * 100);
+      totalRow.q4Percent = Math.round((totalRow.q4Budget / totalRow.totalBudget) * 100);
+    }
+    
+    // Add total row to the data
+    const newQuarterlyData = [...campaignQuarterlyData, totalRow];
+    
+    // 4. Country quarterly data with nested categories
+    const countryQuarterMap = new Map();
+    const countryCategoryMap = new Map();
+    
+    updatedFilteredCampaigns.forEach(campaign => {
+      const countryName = campaign.country.name;
+      const categoryName = campaign.range.category.name;
+      
+      // Initialize country data if not exists
+      if (!countryQuarterMap.has(countryName)) {
+        countryQuarterMap.set(countryName, {
+          country: countryName,
+          q1: 0,
+          q2: 0,
+          q3: 0,
+          q4: 0,
+          total: 0,
+          categories: []
+        });
+      }
+      
+      // Initialize category data for this country if not exists
+      const countryKey = `${countryName}-${categoryName}`;
+      if (!countryCategoryMap.has(countryKey)) {
+        countryCategoryMap.set(countryKey, {
+          country: countryName,
+          category: categoryName,
+          q1: 0,
+          q2: 0,
+          q3: 0,
+          q4: 0,
+          total: 0
+        });
+        
+        // Add to country's categories array
+        countryQuarterMap.get(countryName).categories.push(categoryName);
+      }
+      
+      const countryData = countryQuarterMap.get(countryName);
+      const categoryData = countryCategoryMap.get(countryKey);
+      
+      campaign.mediaItems.forEach(item => {
+        // Update country totals
+        countryData.q1 += item.q1Budget || 0;
+        countryData.q2 += item.q2Budget || 0;
+        countryData.q3 += item.q3Budget || 0;
+        countryData.q4 += item.q4Budget || 0;
+        countryData.total += item.totalBudget || 0;
+        
+        // Update category totals
+        categoryData.q1 += item.q1Budget || 0;
+        categoryData.q2 += item.q2Budget || 0;
+        categoryData.q3 += item.q3Budget || 0;
+        categoryData.q4 += item.q4Budget || 0;
+        categoryData.total += item.totalBudget || 0;
+      });
+    });
+    
+    // Format country data
+    const newCountryQuarterData = Array.from(countryQuarterMap.values()).map(item => ({
+      ...item,
+      q1: item.q1 > 0 ? `€ ${item.q1.toLocaleString()}` : '-',
+      q2: item.q2 > 0 ? `€ ${item.q2.toLocaleString()}` : '-',
+      q3: item.q3 > 0 ? `€ ${item.q3.toLocaleString()}` : '-',
+      q4: item.q4 > 0 ? `€ ${item.q4.toLocaleString()}` : '-',
+      // Get category data for this country
+      categoryData: item.categories.map(categoryName => {
+        const categoryData = countryCategoryMap.get(`${item.country}-${categoryName}`);
+        return {
+          category: categoryName,
+          q1: categoryData.q1 > 0 ? `€ ${categoryData.q1.toLocaleString()}` : '-',
+          q2: categoryData.q2 > 0 ? `€ ${categoryData.q2.toLocaleString()}` : '-',
+          q3: categoryData.q3 > 0 ? `€ ${categoryData.q3.toLocaleString()}` : '-',
+          q4: categoryData.q4 > 0 ? `€ ${categoryData.q4.toLocaleString()}` : '-',
+        };
+      })
+    }));
+    
+    // 5. Sub-media type data by country
+    // Define the sub-media types we want to track
+    const subMediaTypes = ['PM & FF', 'Open TV', 'Paid TV', 'Influencers', 'Influencer Amplification', 'Influencer Organic'];
+    const countrySubMediaMap = new Map();
+    
+    // Initialize the map with countries
+    filteredCampaigns.forEach(campaign => {
+      const countryName = campaign.country.name;
+      
+      if (!countrySubMediaMap.has(countryName)) {
+        const initialSubMediaData = {};
+        subMediaTypes.forEach(type => {
+          initialSubMediaData[type] = 0;
+        });
+        
+        countrySubMediaMap.set(countryName, {
+          country: countryName,
+          ...initialSubMediaData,
+          total: 0
+        });
+      }
+    });
+    
+    // Process campaign data to populate sub-media type values
+    filteredCampaigns.forEach(campaign => {
+      const countryName = campaign.country.name;
+      const countryData = countrySubMediaMap.get(countryName);
+      
+      campaign.mediaItems.forEach(item => {
+        // Map media subtypes to our defined categories
+        // This is a simplification - in a real app, you'd have proper mapping from your data
+        const subtypeName = item.mediaSubtype.name;
+        let mappedType = '';
+        
+        if (subtypeName.includes('TV') && subtypeName.includes('Open')) {
+          mappedType = 'Open TV';
+        } else if (subtypeName.includes('TV') && subtypeName.includes('Paid')) {
+          mappedType = 'Paid TV';
+        } else if (subtypeName.includes('PM') || subtypeName.includes('FF')) {
+          mappedType = 'PM & FF';
+        } else if (subtypeName.includes('Influencer') && subtypeName.includes('Amplification')) {
+          mappedType = 'Influencer Amplification';
+        } else if (subtypeName.includes('Influencer') && subtypeName.includes('Organic')) {
+          mappedType = 'Influencer Organic';
+        } else if (subtypeName.includes('Influencer')) {
+          mappedType = 'Influencers';
+        } else {
+          // Skip items that don't match our categories
+          return;
+        }
+        
+        // Add the budget to the appropriate category
+        if (subMediaTypes.includes(mappedType)) {
+          countryData[mappedType] += item.totalBudget || 0;
+          countryData.total += item.totalBudget || 0;
+        }
+      });
+    });
+    
+    // Convert percentages and format the data
+    const newSubMediaTypeData = Array.from(countrySubMediaMap.values())
+      .filter(item => item.total > 0) // Only include countries with data
+      .map(item => {
+        const result = { country: item.country };
+        
+        // Calculate percentages for each sub-media type
+        subMediaTypes.forEach(type => {
+          const percentage = item.total > 0 ? (item[type] / item.total) * 100 : 0;
+          result[type] = percentage.toFixed(1) + '%';
+        });
+        
+        return result;
+      });
+    
+    // Update dashboard data
+    setFilteredCampaignData(newCampaignData);
+    
+    // Make sure the total row is included in the filtered data
+    // This ensures the total row is always visible in the table
+    if (newQuarterlyData.length > 0) {
+      // Check if the total row is already in the data
+      const hasTotalRow = newQuarterlyData.some(row => row.isTotal);
+      if (!hasTotalRow) {
+        console.log('Adding missing total row to quarterly data');
+        // If no total row exists, add it
+        newQuarterlyData.push(totalRow);
+      }
+    }
+    
+    setFilteredQuarterlyData(newQuarterlyData);
+    setFilteredCountryQuarterData(newCountryQuarterData);
+    setFilteredShareData(newShareData);
+    
+    // Update dashboard metrics
+    if (dashboardData) {
+      setDashboardData({
+        ...dashboardData,
+        totalBudget: totalBudgetSum,
+        totalCampaigns: filteredCampaigns.length,
+        mediaShareData: newShareData,
+        campaignDistributionData: newCampaignData,
+        isFiltered: true // Add a flag to indicate this data has been filtered
+      });
+    }
+    
+    // Set filtered data (removed duplicated state updates)
+    setFilteredCampaignData(newCampaignData);
+    setFilteredQuarterlyData(newQuarterlyData);
+    setFilteredCountryQuarterData(newCountryQuarterData);
+    setFilteredShareData(activeFilters.mediaType ? newShareData : (dashboardData?.mediaShareData || []));
+    setSubMediaTypeData(newSubMediaTypeData);
+  };
+  
+  // Handle chart element click
+  const handleCampaignBarClick = (data: any) => {
+    console.log('Campaign bar clicked:', data);
+    // Toggle filter - if already selected, clear the filter
+    if (activeFilters.category === data.name) {
+      // Clear the category filter
+      setActiveFilters(prev => ({ ...prev, category: undefined }));
+      
+      // Also clear the category from sidebar selection
+      const categoryId = categoriesList.find(cat => cat.name === data.name)?.id;
+      if (categoryId) {
+        setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+      }
+    } else {
+      // Set the category filter
+      setActiveFilters(prev => ({ ...prev, category: data.name }));
+      
+      // Also update the sidebar checkboxes to match
+      const categoryId = categoriesList.find(cat => cat.name === data.name)?.id;
+      if (categoryId && !selectedCategories.includes(categoryId)) {
+        setSelectedCategories(prev => [...prev, categoryId]);
+      }
+    }
+  };
+  
+  const handleMediaShareClick = (data: any) => {
+    console.log('Media share clicked:', data);
+    // Toggle filter - if already selected, clear the filter
+    if (activeFilters.mediaType === data.name) {
+      setActiveFilters(prev => ({ ...prev, mediaType: undefined }));
+    } else {
+      setActiveFilters(prev => ({ ...prev, mediaType: data.name }));
+    }
+  };
+  
+  // Handle click on bar chart
+  const handleBarChartClick = (data: any) => {
+    console.log('Bar chart click event:', data);
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      // Get the category name from the clicked bar
+      const categoryName = data.activePayload[0].payload.name;
+      console.log('Clicked on category:', categoryName);
+      
+      // If we're already filtering by this category, clear the filter
+      if (activeFilters.category === categoryName) {
+        setActiveFilters(prev => ({ ...prev, category: undefined }));
+      } else {
+        // Otherwise, set the filter to this category
+        setActiveFilters(prev => ({ ...prev, category: categoryName }));
+      }
+    } else {
+      // Clicking on empty area of chart clears the filter
+      if (activeFilters.category) {
+        // Clear the category filter
+        setActiveFilters(prev => ({ ...prev, category: undefined }));
+        
+        // Also clear any category selections in the sidebar that match the active filter
+        if (activeFilters.category) {
+          const categoryId = categoriesList.find(cat => cat.name === activeFilters.category)?.id;
+          if (categoryId) {
+            setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+          }
+        }
+      }
+    }
+  };
+  
+  // Handle click on pie chart
+  const handlePieChartClick = (data: any) => {
+    console.log('Pie chart click event:', data);
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      handleMediaShareClick(data.activePayload[0].payload);
+    } else {
+      // Clicking on empty area of chart clears the filter
+      if (activeFilters.mediaType) {
+        setActiveFilters(prev => ({ ...prev, mediaType: undefined }));
+      }
+    }
+  };
+  
+  // Clear all active filters
+  const clearAllFilters = () => {
+    setActiveFilters({});
+    setSelectedCategories([]);
+    setSelectedCountries([]);
+    setSelectedSubRegions([]);
+    
+    // Reset filtered campaigns to all campaigns
+    setFilteredCampaigns([...campaigns]);
+    
+    // Apply filters to reset the dashboard data
+    applyFilters();
+  };
+  
+  // Handle click outside charts to clear filters
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // Check if we're clicking on a chart element or control
+      const isChartElement = (event.target as HTMLElement).closest('svg') !== null;
+      const isFilterControl = (
+        (event.target as HTMLElement).closest('.filter-badge') !== null ||
+        (event.target as HTMLElement).closest('.filter-controls') !== null ||
+        (event.target as HTMLElement).closest('button') !== null ||
+        (event.target as HTMLElement).closest('select') !== null
+      );
+      
+      // Check if click is inside the bar chart container
+      const isInsideBarChart = barChartRef.current && barChartRef.current.contains(event.target as Node);
+      
+      // If we're not clicking on a chart element, control, or inside the bar chart container, and we have active filters
+      if (!isChartElement && !isFilterControl && !isInsideBarChart && Object.keys(activeFilters).length > 0) {
+        console.log('Click outside detected, clearing filters');
+        setActiveFilters({});
+        
+        // Reset filtered campaigns to all campaigns to ensure totals are updated correctly
+        setFilteredCampaigns([...campaigns]);
+      }
+    }
+    
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      // Clean up
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeFilters]);
+  
+  // Single consolidated useEffect to handle all filter changes
+  useEffect(() => {
+    // Only apply filters if we have data to work with
+    if (dashboardData && campaigns.length > 0) {
+      console.log('Filters changed:', {
+        subRegions: selectedSubRegions,
+        countries: selectedCountries,
+        categories: selectedCategories,
+        year: selectedYear,
+        activeFilters
+      });
+      
+      // Apply the filters
+      applyFilters();
+    }
+  }, [selectedSubRegions, selectedCountries, selectedCategories, selectedYear, activeFilters, campaigns.length]);
+  
+  // Separate useEffect for initial data load only
+  useEffect(() => {
+    // This will only run when dashboardData is first loaded
+    if (dashboardData && campaigns.length > 0 && !isDataFiltered.current) {
+      isDataFiltered.current = true;
+      applyFilters();
+    }
+  }, [dashboardData]);
+
+  return (
+    <div className="flex flex-col bg-gray-50 min-h-screen">
+      {/* Top Navigation */}
+      <Navigation />
+      
+      <div className="flex mt-16"> {/* Add margin-top to account for fixed navigation */}
+        {/* Left Sidebar Filters */}
+        <div className={`${sidebarExpanded ? 'w-64' : 'w-16'} transition-all duration-300 ease-in-out bg-white border-r border-gray-200 p-4 flex flex-col h-screen`}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`${sidebarExpanded ? 'block' : 'hidden'} text-lg font-semibold text-gray-800`}>Filters</h2>
+          <button 
+            onClick={() => setSidebarExpanded(!sidebarExpanded)}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+          >
+            {sidebarExpanded ? (
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            )}
+          </button>
+        </div>
+        
+        <div className="overflow-y-auto">
+          {/* Sub Region Filter */}
+          <div className="mb-6">
+            <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-500 mb-2`}>Sub Region</h3>
+            <div className="space-y-1">
+              {subRegionsList.map(region => (
+                <div key={region.id} className="flex items-center">
+                  <input
+                    id={`region-${region.id}`}
+                    type="checkbox"
+                    checked={selectedSubRegions.includes(region.id)}
+                    onChange={() => toggleSubRegion(region.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label 
+                    htmlFor={`region-${region.id}`} 
+                    className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                  >
+                    {region.name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Country Filter */}
+          <div className="mb-6">
+            <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-500 mb-2`}>Country</h3>
+            <div className="space-y-1">
+              {countriesList.map(country => (
+                <div key={country.id} className="flex items-center">
+                  <input
+                    id={`country-${country.id}`}
+                    type="checkbox"
+                    checked={selectedCountries.includes(country.id)}
+                    onChange={() => toggleCountry(country.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label 
+                    htmlFor={`country-${country.id}`} 
+                    className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                  >
+                    {country.name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Category Filter */}
+          <div className="mb-6">
+            <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-500 mb-2`}>Category</h3>
+            <div className="space-y-1">
+              {categoriesList.map(category => (
+                <div key={category.id} className="flex items-center">
+                  <input
+                    id={`category-${category.id}`}
+                    type="checkbox"
+                    checked={selectedCategories.includes(category.id)}
+                    onChange={() => toggleCategory(category.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label 
+                    htmlFor={`category-${category.id}`} 
+                    className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                  >
+                    {category.name}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Game Plan Dashboard</h1>
+            {Object.keys(activeFilters).length > 0 && (
+              <div className="mt-2 flex items-center filter-controls">
+                <span className="text-sm text-gray-500 mr-2">Active filters:</span>
+                {activeFilters.category && (
+                  <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2 filter-badge">
+                    Category: {activeFilters.category}
+                    <button 
+                      className="ml-1 text-indigo-600 hover:text-indigo-800"
+                      onClick={() => setActiveFilters(prev => ({ ...prev, category: undefined }))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {activeFilters.mediaType && (
+                  <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded mr-2 filter-badge">
+                    Media: {activeFilters.mediaType}
+                    <button 
+                      className="ml-1 text-indigo-600 hover:text-indigo-800"
+                      onClick={() => setActiveFilters(prev => ({ ...prev, mediaType: undefined }))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                <button 
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                  onClick={clearAllFilters}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center mr-4">
+              <a href="/dashboard/media-sufficiency" className="text-gray-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">Overview</a>
+              <a href="/dashboard/game-plan" className="text-indigo-600 border-b-2 border-indigo-600 px-3 py-2 text-sm font-medium">Game Plan</a>
+              <a href="/dashboard/media-sufficiency" className="text-gray-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">Sufficiency</a>
+              <a href="/dashboard/media-similarity" className="text-gray-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium">Similarity</a>
+            </div>
+            <select 
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 bg-white text-sm"
+            >
+              <option value="2025">FY 2025</option>
+              <option value="2024">FY 2024</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-6 mb-6">
+          {/* KPI Cards */}
+          <div className="col-span-3">
+            <div className="bg-white border border-gray-200 p-5 rounded-md h-full">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gray-500 text-sm font-medium mb-1">Campaigns</div>
+                  {isLoading ? (
+                    <div className="h-10 flex items-center"><Spinner /></div>
+                  ) : (
+                    <div className="text-3xl font-semibold text-indigo-700">{filteredCampaigns.length || 0}</div>
+                  )}
+                </div>
+                <div className="text-indigo-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-span-3">
+            <div className="bg-white border border-gray-200 p-5 rounded-md h-full">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gray-500 text-sm font-medium mb-1">Total Budget</div>
+                  {isLoading ? (
+                    <div className="h-10 flex items-center"><Spinner /></div>
+                  ) : (
+                    <div className="text-3xl font-semibold text-emerald-700">€ {filteredCampaigns.reduce((sum, campaign) => sum + campaign.mediaItems.reduce((itemSum, item) => itemSum + (item.totalBudget || 0), 0), 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                  )}
+                </div>
+                <div className="text-emerald-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-span-3">
+            <div className="bg-white border border-gray-200 p-5 rounded-md h-full">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gray-500 text-sm font-medium mb-1">TV Share</div>
+                  {isLoading ? (
+                    <div className="h-10 flex items-center"><Spinner /></div>
+                  ) : (
+                    <div className="text-3xl font-semibold text-blue-700">
+                      {(dashboardData?.mediaShareData.find(item => item.name === 'TV')?.percentage || 0).toFixed(0)}%
+                    </div>
+                  )}
+                </div>
+                <div className="text-blue-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="col-span-3">
+            <div className="bg-white border border-gray-200 p-5 rounded-md h-full">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-gray-500 text-sm font-medium mb-1">Digital Share</div>
+                  {isLoading ? (
+                    <div className="h-10 flex items-center"><Spinner /></div>
+                  ) : (
+                    <div className="text-3xl font-semibold text-purple-700">
+                      {(dashboardData?.mediaShareData.find(item => item.name === 'Digital')?.percentage || 0).toFixed(0)}%
+                    </div>
+                  )}
+                </div>
+                <div className="text-purple-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Campaign Calendar */}
+          <div className="col-span-12">
+            <div className="bg-white border border-gray-200 rounded-md p-5">
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Campaign Calendar</h3>
+              {isLoading ? (
+                <div className="h-96 flex items-center justify-center"><Spinner /></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="min-w-full">
+                    {/* Calendar Header - Months */}
+                    <div className="flex border-b border-gray-200">
+                      <div className="w-64 flex-shrink-0 p-3 font-medium text-gray-700 border-r border-gray-200">Campaign</div>
+                      <div className="flex-grow grid grid-cols-12 divide-x divide-gray-200">
+                        <div className="p-3 text-center font-medium text-gray-700">Jan</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Feb</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Mar</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Apr</div>
+                        <div className="p-3 text-center font-medium text-gray-700">May</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Jun</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Jul</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Aug</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Sep</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Oct</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Nov</div>
+                        <div className="p-3 text-center font-medium text-gray-700">Dec</div>
+                      </div>
+                    </div>
+                    
+                    {/* Campaign Rows */}
+                    {filteredCampaigns.map((campaign, index) => {
+                      // Calculate which months have budget
+                      const hasQ1Budget = campaign.mediaItems.some(item => item.q1Budget && item.q1Budget > 0);
+                      const hasQ2Budget = campaign.mediaItems.some(item => item.q2Budget && item.q2Budget > 0);
+                      const hasQ3Budget = campaign.mediaItems.some(item => item.q3Budget && item.q3Budget > 0);
+                      const hasQ4Budget = campaign.mediaItems.some(item => item.q4Budget && item.q4Budget > 0);
+                      
+                      // Determine which months to highlight based on quarters with budget
+                      const months = [
+                        hasQ1Budget, hasQ1Budget, hasQ1Budget,  // Q1: Jan, Feb, Mar
+                        hasQ2Budget, hasQ2Budget, hasQ2Budget,  // Q2: Apr, May, Jun
+                        hasQ3Budget, hasQ3Budget, hasQ3Budget,  // Q3: Jul, Aug, Sep
+                        hasQ4Budget, hasQ4Budget, hasQ4Budget   // Q4: Oct, Nov, Dec
+                      ];
+                      
+                      return (
+                        <div key={campaign.id} className={`flex border-b border-gray-200 ${index % 2 === 0 ? 'bg-gray-50' : ''}`}>
+                          <div className="w-64 flex-shrink-0 p-3 font-medium text-gray-700 border-r border-gray-200 truncate">
+                            <div className="font-medium">{campaign.name}</div>
+                            <div className="text-xs text-gray-500">{campaign.country.name}</div>
+                          </div>
+                          <div className="flex-grow grid grid-cols-12 divide-x divide-gray-200">
+                            {months.map((hasActivity, monthIndex) => (
+                              <div key={monthIndex} className="p-1 relative">
+                                {hasActivity && (
+                                  <div 
+                                    className={`absolute inset-1 rounded ${monthIndex < 3 ? 'bg-blue-500' : monthIndex < 6 ? 'bg-green-500' : monthIndex < 9 ? 'bg-yellow-500' : 'bg-red-500'} opacity-80`}
+                                    title={`${campaign.name} - ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][monthIndex]}`}
+                                  ></div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

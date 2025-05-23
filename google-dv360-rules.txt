@@ -1,0 +1,13 @@
+1|Google DV360|Capping frequency to avoid overexposure for KNOW campaigns with vCPM/CPCV as main KPI at max. 3/week.|Right Person|active|high
+2|Google DV360|Target at least 2 audience signals in KNOW as well as in WANT (e.g., Gender + Age in KNOW or Age + In-Market in WANT) (if applicable).|Right Person|active|high
+3|Google DV360|Utilize retargeting audiences and opt-in to optimized targeting and/or audience expansion. In case of Adform as DSP continue to use lookalikes|Right Person|active|high
+4|Google DV360|Use at least 2 different video ad placements (e.g., Bumper PreRoll + TrueView InStream) for each KNOW and WANT. Aim to activate both placements via one cross-placement ad format (e.g., VRC/VVC/DemandGen)|Right Place|active|high
+5|Google DV360|Use min 2 variants of creatives per ad placement per ad group/line item in each funnel stage. When possible, add more creative variants to enrich learnings and avoid ad fatigue.|Right Place|active|high
+6|Google DV360|Limit video length to max. 20 seconds in KNOW, WANT, and GET.|Right Place|active|medium
+7|Google DV360|Avoid spend during early morning hours (2am - 6am) in KNOW & WANT campaigns, which don't have a conversion action (e.g., 10 seconds website visit) as objective.|Right Time|active|medium
+8|Google DV360|Ensure minimum 6 weeks in-flight per campaign|Right Time|active|high
+9|Google DV360|For YouTube, ensure non-performing content on exclusion list (e.g., kids)|Right Place|active|high
+10|Google DV360|Ensure at least 60% viewability for Video & 70% for display|Right Place|active|high
+11|Google DV360|Exclude low perf. placements and / or devices|Right Place|active|medium
+13|Google DV360|Cap CPM/CPV/CPCV/CPQV/CPA bids based on your historical media KPIs (if technically possible). Ensure automated bidding towards the right campaign KPI based on the campaign objective (vCPM/vCPV/vCPCV/CPQV/CPA).|Right Cost|active|high
+14|Google DV360|Ensure automated bidding towards the right campaign KPI depending on the campaign objective (vCPM/vCPCV/CPQV/CPA)|Right Cost|active|high

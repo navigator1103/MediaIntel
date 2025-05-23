@@ -1,0 +1,36 @@
+# PostgreSQL Database Setup Instructions
+
+## 1. Environment Variables
+Add the following to your .env file:
+
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/goldenrules?schema=public"
+```
+
+## 2. Database Information
+- Database Name: goldenrules
+- Username: postgres
+- Password: postgres
+- Host: localhost
+- Port: 5432
+
+## 3. Docker Container
+A PostgreSQL container has been set up with the name 'golden-rules-postgres'.
+You can manage it with these commands:
+- Stop the container: docker stop golden-rules-postgres
+- Start the container: docker start golden-rules-postgres
+- Remove the container: docker rm golden-rules-postgres
+
+## 4. Next Steps
+After updating your .env file, run the following commands:
+
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run database migrations
+npx prisma migrate dev
+
+# Seed the database
+npx prisma db seed
+```

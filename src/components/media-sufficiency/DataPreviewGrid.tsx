@@ -1,0 +1,494 @@
+import React, { useState, useEffect } from 'react';
+import { FiAlertCircle, FiAlertTriangle, FiInfo, FiCheckCircle, FiEdit2, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+
+interface DataPreviewGridProps {
+  data: any[];
+  validationIssues?: ValidationIssue[];
+  onDataChange?: (updatedData: any[]) => void;
+  onCellEdit?: (rowIndex: number, columnName: string, newValue: any) => void;
+  highlightedCell?: {rowIndex: number, columnName: string} | null;
+}
+
+export interface ValidationIssue {
+  rowIndex: number;
+  columnName: string;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  currentValue?: any;
+}
+
+const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({ 
+  data, 
+  validationIssues = [], 
+  onDataChange,
+  onCellEdit,
+  highlightedCell = null
+}) => {
+  const [gridData, setGridData] = useState<any[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnName: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+  const [showOnlyIssues, setShowOnlyIssues] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSeverityFilter, setSelectedSeverityFilter] = useState<string[]>(['critical', 'warning', 'suggestion']);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  
+  // Reference for the highlighted cell
+  const highlightedCellRef = React.useRef<HTMLTableCellElement | null>(null);
+  
+  // Effect to handle highlighted cell scrolling and pagination
+  useEffect(() => {
+    if (highlightedCell) {
+      // Calculate which page the highlighted cell is on
+      const targetPage = Math.floor(highlightedCell.rowIndex / rowsPerPage) + 1;
+      
+      // Set the page to show the highlighted cell
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      }
+      
+      // Scroll to the highlighted cell after a short delay to ensure rendering
+      setTimeout(() => {
+        if (highlightedCellRef.current) {
+          highlightedCellRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'center'
+          });
+        }
+      }, 100);
+    }
+  }, [highlightedCell, currentPage, rowsPerPage]);
+
+  // Initialize grid data and columns
+  useEffect(() => {
+    if (data && data.length > 0) {
+      setGridData(data);
+      setColumns(Object.keys(data[0]));
+    }
+  }, [data]);
+
+  // Apply filters, search, and pagination
+  useEffect(() => {
+    let filtered = [...gridData];
+    
+    // Apply search term
+    if (searchTerm) {
+      filtered = filtered.filter(row => {
+        return Object.values(row).some(value => 
+          String(value).toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+    }
+    
+    // Apply issues filter
+    if (showOnlyIssues) {
+      // Create a Set of row indexes with issues for faster lookup
+      const rowsWithIssuesSet = new Set(
+        validationIssues
+          .filter(issue => selectedSeverityFilter.includes(issue.severity))
+          .map(issue => issue.rowIndex)
+      );
+      
+      // Keep only rows that have issues
+      filtered = filtered.filter((_, index) => rowsWithIssuesSet.has(index));
+    }
+    
+    // Apply sorting
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    // Calculate total pages
+    const calculatedTotalPages = Math.ceil(filtered.length / rowsPerPage);
+    setTotalPages(calculatedTotalPages || 1); // Ensure at least 1 page
+    
+    // Reset to first page if current page is out of bounds
+    if (currentPage > calculatedTotalPages && calculatedTotalPages > 0) {
+      setCurrentPage(1);
+    }
+    
+    setFilteredData(filtered);
+  }, [gridData, searchTerm, showOnlyIssues, selectedSeverityFilter, sortConfig, validationIssues, rowsPerPage]);
+
+  // Get paginated data
+  const getPaginatedData = () => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  };
+
+  // Handle cell editing
+  const handleCellClick = (rowIndex: number, columnName: string) => {
+    setEditingCell({ rowIndex, columnName });
+    setEditValue(gridData[rowIndex][columnName] || '');
+  };
+
+  const handleCellEdit = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditValue(e.target.value);
+  };
+
+  const handleCellEditComplete = () => {
+    if (editingCell) {
+      const { rowIndex, columnName } = editingCell;
+      const updatedData = [...gridData];
+      updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
+      
+      setGridData(updatedData);
+      
+      // Call the callback if provided
+      if (onCellEdit) {
+        onCellEdit(rowIndex, columnName, editValue);
+      }
+      
+      if (onDataChange) {
+        onDataChange(updatedData);
+      }
+      
+      setEditingCell(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCellEditComplete();
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
+
+  // Handle sorting
+  const requestSort = (key: string) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Get cell validation status
+  const getCellValidation = (rowIndex: number, columnName: string) => {
+    return validationIssues.find(
+      issue => issue.rowIndex === rowIndex && issue.columnName === columnName
+    );
+  };
+
+  // Get cell background color based on validation status
+  const getCellBackground = (rowIndex: number, columnName: string) => {
+    const issue = getCellValidation(rowIndex, columnName);
+    if (!issue) return 'bg-white';
+    
+    switch (issue.severity) {
+      case 'critical':
+        return 'bg-red-100 border-red-300 border';
+      case 'warning':
+        return 'bg-yellow-50';
+      case 'suggestion':
+        return 'bg-blue-50';
+      default:
+        return 'bg-white';
+    }
+  };
+
+  // Get cell icon based on validation status
+  const getCellIcon = (rowIndex: number, columnName: string) => {
+    const issue = getCellValidation(rowIndex, columnName);
+    if (!issue) return null;
+    
+    switch (issue.severity) {
+      case 'critical':
+        return <FiAlertCircle className="text-red-500" />;
+      case 'warning':
+        return <FiAlertTriangle className="text-yellow-500" />;
+      case 'suggestion':
+        return <FiInfo className="text-blue-500" />;
+      default:
+        return null;
+    }
+  };
+
+  // Apply fix to all similar issues
+  const applyFixToAll = (columnName: string, currentValue: any, newValue: any) => {
+    const updatedData = gridData.map(row => {
+      if (row[columnName] === currentValue) {
+        return { ...row, [columnName]: newValue };
+      }
+      return row;
+    });
+    
+    setGridData(updatedData);
+    
+    if (onDataChange) {
+      onDataChange(updatedData);
+    }
+  };
+
+  // Toggle severity filter
+  const toggleSeverityFilter = (severity: string) => {
+    if (selectedSeverityFilter.includes(severity)) {
+      setSelectedSeverityFilter(selectedSeverityFilter.filter(s => s !== severity));
+    } else {
+      setSelectedSeverityFilter([...selectedSeverityFilter, severity]);
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  // Handle rows per page change
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRowsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset to first page when changing rows per page
+  };
+
+  // Count issues by severity
+  const getIssueCounts = () => {
+    const counts = {
+      critical: 0,
+      warning: 0,
+      suggestion: 0
+    };
+    
+    validationIssues.forEach(issue => {
+      counts[issue.severity]++;
+    });
+    
+    return counts;
+  };
+
+  const issueCounts = getIssueCounts();
+
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Toolbar */}
+      <div className="p-4 border-b flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search data..."
+              className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showOnlyIssues}
+                onChange={() => setShowOnlyIssues(!showOnlyIssues)}
+                className="mr-2 h-4 w-4 text-indigo-600 rounded"
+              />
+              <span>Show only issues</span>
+            </label>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium">Filter:</span>
+            <button
+              className={`px-2 py-1 rounded-md text-xs flex items-center ${
+                selectedSeverityFilter.includes('critical') ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              }`}
+              onClick={() => toggleSeverityFilter('critical')}
+            >
+              <FiAlertCircle className="mr-1" />
+              Critical ({issueCounts.critical})
+            </button>
+            <button
+              className={`px-2 py-1 rounded-md text-xs flex items-center ${
+                selectedSeverityFilter.includes('warning') ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+              }`}
+              onClick={() => toggleSeverityFilter('warning')}
+            >
+              <FiAlertTriangle className="mr-1" />
+              Warnings ({issueCounts.warning})
+            </button>
+            <button
+              className={`px-2 py-1 rounded-md text-xs flex items-center ${
+                selectedSeverityFilter.includes('suggestion') ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+              }`}
+              onClick={() => toggleSeverityFilter('suggestion')}
+            >
+              <FiInfo className="mr-1" />
+              Suggestions ({issueCounts.suggestion})
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Data Grid */}
+      <div className="overflow-x-auto max-w-full" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table className="w-auto divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                Row
+              </th>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  style={{ minWidth: '150px', maxWidth: '300px' }}
+                  onClick={() => requestSort(column)}
+                >
+                  <div className="flex items-center">
+                    <span>{column}</span>
+                    {sortConfig?.key === column && (
+                      <span className="ml-1">
+                        {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {getPaginatedData().map((row, actualRowIndex) => {
+              // Calculate the actual row index in the full dataset
+              const rowIndex = ((currentPage - 1) * rowsPerPage) + actualRowIndex;
+              return (
+                <tr key={rowIndex} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
+                    {rowIndex + 1}
+                  </td>
+                  {columns.map((column) => {
+                    const isHighlighted = highlightedCell && 
+                      highlightedCell.rowIndex === rowIndex && 
+                      highlightedCell.columnName === column;
+                    
+                    return (
+                    <td
+                      key={`${rowIndex}-${column}`}
+                      ref={isHighlighted ? highlightedCellRef : null}
+                      className={`px-4 py-2 text-sm ${getCellBackground(rowIndex, column)} ${isHighlighted ? 'ring-2 ring-indigo-500 animate-pulse' : ''} ${getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-700 font-medium' : ''}`}
+                      style={{ 
+                        minWidth: '150px', 
+                        maxWidth: '300px', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onClick={() => handleCellClick(rowIndex, column)}
+                    >
+                      {editingCell && editingCell.rowIndex === rowIndex && editingCell.columnName === column ? (
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={handleCellEdit}
+                          onBlur={handleCellEditComplete}
+                          onKeyDown={handleKeyDown}
+                          className="w-full p-1 border rounded"
+                          autoFocus
+                        />
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="flex-grow">{row[column]}</span>
+                          {getCellIcon(rowIndex, column) && (
+                            <div className="ml-2 relative group">
+                              {getCellIcon(rowIndex, column)}
+                              <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-white border rounded-md shadow-lg -left-32 top-6">
+                                <div className="text-xs font-medium mb-1">
+                                  {getCellValidation(rowIndex, column)?.severity?.toUpperCase() || ''}
+                                </div>
+                                <div className="text-xs mb-2">
+                                  {getCellValidation(rowIndex, column)?.message || ''}
+                                </div>
+                                {/* Apply to all similar issues button removed - suggestion functionality has been eliminated */}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      {/* Pagination Controls */}
+      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="text-sm text-gray-700 mr-2">
+            Rows per page:
+          </span>
+          <select
+            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            value={rowsPerPage}
+            onChange={handleRowsPerPageChange}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+        
+        <div className="flex items-center">
+          <span className="text-sm text-gray-700 mr-4">
+            {filteredData.length > 0 ? (
+              <>
+                Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
+              </>
+            ) : (
+              'No entries to show'
+            )}
+          </span>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              className={`p-1 rounded-full ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <span className="sr-only">Previous Page</span>
+              <FiChevronLeft className="h-5 w-5" />
+            </button>
+            
+            <span className="px-2 py-1 text-sm font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            
+            <button
+              className={`p-1 rounded-full ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <span className="sr-only">Next Page</span>
+              <FiChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DataPreviewGrid;

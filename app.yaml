@@ -1,0 +1,10 @@
+runtime: nodejs20
+env: standard
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always
+
+env_variables:
+  NODE_ENV: "production"

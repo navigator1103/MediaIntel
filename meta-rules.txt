@@ -1,0 +1,11 @@
+1|Meta|Cap frequency to avoid overexposure in KNOW phase (max. 3 imp/week)|Right Person|active|high
+2|Meta|Use at least 2 audience signals in KNOW as well as in WANT (if applicable).|Right Person|active|high
+3|Meta|Utilize retargeting and lookalike audiences.|Right Person|active|high
+4|Meta|Use at least 2 different ad formats (e.g., Story + Carousel or Story + Feed) for each KNOW and WANT.|Right Place|active|high
+5|Meta|Use at least 2 variants of creatives for each ad format per ad set in each funnel stage. When possible, add additional creative variants to enrich learnings and avoid ad fatigue.|Right Place|active|high
+6|Meta|Limit video length to 6 seconds in Know stage; use longer video in Want/Get phase (max. 15s)|Right Place|active|medium
+7|Meta|Avoid spend during early morning hours (2am-6am) in Know & Want campaign which don't have a conversion action (eg.: website visit) as objective.|Right Time|active|medium
+8|Meta|Ensure minimum 6 weeks in-flight per campaign to maximize optimization|Right Time|active|high
+11|Meta|Cap CPA/CPQV/vCPCV/vCPM bids to reflect product economics|Right Cost|active|high
+12|Meta|Always use auction bidding, avoid Reach & Frequency or Reservation|Right Cost|active|high
+13|Meta|Ensure bidding towards the right campaign KPI depending on the campaign objective (e.g., vCPM/vCPCV/CPQV/CPA).|Right Cost|active|high

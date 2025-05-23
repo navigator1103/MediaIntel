@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golden Rules Dashboard</title>
+  <script>
+    // Check if user is logged in
+    const user = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    if (user && token) {
+      try {
+        const userData = JSON.parse(user);
+        
+        // Redirect based on role
+        if (userData.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      } catch (e) {
+        // If there's an error parsing the user data, redirect to login
+        window.location.href = '/simple-login.html';
+      }
+    } else {
+      // If not logged in, redirect to login
+      window.location.href = '/simple-login.html';
+    }
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>

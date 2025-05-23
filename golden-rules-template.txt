@@ -1,0 +1,7 @@
+# Golden Rules Template
+# Format: platform | title | description | category | status | priority
+# Example:
+# Facebook | Consistent Branding | Ensure all brand assets follow the brand guidelines | Branding | active | high
+# 
+# Note: status defaults to "active" and priority defaults to "medium" if left blank
+# Fill in your actual golden rules below this line:

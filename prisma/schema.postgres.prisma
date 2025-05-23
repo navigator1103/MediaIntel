@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+model User {
+  id                  Int             @id @default(autoincrement())
+  email               String          @unique
+  name                String?
+  password            String
+  role                String          @default("user")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  accessibleBrands    String?         @map("accessible_brands")
+  accessibleCountries String?         @map("accessible_countries")
+  accessiblePages     String?         @map("accessible_pages")
+  changeRequests      ChangeRequest[]
+
+  @@map("users")
+}
+
+model Region {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  countries Country[]
+
+  @@map("regions")
+}
+
+model Country {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  regionId         Int               @map("region_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  region           Region            @relation(fields: [regionId], references: [id])
+  fiveStarsRatings FiveStarsRating[]
+  scores           Score[]
+  taxonomyScores   TaxonomyScore[]
+
+  @@map("countries")
+}
+
+model Brand {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  createdAt        DateTime          @default(now()) @map("created_at")
+  fiveStarsRatings FiveStarsRating[]
+  scores           Score[]
+  taxonomyScores   TaxonomyScore[]
+
+  @@map("brands")
+}
+
+model Rule {
+  id          Int      @id @default(autoincrement())
+  platform    String
+  title       String
+  description String
+  category    String
+  status      String   @default("active")
+  priority    String   @default("medium")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  scores      Score[]
+
+  @@map("rules")
+}
+
+model Score {
+  id             Int             @id @default(autoincrement())
+  ruleId         Int             @map("rule_id")
+  platform       String
+  countryId      Int             @map("country_id")
+  brandId        Int             @map("brand_id")
+  score          Int
+  trend          Int             @default(0)
+  month          String
+  evaluation     String          @default("NA")
+  status         String          @default("Normal")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  changeRequests ChangeRequest[]
+  rule           Rule            @relation(fields: [ruleId], references: [id])
+  country        Country         @relation(fields: [countryId], references: [id])
+  brand          Brand           @relation(fields: [brandId], references: [id])
+
+  @@map("scores")
+}
+
+model ChangeRequest {
+  id             Int      @id @default(autoincrement())
+  scoreId        Int      @map("score_id")
+  userId         Int?     @map("user_id")
+  requestedScore Int      @map("requested_score")
+  comments       String
+  status         String   @default("Submitted for Review")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User?    @relation(fields: [userId], references: [id])
+  score          Score    @relation(fields: [scoreId], references: [id])
+
+  @@map("change_requests")
+}
+
+model FiveStarsCriterion {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  ratings     FiveStarsRating[]
+
+  @@map("five_stars_criteria")
+}
+
+model FiveStarsRating {
+  id          Int                @id @default(autoincrement())
+  criterionId Int                @map("criterion_id")
+  countryId   Int                @map("country_id")
+  brandId     Int                @map("brand_id")
+  rating      Int                @default(0)
+  month       String
+  comments    String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  brand       Brand              @relation(fields: [brandId], references: [id])
+  country     Country            @relation(fields: [countryId], references: [id])
+  criterion   FiveStarsCriterion @relation(fields: [criterionId], references: [id])
+
+  @@unique([criterionId, countryId, brandId, month])
+  @@map("five_stars_ratings")
+}
+
+model TaxonomyScore {
+  id           Int      @id @default(autoincrement())
+  countryId    Int      @map("country_id")
+  brandId      Int?     @map("brand_id")
+  platform     String?
+  month        String
+  l1Score      Int      @map("l1_score")
+  l2Score      Int      @map("l2_score")
+  l3Score      Int      @map("l3_score")
+  averageScore Int      @map("average_score")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  brand        Brand?   @relation(fields: [brandId], references: [id])
+  country      Country  @relation(fields: [countryId], references: [id])
+
+  @@unique([countryId, brandId, platform, month])
+  @@map("taxonomy_scores")
+}
+
+model SubRegion {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  countries MSCountry[]
+
+  @@map("ms_sub_regions")
+}
+
+model MSCountry {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  subRegionId Int        @map("sub_region_id")
+  cluster     String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  campaigns   Campaign[]
+  subRegion   SubRegion  @relation(fields: [subRegionId], references: [id])
+
+  @@map("ms_countries")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ranges    Range[]
+
+  @@map("ms_categories")
+}
+
+model Range {
+  id         Int        @id @default(autoincrement())
+  name       String
+  categoryId Int        @map("category_id")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  campaigns  Campaign[]
+  category   Category   @relation(fields: [categoryId], references: [id])
+
+  @@unique([name, categoryId])
+  @@map("ms_ranges")
+}
+
+model MediaType {
+  id        Int            @id @default(autoincrement())
+  name      String         @unique
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  subtypes  MediaSubtype[]
+
+  @@map("ms_media_types")
+}
+
+model MediaSubtype {
+  id          Int             @id @default(autoincrement())
+  name        String
+  mediaTypeId Int             @map("media_type_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  campaigns   CampaignMedia[]
+  mediaType   MediaType       @relation(fields: [mediaTypeId], references: [id])
+
+  @@unique([name, mediaTypeId])
+  @@map("ms_media_subtypes")
+}
+
+model CampaignName {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  campaigns Campaign[]
+
+  @@map("ms_campaign_names")
+}
+
+model UploadSession {
+  id          String   @id
+  fileName    String   @map("file_name")
+  fileSize    Int      @map("file_size")
+  recordCount Int      @map("record_count")
+  status      String
+  data        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("ms_upload_sessions")
+}
+
+model Campaign {
+  id             Int             @id @default(autoincrement())
+  name           String
+  campaignNameId Int?            @map("campaign_name_id")
+  rangeId        Int             @map("range_id")
+  countryId      Int             @map("country_id")
+  businessUnitId Int?            @map("business_unit_id")
+  year           Int
+  playbackId     String?         @map("playback_id")
+  burst          Int             @default(1)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  mediaItems     CampaignMedia[]
+  businessUnit   BusinessUnit?   @relation(fields: [businessUnitId], references: [id])
+  country        MSCountry       @relation(fields: [countryId], references: [id])
+  range          Range           @relation(fields: [rangeId], references: [id])
+  campaignName   CampaignName?   @relation(fields: [campaignNameId], references: [id])
+
+  @@unique([name, rangeId, countryId, year, burst])
+  @@map("ms_campaigns")
+}
+
+model CampaignMedia {
+  id             Int          @id @default(autoincrement())
+  campaignId     Int          @map("campaign_id")
+  mediaSubtypeId Int          @map("media_subtype_id")
+  pmTypeId       Int?         @map("pm_type_id")
+  startDate      DateTime     @map("start_date")
+  endDate        DateTime     @map("end_date")
+  totalBudget    Float        @map("total_budget")
+  q1Budget       Float?       @map("q1_budget")
+  q2Budget       Float?       @map("q2_budget")
+  q3Budget       Float?       @map("q3_budget")
+  q4Budget       Float?       @map("q4_budget")
+  trps           Float?
+  reach1Plus     Float?       @map("reach_1plus")
+  reach3Plus     Float?       @map("reach_3plus")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  pmType         PMType?      @relation(fields: [pmTypeId], references: [id])
+  mediaSubtype   MediaSubtype @relation(fields: [mediaSubtypeId], references: [id])
+  campaign       Campaign     @relation(fields: [campaignId], references: [id])
+
+  @@map("ms_campaign_media")
+}
+
+model PMType {
+  id         Int             @id @default(autoincrement())
+  name       String          @unique
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  mediaItems CampaignMedia[]
+
+  @@map("ms_pm_types")
+}
+
+model BusinessUnit {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  campaigns Campaign[]
+
+  @@map("ms_business_units")
+}
+
+model Cluster {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ms_clusters")
+}

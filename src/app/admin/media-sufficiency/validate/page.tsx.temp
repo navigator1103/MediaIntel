@@ -1,0 +1,51 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FiCheckCircle, FiAlertTriangle, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
+
+interface MasterDataSummary {
+  subRegionsCount: number;
+  countriesCount: number;
+  categoriesCount: number;
+  rangesCount: number;
+  mediaTypesCount: number;
+  mediaSubtypesCount: number;
+  businessUnitsCount: number;
+  pmTypesCount?: number;
+}
+
+interface SessionData {
+  sessionId: string;
+  fileName: string;
+  fileSize: number;
+  recordCount: number;
+  timestamp: string;
+  status: string;
+  masterData: MasterDataSummary;
+}
+
+export default function ValidateMediaSufficiency() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('sessionId');
+  
+  // Rest of your state and functions from the original file
+  // ...
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold font-quicksand text-gray-800">Validate Media Sufficiency Data</h1>
+        <button
+          onClick={() => router.push('/admin/media-sufficiency')}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-quicksand"
+        >
+          Back
+        </button>
+      </div>
+      
+      {/* Your existing JSX content */}
+    </div>
+  );
+}
