@@ -77,6 +77,8 @@ interface GamePlan {
   q2Budget: number;
   q3Budget: number;
   q4Budget: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 export default function MediaSufficiencyDashboard() {
@@ -85,6 +87,9 @@ export default function MediaSufficiencyDashboard() {
   const [gamePlans, setGamePlans] = useState<GamePlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for active tab
+  const [activeTab, setActiveTab] = useState('overview');
   
   // State for filters
   const [selectedYear, setSelectedYear] = useState('2025');
@@ -146,7 +151,60 @@ export default function MediaSufficiencyDashboard() {
         try {
           // Fetch raw game plans data for the Campaign by Quarter table
           const gamePlansResponse = await axios.get('/api/admin/media-sufficiency/game-plans');
-          setGamePlans(gamePlansResponse.data || []);
+          
+          // Use the actual start and end date fields from the game plans table
+          const gamePlansWithDates = (gamePlansResponse.data || []).map((plan: GamePlan) => {
+            const year = parseInt(selectedYear);
+            
+            // Check if plan already has valid start and end dates
+            if (plan.startDate && plan.endDate) {
+              // Use existing dates
+              console.log(`Using existing dates for campaign ${plan.campaign?.name}: ${plan.startDate} - ${plan.endDate}`);
+              return plan;
+            }
+            
+            console.log(`No existing dates for campaign ${plan.campaign?.name}, calculating based on quarters.`);
+            
+            // If dates are missing, fall back to calculating based on quarters with budget
+            let startDate = null;
+            let endDate = null;
+            
+            // Determine start date based on first quarter with budget
+            if (plan.q1Budget > 0) {
+              startDate = new Date(year, 0, 1); // Jan 1
+            } else if (plan.q2Budget > 0) {
+              startDate = new Date(year, 3, 1); // Apr 1
+            } else if (plan.q3Budget > 0) {
+              startDate = new Date(year, 6, 1); // Jul 1
+            } else if (plan.q4Budget > 0) {
+              startDate = new Date(year, 9, 1); // Oct 1
+            }
+            
+            // Determine end date based on last quarter with budget
+            if (plan.q4Budget > 0) {
+              endDate = new Date(year, 11, 31); // Dec 31
+            } else if (plan.q3Budget > 0) {
+              endDate = new Date(year, 8, 30); // Sep 30
+            } else if (plan.q2Budget > 0) {
+              endDate = new Date(year, 5, 30); // Jun 30
+            } else if (plan.q1Budget > 0) {
+              endDate = new Date(year, 2, 31); // Mar 31
+            }
+            
+            // If no budget in any quarter, default to full year
+            if (!startDate || !endDate) {
+              startDate = new Date(year, 0, 1);
+              endDate = new Date(year, 11, 31);
+            }
+            
+            return {
+              ...plan,
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString()
+            };
+          });
+          
+          setGamePlans(gamePlansWithDates);
         } catch (gamePlansError) {
           console.error('Error fetching game plans:', gamePlansError);
           // Continue with the dashboard even if game plans fetch fails
@@ -321,13 +379,11 @@ export default function MediaSufficiencyDashboard() {
     let totalBudget = 0;
     
     plans.forEach(plan => {
-      // Try multiple possible paths to get the media type name
-      const mediaTypeName = plan.mediaSubType?.mediaType?.name || 
-                            plan.mediaType?.name || 
-                            plan.media_type || 
-                            '';
+      // Get the media type name from the mediaSubType
+      const mediaTypeName = plan.mediaSubType?.mediaType?.name || '';
                             
-      const budget = Number(plan.budget) || 0;
+      // Calculate the total budget from quarterly budgets
+      const budget = (plan.q1Budget || 0) + (plan.q2Budget || 0) + (plan.q3Budget || 0) + (plan.q4Budget || 0);
       
       // Debug: Log each plan's media type and budget
       console.log(`Plan: ${plan.id}, Media Type: ${mediaTypeName}, Budget: ${budget}`);
@@ -438,7 +494,8 @@ export default function MediaSufficiencyDashboard() {
         
         filteredPlans.forEach(plan => {
           const categoryName = plan.category?.name || 'Unknown';
-          const budget = Number(plan.budget) || 0;
+          // Calculate the total budget from quarterly budgets
+          const budget = (plan.q1Budget || 0) + (plan.q2Budget || 0) + (plan.q3Budget || 0) + (plan.q4Budget || 0);
           
           if (!recalculatedBudgetByCategory[categoryName]) {
             recalculatedBudgetByCategory[categoryName] = 0;
@@ -712,6 +769,38 @@ export default function MediaSufficiencyDashboard() {
         
         {/* Main Content Area */}
         <div className="flex-1 p-6 overflow-y-auto">
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 mb-6">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`${activeTab === 'overview' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('gameplans')}
+                className={`${activeTab === 'gameplans' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Game Plans
+              </button>
+              <button
+                onClick={() => setActiveTab('sufficiency')}
+                className={`${activeTab === 'sufficiency' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Sufficiency
+              </button>
+            </nav>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <Spinner />
@@ -721,6 +810,7 @@ export default function MediaSufficiencyDashboard() {
               {error}
             </div>
           ) : filteredData ? (
+            activeTab === 'overview' ? (
             <>
               {/* Calculate media shares from filtered game plans */}
               {(() => {
@@ -1582,6 +1672,163 @@ export default function MediaSufficiencyDashboard() {
                 </div>
               </div>
             </>
+            ) : activeTab === 'gameplans' ? (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Campaign Calendar</h2>
+                
+                {/* Top Cards - Single Line */}
+                <div className="flex gap-4 mb-6">
+                  {/* WIP Total Card */}
+                  <div className="bg-blue-800 text-white p-3 rounded-md flex flex-row items-center justify-center gap-3 flex-1">
+                    <div className="text-2xl font-bold">€ {applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0).toLocaleString()}</div>
+                    <div className="text-sm font-medium">WIP Total</div>
+                  </div>
+                  
+                  {/* Q1 Card */}
+                  <div className="bg-blue-700 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q1Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
+                    <div className="text-sm font-medium">Q1</div>
+                  </div>
+                  
+                  {/* Q2 Card */}
+                  <div className="bg-blue-600 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q2Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
+                    <div className="text-sm font-medium">Q2</div>
+                  </div>
+                  
+                  {/* Q3 Card */}
+                  <div className="bg-blue-500 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q3Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
+                    <div className="text-sm font-medium">Q3</div>
+                  </div>
+                  
+                  {/* Q4 Card */}
+                  <div className="bg-blue-400 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q4Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
+                    <div className="text-sm font-medium">Q4</div>
+                  </div>
+                </div>
+                
+                {/* Campaign Table */}
+                {applyAllFilters(gamePlans).length > 0 ? (
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] bg-gray-50 border-b sticky top-0 z-10">
+                      <div className="py-2 px-3 font-semibold">Country</div>
+                      <div className="py-2 px-3 font-semibold">Campaign</div>
+                      <div className="py-2 px-3 font-semibold">Category</div>
+                      <div className="py-2 px-3 font-semibold">Budget</div>
+                      <div className="py-2 px-3 font-semibold">Timeline</div>
+                    </div>
+                    {/* Month markers */}
+                    <div className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] border-b">
+                      <div className="col-span-4"></div>
+                      <div className="py-1 px-3">
+                        <div className="flex justify-between text-xs text-gray-500 font-medium px-1">
+                          <span>Jan</span>
+                          <span>Feb</span>
+                          <span>Mar</span>
+                          <span>Apr</span>
+                          <span>May</span>
+                          <span>Jun</span>
+                          <span>Jul</span>
+                          <span>Aug</span>
+                          <span>Sep</span>
+                          <span>Oct</span>
+                          <span>Nov</span>
+                          <span>Dec</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Campaign Rows */}
+                    {applyAllFilters(gamePlans).map((plan: GamePlan) => {
+                      // Skip if no valid dates
+                      if (!plan.startDate || !plan.endDate) return null;
+                      
+                      const startDate = new Date(plan.startDate);
+                      const endDate = new Date(plan.endDate);
+                      
+                      // Skip if invalid dates
+                      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+                      
+                      // Calculate more precise position based on full date (not just month)
+                      const yearStart = new Date(startDate.getFullYear(), 0, 1);
+                      const yearEnd = new Date(startDate.getFullYear(), 11, 31);
+                      const yearDuration = yearEnd.getTime() - yearStart.getTime();
+                      
+                      // Calculate position as percentage of year
+                      const startPosition = (startDate.getTime() - yearStart.getTime()) / yearDuration;
+                      const endPosition = (endDate.getTime() - yearStart.getTime()) / yearDuration;
+                      
+                      // Also keep month-based calculation for fallback
+                      const startMonth = startDate.getMonth();
+                      const endMonth = endDate.getMonth();
+                      
+                      // Get color based on media type
+                      const mediaTypeName = plan.mediaSubType?.mediaType?.name || '';
+                      let bgColor = 'bg-gray-200';
+                      
+                      if (['TV', 'Radio'].includes(mediaTypeName)) {
+                        bgColor = 'bg-blue-600';
+                      } else if (['Print', 'OOH'].includes(mediaTypeName)) {
+                        bgColor = 'bg-green-500';
+                      } else if (mediaTypeName.includes('Digital')) {
+                        bgColor = 'bg-purple-500';
+                      } else if (mediaTypeName.includes('Social')) {
+                        bgColor = 'bg-pink-500';
+                      }
+                      
+                      // Calculate total budget
+                      const totalBudget = plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget;
+                      
+                      return (
+                        <div key={plan.id} className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] border-b hover:bg-gray-50">
+                          <div className="py-2 px-3">{plan.country?.name || 'Unknown'}</div>
+                          <div className="py-2 px-3 font-medium">{plan.campaign?.name || 'Unnamed Campaign'}</div>
+                          <div className="py-2 px-3">{plan.category?.name || 'Uncategorized'}</div>
+                          <div className="py-2 px-3">€ {totalBudget.toLocaleString()}</div>
+                          
+                          {/* Single horizontal bar for campaign timeline */}
+                          <div className="py-2 px-3 relative" style={{ minHeight: '40px' }}>
+                            <div className="h-4 bg-gray-100 w-full rounded-md relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/12 - 1px), rgba(0,0,0,0.03) calc(100%/12 - 1px), rgba(0,0,0,0.03) calc(100%/12))' }}>
+                              <div 
+                                className={`absolute top-0 h-4 ${bgColor} rounded-md border border-white/30`}
+                                title={`${plan.campaign?.name || 'Campaign'}: ${new Date(plan.startDate).toLocaleDateString()} - ${new Date(plan.endDate).toLocaleDateString()}`}
+                                style={{
+                                  left: `${startPosition * 100}%`,
+                                  width: `${(endPosition - startPosition) * 100}%`
+                                }}
+                              ></div>
+                              
+                              {/* No month markers here anymore - they're in the header */}
+                              {/* Month dividers */}
+                              {Array.from({ length: 12 }).map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className="absolute top-0 h-6 border-l border-gray-300" 
+                                  style={{ left: `${(i / 12) * 100}%` }}
+                                >
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-8 bg-white rounded-lg shadow">
+                    No campaigns match the selected filters.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4">Media Sufficiency Analysis</h2>
+                <p className="text-gray-500">Sufficiency tab content coming soon.</p>
+              </div>
+            )
           ) : (
             <div className="text-center text-gray-500 py-4">
               No game plan data available
