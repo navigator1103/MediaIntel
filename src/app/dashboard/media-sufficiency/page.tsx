@@ -163,55 +163,6 @@ export default function MediaSufficiencyDashboard() {
         // Log the game plans data to help with debugging
         console.log('Game Plans Data:', gamePlans);
         
-        try {
-          // Extract unique lastUpdate options from game plans
-          const lastUpdateMap = new Map();
-            
-          // Fetch the last_updates table directly to get the options
-          const lastUpdatesResponse = await axios.get('/api/admin/last-updates');
-          if (lastUpdatesResponse.data && Array.isArray(lastUpdatesResponse.data)) {
-            lastUpdatesResponse.data.forEach((update: {id: number, name: string}) => {
-              lastUpdateMap.set(update.id, update.name);
-            });
-          }
-            
-          // Also try to extract from game plans as a backup
-          if (gamePlans && gamePlans.length > 0) {
-            gamePlans.forEach((plan: GamePlan) => {
-              // Debug: Log each plan's lastUpdate property
-              console.log('Plan lastUpdate:', plan.lastUpdate, 'Plan last_update_id:', plan.last_update_id);
-              
-              if (plan.lastUpdate && plan.lastUpdate.id && plan.lastUpdate.name) {
-                lastUpdateMap.set(plan.lastUpdate.id, plan.lastUpdate.name);
-              } else if (plan.last_update_id) {
-                // If we have a last_update_id but no lastUpdate object, try to use it
-                console.log('Using last_update_id:', plan.last_update_id);
-                // We'll set a temporary name based on the ID until we get the real name
-                lastUpdateMap.set(plan.last_update_id, `Update ${plan.last_update_id}`);
-              }
-            });
-          }
-            
-          // Convert to array of options
-          const updateOptions = Array.from(lastUpdateMap.entries()).map(([id, name]) => ({
-            id: Number(id),
-            name: String(name)
-          }));
-          
-          setAvailableUpdateOptions(updateOptions);
-          
-          // Set the most recent update as the default (or clear it if none available)
-          if (updateOptions.length > 0) {
-            setLastUpdateDate(String(updateOptions[0].id));
-          } else {
-            setLastUpdateDate('');
-          }
-        } catch (gamePlansError) {
-          console.error('Error fetching game plans:', gamePlansError);
-          // Continue with the dashboard even if game plans fetch fails
-          // This ensures the rest of the dashboard still works
-        }
-        
         // Generate campaign distribution data
         if (dashboardResponse.data && dashboardResponse.data.budgetByCategoryPercentage) {
           // Use the category percentage data from the API
@@ -300,40 +251,122 @@ export default function MediaSufficiencyDashboard() {
     // Apply media type filter
     if (selectedMediaTypes.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
-        plan.mediaSubType?.mediaType && 
-        selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+        plan.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
       );
     }
     
     // Apply country filter
     if (selectedCountries.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
-        plan.country && 
-        plan.country.name && 
-        selectedCountries.includes(plan.country.name)
+        plan.country?.name && selectedCountries.includes(plan.country.name)
       );
     }
     
     // Apply PM type filter
     if (selectedPMTypes.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType && 
-        selectedPMTypes.includes(plan.pmType.name)
+        plan.pmType?.name && selectedPMTypes.includes(plan.pmType.name)
       );
     }
     
     // Apply category filter
     if (selectedCategories.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
-        plan.category && 
-        plan.category.name && 
-        selectedCategories.includes(plan.category.name)
+        plan.category?.name && selectedCategories.includes(plan.category.name)
       );
     }
     
     // Last Update filter removed
     
     return filteredPlans;
+  };
+  
+  // Calculate TV and Digital share from game plans
+  const calculateMediaShares = (plans: GamePlan[]) => {
+    if (!plans || plans.length === 0) {
+      // If no plans data, use the summary data from gamePlanData if available
+      if (gamePlanData && gamePlanData.budgetByMediaType) {
+        let tvBudget = 0;
+        let digitalBudget = 0;
+        let totalBudget = 0;
+        
+        // Calculate from budgetByMediaType
+        Object.entries(gamePlanData.budgetByMediaType).forEach(([mediaType, budget]) => {
+          const budgetValue = Number(budget) || 0;
+          totalBudget += budgetValue;
+          
+          if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaType)) {
+            tvBudget += budgetValue;
+          } else {
+            digitalBudget += budgetValue;
+          }
+        });
+        
+        const tvShare = totalBudget > 0 ? (tvBudget / totalBudget) * 100 : 0;
+        const digitalShare = totalBudget > 0 ? (digitalBudget / totalBudget) * 100 : 0;
+        
+        console.log(`Using summary data - TV Share: ${tvShare}%, Digital Share: ${digitalShare}%`);
+        
+        return { tvShare, digitalShare, tvBudget, digitalBudget };
+      }
+      
+      return { tvShare: 0, digitalShare: 0, tvBudget: 0, digitalBudget: 0 };
+    }
+    
+    // Debug: Log the first few plans to see their structure
+    console.log('Sample game plans for media share calculation:', plans.slice(0, 3));
+    
+    let tvBudget = 0;
+    let digitalBudget = 0;
+    let totalBudget = 0;
+    
+    plans.forEach(plan => {
+      // Try multiple possible paths to get the media type name
+      const mediaTypeName = plan.mediaSubType?.mediaType?.name || 
+                            plan.mediaType?.name || 
+                            plan.media_type || 
+                            '';
+                            
+      const budget = Number(plan.budget) || 0;
+      
+      // Debug: Log each plan's media type and budget
+      console.log(`Plan: ${plan.id}, Media Type: ${mediaTypeName}, Budget: ${budget}`);
+      
+      totalBudget += budget;
+      
+      // Check if the media type is traditional (TV) or digital
+      if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaTypeName)) {
+        tvBudget += budget;
+        console.log(`Added ${budget} to TV budget (${mediaTypeName})`);
+      } else if (mediaTypeName) {
+        // Only count as digital if we have a valid media type
+        digitalBudget += budget;
+        console.log(`Added ${budget} to Digital budget (${mediaTypeName})`);
+      }
+    });
+    
+    // If we couldn't categorize any budget, use a default split as fallback
+    if (tvBudget === 0 && digitalBudget === 0 && totalBudget > 0) {
+      // Fallback to default values based on industry averages
+      tvBudget = totalBudget * 0.3;  // 30% TV
+      digitalBudget = totalBudget * 0.7;  // 70% Digital
+      console.log('Using fallback values for TV/Digital split');
+    }
+    
+    // Calculate percentages
+    const tvShare = totalBudget > 0 ? (tvBudget / totalBudget) * 100 : 0;
+    const digitalShare = totalBudget > 0 ? (digitalBudget / totalBudget) * 100 : 0;
+    
+    // Debug: Log the calculated values
+    console.log(`TV Budget: ${tvBudget}, Digital Budget: ${digitalBudget}, Total: ${totalBudget}`);
+    console.log(`TV Share: ${tvShare}%, Digital Share: ${digitalShare}%`);
+    
+    return {
+      tvShare,
+      digitalShare,
+      tvBudget,
+      digitalBudget
+    };
   };
   
   // Handle campaign distribution chart click
@@ -390,6 +423,33 @@ export default function MediaSufficiencyDashboard() {
         }
       });
       filtered.budgetByMediaType = filteredBudgetByMediaType;
+      
+      // Log the filter being applied
+      console.log('Applying media type filter:', selectedMediaTypes);
+      console.log('Filtered budget by media type:', filteredBudgetByMediaType);
+      
+      // Also need to filter categories by media type
+      // This is crucial for the campaign distribution chart to respond to media type filter
+      if (gamePlans && gamePlans.length > 0) {
+        const filteredPlans = applyAllFilters(gamePlans);
+        
+        // Recalculate budget by category based on filtered plans
+        const recalculatedBudgetByCategory: Record<string, number> = {};
+        
+        filteredPlans.forEach(plan => {
+          const categoryName = plan.category?.name || 'Unknown';
+          const budget = Number(plan.budget) || 0;
+          
+          if (!recalculatedBudgetByCategory[categoryName]) {
+            recalculatedBudgetByCategory[categoryName] = 0;
+          }
+          
+          recalculatedBudgetByCategory[categoryName] += budget;
+        });
+        
+        console.log('Recalculated budget by category:', recalculatedBudgetByCategory);
+        filtered.budgetByCategory = recalculatedBudgetByCategory;
+      }
     }
     
     // Apply country filter
@@ -662,53 +722,106 @@ export default function MediaSufficiencyDashboard() {
             </div>
           ) : filteredData ? (
             <>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                  <div className="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+              {/* Calculate media shares from filtered game plans */}
+              {(() => {
+                // Get the filtered game plans
+                const filteredPlans = gamePlans ? applyAllFilters(gamePlans) : [];
+                
+                // Debug log to check filtered plans
+                console.log(`Number of filtered plans: ${filteredPlans.length}`);
+                if (filteredPlans.length > 0) {
+                  console.log('First few filtered plans:', filteredPlans.slice(0, 3));
+                }
+                
+                // Calculate media shares directly from the budgetByMediaType in gamePlanData
+                let tvBudget = 0;
+                let digitalBudget = 0;
+                let totalBudget = 0;
+                
+                // Use the filtered data's budgetByMediaType if available
+                if (filteredData && filteredData.budgetByMediaType) {
+                  Object.entries(filteredData.budgetByMediaType).forEach(([mediaType, budget]) => {
+                    const budgetValue = Number(budget) || 0;
+                    totalBudget += budgetValue;
+                    
+                    if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaType)) {
+                      tvBudget += budgetValue;
+                    } else {
+                      digitalBudget += budgetValue;
+                    }
+                  });
+                }
+                
+                // Calculate percentages
+                const tvShare = totalBudget > 0 ? (tvBudget / totalBudget) * 100 : 0;
+                const digitalShare = totalBudget > 0 ? (digitalBudget / totalBudget) * 100 : 0;
+                
+                // Debug log the calculated values
+                console.log(`Top Cards - TV Budget: ${tvBudget}, Digital Budget: ${digitalBudget}, Total: ${totalBudget}`);
+                console.log(`Top Cards - TV Share: ${tvShare}%, Digital Share: ${digitalShare}%`);
+                
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {/* Campaigns Card */}
+                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Campaigns</div>
+                        <div className="text-2xl font-semibold text-gray-800">{filteredData.summary.campaignCount}</div>
+                      </div>
+                      <div className="text-purple-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Total Budget Card */}
+                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Total Budget</div>
+                        <div className="text-2xl font-semibold text-gray-800">€ {filteredData.summary.totalBudget.toLocaleString()}</div>
+                      </div>
+                      <div className="text-green-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* TV Share Card */}
+                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">TV Share</div>
+                        <div className="text-2xl font-semibold text-blue-500">
+                          {/* Make sure we always display a valid number */}
+                          {isNaN(tvShare) ? '0' : Math.round(tvShare)}%
+                        </div>
+                      </div>
+                      <div className="text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Digital Share Card */}
+                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">Digital Share</div>
+                        <div className="text-2xl font-semibold text-purple-600">
+                          {/* Make sure we always display a valid number */}
+                          {isNaN(digitalShare) ? '0' : Math.round(digitalShare)}%
+                        </div>
+                      </div>
+                      <div className="text-purple-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1">Total Budget</div>
-                    <div className="text-2xl font-semibold text-indigo-600">€{filteredData.summary.totalBudget.toLocaleString()}</div>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                  <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1">Campaigns</div>
-                    <div className="text-2xl font-semibold text-blue-600">{filteredData.summary.campaignCount}</div>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                  <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1">Media Types</div>
-                    <div className="text-2xl font-semibold text-green-600">{filteredData.summary.mediaTypeCount}</div>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 flex items-center">
-                  <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 mb-1">Countries</div>
-                    <div className="text-2xl font-semibold text-purple-600">{filteredData.summary.countryCount}</div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
               
               {/* Charts Row 1 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
