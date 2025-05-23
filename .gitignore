@@ -50,11 +50,6 @@ lerna-debug.log*
 
 # vercel
 
-# database files
-prisma/golden_rules.db
-prisma/*.db
-prisma/*.db-journal
-
 # backup files
 *.bak
 *.backup
