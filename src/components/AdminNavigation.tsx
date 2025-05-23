@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -125,6 +126,24 @@ const AdminNavigation = () => {
       )
     },
     {
+      name: 'Game Plans',
+      href: '/admin/media-sufficiency/game-plans',
+      icon: (active) => (
+        <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      )
+    },
+    {
+      name: 'Media Sufficiency Data',
+      href: '/admin/media-sufficiency/enhanced-upload',
+      icon: (active) => (
+        <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      )
+    },
+    {
       name: 'Settings',
       href: '/admin/settings',
       icon: (active) => (
@@ -172,7 +191,9 @@ const AdminNavigation = () => {
               '/admin/scores/golden-rules',
               '/admin/scores/five-stars',
               '/admin/taxonomy',
-              '/admin/countries'
+              '/admin/countries',
+              '/admin/media-sufficiency/game-plans',
+              '/admin/media-sufficiency/enhanced-upload'
             ].includes(item.href);
             
             return (

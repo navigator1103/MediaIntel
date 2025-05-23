@@ -53,3 +53,77 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { gamePlans } = await request.json();
+    
+    if (!Array.isArray(gamePlans) || gamePlans.length === 0) {
+      return NextResponse.json(
+        { error: 'Invalid game plans data' },
+        { status: 400 }
+      );
+    }
+    
+    // Process updates in sequence
+    const results = [];
+    
+    for (const plan of gamePlans) {
+      // Extract only the fields that can be updated directly
+      // Exclude nested objects and relations
+      const {
+        id,
+        startDate,
+        endDate,
+        totalBudget,
+        q1Budget,
+        q2Budget,
+        q3Budget,
+        q4Budget,
+        // Add other editable fields here
+      } = plan;
+      
+      if (!id) continue; // Skip items without ID
+      
+      try {
+        const updatedPlan = await prisma.gamePlan.update({
+          where: { id },
+          data: {
+            startDate,
+            endDate,
+            totalBudget,
+            q1Budget,
+            q2Budget,
+            q3Budget,
+            q4Budget,
+            // Add other editable fields here
+          },
+        });
+        
+        results.push({
+          id,
+          success: true,
+          data: updatedPlan,
+        });
+      } catch (error) {
+        console.error(`Error updating game plan ${id}:`, error);
+        results.push({
+          id,
+          success: false,
+          error: 'Failed to update game plan',
+        });
+      }
+    }
+    
+    return NextResponse.json({
+      message: 'Game plans updated',
+      results,
+    });
+  } catch (error) {
+    console.error('Error updating game plans:', error);
+    return NextResponse.json(
+      { error: 'Failed to update game plans' },
+      { status: 500 }
+    );
+  }
+}
