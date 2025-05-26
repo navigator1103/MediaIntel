@@ -98,41 +98,112 @@ export async function GET(request: NextRequest) {
     
     console.log('API: Using change request filter criteria:', filter);
     
-    const changeRequests = await prisma.changeRequest.findMany({
+    // Get basic change requests first
+    const basicChangeRequests = await prisma.changeRequest.findMany({
       where: filter,
-      include: {
-        score: {
-          include: {
-            rule: true,
-            country: true,
-            brand: true
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       },
       ...(limit && !isNaN(parseInt(limit)) ? { take: parseInt(limit) } : {})
     });
     
-    console.log(`API: Found ${changeRequests.length} change requests matching criteria`);
+    console.log(`API: Found ${basicChangeRequests.length} change requests matching criteria`);
     
-    // Ensure all change requests have consistent structure
-    const normalizedChangeRequests = changeRequests.map(request => ({
-      ...request,
-      // Ensure user property exists even if null
-      user: request.user || null
-    }));
+    // Process each change request to add related data
+    const processedRequests = [];
+    
+    for (const request of basicChangeRequests) {
+      try {
+        // Create a base request object
+        const processedRequest: any = { ...request };
+        
+        // Try to fetch score data if scoreId exists
+        if (request.scoreId) {
+          try {
+            const score = await prisma.score.findUnique({
+              where: { id: request.scoreId },
+            });
+            
+            if (score) {
+              processedRequest.score = score;
+              
+              // Fetch related rule if score exists
+              if (score.ruleId) {
+                try {
+                  const rule = await prisma.rule.findUnique({
+                    where: { id: score.ruleId }
+                  });
+                  if (rule) {
+                    processedRequest.score.rule = rule;
+                  }
+                } catch (ruleError) {
+                  console.error(`Error fetching rule for score ${score.id}:`, ruleError);
+                }
+              }
+              
+              // Fetch related country if score exists
+              if (score.countryId) {
+                try {
+                  const country = await prisma.country.findUnique({
+                    where: { id: score.countryId }
+                  });
+                  if (country) {
+                    processedRequest.score.country = country;
+                  }
+                } catch (countryError) {
+                  console.error(`Error fetching country for score ${score.id}:`, countryError);
+                }
+              }
+              
+              // Fetch related brand if score exists
+              if (score.brandId) {
+                try {
+                  const brand = await prisma.brand.findUnique({
+                    where: { id: score.brandId }
+                  });
+                  if (brand) {
+                    processedRequest.score.brand = brand;
+                  }
+                } catch (brandError) {
+                  console.error(`Error fetching brand for score ${score.id}:`, brandError);
+                }
+              }
+            }
+          } catch (scoreError) {
+            console.error(`Error fetching score for change request ${request.id}:`, scoreError);
+          }
+        }
+        
+        // Try to fetch user data if userId exists
+        if ('userId' in request && request.userId) {
+          try {
+            const user = await prisma.user.findUnique({
+              where: { id: request.userId },
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            });
+            if (user) {
+              processedRequest.user = user;
+            }
+          } catch (userError) {
+            console.error(`Error fetching user for change request ${request.id}:`, userError);
+            // User relation might not exist in schema, continue without it
+          }
+        }
+        
+        processedRequests.push(processedRequest);
+      } catch (requestError) {
+        console.error(`Error processing change request ${request.id}:`, requestError);
+        // Include the basic request anyway
+        processedRequests.push(request);
+      }
+    }
     
     // Set cache control headers to prevent caching
-    return new NextResponse(JSON.stringify(normalizedChangeRequests), {
+    return new NextResponse(JSON.stringify(processedRequests), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
