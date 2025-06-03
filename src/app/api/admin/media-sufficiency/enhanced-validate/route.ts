@@ -210,7 +210,9 @@ export async function POST(request: NextRequest) {
       mediaSubTypes: any[],
       businessUnits: any[],
       pmTypes: any[],
-      campaigns: any[]
+      campaigns: any[],
+      mediaToSubtypes?: Record<string, string[]>,
+      categoryToRanges?: Record<string, string[]>
     } = {
       countries: [],
       categories: [],
@@ -262,6 +264,56 @@ export async function POST(request: NextRequest) {
       masterData.businessUnits = businessUnits;
       masterData.pmTypes = pmTypes;
       masterData.campaigns = campaigns;
+      
+      // Create media type to subtype mapping for validation
+      const mediaToSubtypes: Record<string, string[]> = {};
+      
+      // Populate the mapping from the database relationships
+      if (mediaTypes && mediaSubTypes) {
+        // Create a map of media type IDs to names for quick lookup
+        const mediaTypeMap = new Map<number, string>();
+        mediaTypes.forEach((mediaType: any) => {
+          if (mediaType && mediaType.id && mediaType.name) {
+            mediaTypeMap.set(mediaType.id, mediaType.name);
+          }
+        });
+        
+        // Group subtypes by their parent media type
+        mediaSubTypes.forEach((subtype: any) => {
+          if (subtype && subtype.mediaTypeId && subtype.name) {
+            const mediaTypeName = mediaTypeMap.get(subtype.mediaTypeId);
+            if (mediaTypeName) {
+              if (!mediaToSubtypes[mediaTypeName]) {
+                mediaToSubtypes[mediaTypeName] = [];
+              }
+              mediaToSubtypes[mediaTypeName].push(subtype.name);
+            }
+          }
+        });
+        
+        // Associate TV subtypes with Traditional media type
+        if (mediaToSubtypes['TV'] && mediaToSubtypes['TV'].length > 0) {
+          if (!mediaToSubtypes['Traditional']) {
+            mediaToSubtypes['Traditional'] = [];
+          }
+          
+          // Add all TV subtypes to Traditional
+          mediaToSubtypes['Traditional'] = [
+            ...mediaToSubtypes['Traditional'],
+            ...mediaToSubtypes['TV']
+          ];
+          
+          // Remove duplicates if any
+          mediaToSubtypes['Traditional'] = [...new Set(mediaToSubtypes['Traditional'])];
+          
+          console.log('Associated TV subtypes with Traditional:', mediaToSubtypes['Traditional']);
+        }
+      }
+      
+      // Add the mapping to masterData for validation
+      masterData.mediaToSubtypes = mediaToSubtypes;
+      
+      console.log('Media to subtypes mapping for validation:', mediaToSubtypes);
       
     } catch (error) {
       console.error('Error fetching master data:', error);

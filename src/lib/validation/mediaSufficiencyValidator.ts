@@ -380,61 +380,26 @@ export class MediaSufficiencyValidator {
       field: 'Media',
       type: 'relationship',
       severity: 'critical',
-      message: 'Media must be a valid media type',
+      message: 'Media must be a valid media type from the database',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
         // Check if media exists in master data
         const mediaInput = value.toString().trim();
         
-        // Define common media types if not in master data
-        const defaultMediaTypes = ['Digital', 'Traditional', 'Social', 'Print', 'TV', 'Radio', 'OOH'];
+        // Define allowed media types based on our database structure
+        // These should match exactly with the media_types table
+        const allowedMediaTypes = ['Digital', 'TV', 'Traditional'];
         
-        // Get media types from master data or use defaults
-        let mediaTypes = masterData?.mediaTypes || [];
+        // Get media types from master data or use allowed types
+        let mediaTypes = masterData?.mediaTypes || allowedMediaTypes;
         
-        // If no media types in master data, try to extract from records
-        if (mediaTypes.length === 0 && masterData?.records) {
-          const extractedTypes = new Set<string>();
-          
-          // Extract unique media types from records
-          masterData.records.forEach((record: any) => {
-            if (record['Media Types'] && typeof record['Media Types'] === 'string') {
-              extractedTypes.add(record['Media Types'].trim());
-            }
-          });
-          
-          mediaTypes = Array.from(extractedTypes);
-        }
-        
-        // If still no media types, use defaults
-        if (mediaTypes.length === 0) {
-          mediaTypes = defaultMediaTypes;
-        }
-        
-        // Debug: Log ALL media validation attempts
+        // Debug: Log media validation attempt
         console.log('Validating media value:', mediaInput);
         console.log('Available media types:', mediaTypes);
-        console.log('Media types as lowercase:', mediaTypes.map(m => {
-          if (typeof m === 'string') return m.toLowerCase();
-          if (m && typeof m === 'object' && 'name' in m && typeof (m as { name: string }).name === 'string') return (m as { name: string }).name.toLowerCase();
-          return String(m);
-        }));
-        
-        // Force Traditional to be valid
-        if (mediaInput.toLowerCase() === 'traditional') {
-          console.log('Found Traditional media type - forcing it to be valid');
-          return true;
-        }
-        
-        // Also accept any media type that contains 'traditional'
-        if (mediaInput.toLowerCase().includes('traditional')) {
-          console.log('Found media type containing traditional - forcing it to be valid');
-          return true;
-        }
         
         // Case-insensitive search with type checking
-        return mediaTypes.some((m: string | { name: string } | unknown) => {
+        const isValid = mediaTypes.some((m: string | { name: string } | unknown) => {
           // Ensure m is a string before calling toLowerCase
           if (typeof m === 'string') {
             return m.toLowerCase() === mediaInput.toLowerCase();
@@ -446,6 +411,9 @@ export class MediaSufficiencyValidator {
           // If m is not a string or object with name, compare directly
           return m === mediaInput;
         });
+        
+        console.log(`Media validation result for ${mediaInput}: ${isValid}`);
+        return isValid;
       }
     });
 
@@ -453,20 +421,55 @@ export class MediaSufficiencyValidator {
     this.rules.push({
       field: 'Media Subtype',
       type: 'relationship',
-      severity: 'warning',
-      message: 'Media Subtype should be valid for the selected Media',
+      severity: 'critical',
+      message: 'Media Subtype must be valid for the selected Media',
       validate: (value, record, allRecords, masterData) => {
-        if (!value || !record.Media) return true; // Not critical
+        if (!value || !record.Media) return false; // Critical - require both fields
         
         const media = record.Media.toString().trim();
         const subtype = value.toString().trim();
         
-        // If we have media-to-subtypes mapping, use it
+        // Log validation attempt for debugging
+        console.log(`Validating Media Subtype: "${subtype}" for Media: "${media}"`);
+        
+        // Special case: If media is Traditional, allow TV subtypes
+        if (media.toLowerCase() === 'traditional') {
+          console.log('Traditional media type detected - checking TV subtypes');
+          
+          // For Traditional media, we'll check if the subtype exists under TV
+          if (masterData?.mediaToSubtypes && masterData.mediaToSubtypes['TV']) {
+            const tvSubtypes = masterData.mediaToSubtypes['TV'] || [];
+            
+            // Check if the subtype exists under TV
+            const isValidTvSubtype = tvSubtypes.some((s: string | { name: string }) => {
+              if (typeof s === 'string') {
+                return s.toLowerCase() === subtype.toLowerCase();
+              }
+              if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
+                return s.name.toLowerCase() === subtype.toLowerCase();
+              }
+              return s === subtype;
+            });
+            
+            console.log(`Validation result for Traditional/${subtype}: ${isValidTvSubtype}`);
+            return isValidTvSubtype;
+          }
+        }
+        
+        // Standard validation for other media types
         if (masterData?.mediaToSubtypes) {
-          const validSubtypes = masterData.mediaToSubtypes[media] || [];
+          // Find the media type in a case-insensitive way
+          const mediaKey = Object.keys(masterData.mediaToSubtypes).find(
+            key => key.toLowerCase() === media.toLowerCase()
+          );
+          
+          // Get valid subtypes for this media
+          const validSubtypes = mediaKey ? masterData.mediaToSubtypes[mediaKey] || [] : [];
+          
+          console.log(`Valid subtypes for ${media}:`, validSubtypes);
           
           // Case-insensitive search with type checking
-          return validSubtypes.some((s: string | { name: string }) => {
+          const isValid = validSubtypes.some((s: string | { name: string }) => {
             // Ensure s is a string before calling toLowerCase
             if (typeof s === 'string') {
               return s.toLowerCase() === subtype.toLowerCase();
@@ -478,10 +481,15 @@ export class MediaSufficiencyValidator {
             // If s is not a string or object with name, compare directly
             return s === subtype;
           });
+          
+          console.log(`Validation result for ${subtype}: ${isValid}`);
+          return isValid;
         }
         
         // If no mapping available, we can't validate this relationship
-        return true;
+        // In production, this should fail closed (return false) for safety
+        console.log('No media-to-subtypes mapping available, validation failed');
+        return false;
       }
     });
 

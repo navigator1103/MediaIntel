@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
+import { Pool } from 'pg';
 
 // Function to log with timestamp
 function logWithTimestamp(message: string, data?: any) {
@@ -32,20 +33,27 @@ if (!postgresUrl && fs.existsSync('.postgres-url')) {
   logWithTimestamp(`Using PostgreSQL URL from .postgres-url file: ${postgresUrl}`);
 }
 
-// Create a PostgreSQL connection pool
-const pgPool = new Pool({
-  connectionString: postgresUrl
-});
-
-// Test PostgreSQL connection
-pgPool.connect()
-  .then((client: any) => {
-    logWithTimestamp('Successfully connected to PostgreSQL');
-    client.release();
-  })
-  .catch((error: Error) => {
-    logErrorWithTimestamp('Failed to connect to PostgreSQL', error);
-  });
+// Create a PostgreSQL connection pool if PostgreSQL URL is available
+let pgPool: Pool | null = null;
+if (postgresUrl) {
+  try {
+    pgPool = new Pool({
+      connectionString: postgresUrl
+    });
+    
+    // Test PostgreSQL connection
+    pgPool.connect()
+      .then((client: any) => {
+        logWithTimestamp('Successfully connected to PostgreSQL');
+        client.release();
+      })
+      .catch((error: Error) => {
+        logErrorWithTimestamp('Failed to connect to PostgreSQL', error);
+      });
+  } catch (error) {
+    logErrorWithTimestamp('Failed to initialize PostgreSQL pool', error);
+  }
+}
 
 // Use the standard Prisma client for SQLite operations
 const prisma = new PrismaClient();
@@ -426,6 +434,8 @@ export async function POST(request: NextRequest) {
                     mediaTypeId = processedEntities.mediaTypes.get(record.media) || 0;
                   }
                 }
+                
+
                 
                 // 6. Process Media Subtype
                 let mediaSubtypeId: number | undefined;
