@@ -1,850 +1,209 @@
 {
   "categoryToRanges": {
+    "Hand Body": [
+      "Soft",
+      "Aloe",
+      "Milk",
+      "Vitamin Range",
+      "Vitamin Serum",
+      "Radiant Beauty",
+      "Crème",
+      "Luminous 630",
+      "Q10",
+      "Brightness",
+      "Repair & Care",
+      "Even Tone Core",
+      "Natural Glow",
+      "Body Lotion",
+      "Hydration",
+      "Aquaphor",
+      "pH5",
+      "Atopi"
+    ],
+    "Deo": [
+      "Pearl & Beauty",
+      "Deep",
+      "Even Tone",
+      "Skin Hero",
+      "Dry Deo",
+      "Deep Men",
+      "Derma Control",
+      "Clinical",
+      "Hijab",
+      "Cool Kick",
+      "Black & White"
+    ],
     "Face Care": [
+      "Luminous 630",
       "Cellular",
       "Epigenetics",
       "Q10",
-      "Luminous 630",
-      "Rose Care",
-      "Facial"
+      "Facial",
+      "Acne"
     ],
-    "Hand Body": [
-      "Milk",
-      "Cr�me",
-      "Luminous 630",
-      "Q10",
-      "Repair & Care",
-      "Aloe",
-      "Soft",
-      "Vitamin Serum",
-      "Vitamin Range",
-      "Even Tone Core",
-      "Natural Glow",
-      "Deep",
-      "Radiant Beauty",
-      "Ozonio"
+    "X-Cat": [
+      "All",
+      "Brand"
     ],
     "Face Cleansing": [
-      "Daily Essentials",
       "Micellar",
-      "Acne",
-      "Luminous 630"
-    ],
-    "Sun": [
-      "Protect & Moisture",
-      "UV Face",
-      "Sun"
+      "Daily Essentials",
+      "Acne"
     ],
     "Men": [
       "Deep",
+      "Cool Kick",
       "Sensitive",
-      "Men",
       "Extra Bright",
       "Acne"
     ],
-    "Deo": [
-      "Black & White",
-      "Deep",
-      "Pearl & Beauty",
-      "Clinical",
-      "Deo Male",
-      "Cool Kick",
-      "Even Tone",
-      "Hijab Fresh",
-      "Skin Hero"
+    "Sun": [
+      "UV Face",
+      "Protect & Moisture",
+      "Sun"
     ],
     "Lip": [
       "Lip"
     ],
-    "X-Cat": [
-      "All"
+    "Acne": [
+      "Acne"
+    ],
+    "Anti Age": [
+      "Anti Age"
+    ],
+    "Anti Pigment": [
+      "Anti Pigment"
+    ],
+    "Dry Skin": [
+      "Body Lotion",
+      "Hydration",
+      "Aquaphor",
+      "pH5",
+      "Atopi",
+      "Repair"
     ]
   },
   "rangeToCategories": {
-    "Cellular": [
-      "Face Care"
-    ],
-    "Epigenetics": [
-      "Face Care"
-    ],
-    "Q10": [
-      "Face Care",
-      "Hand Body"
-    ],
-    "Luminous 630": [
-      "Face Care",
-      "Hand Body",
-      "Face Cleansing"
-    ],
-    "Rose Care": [
-      "Face Care"
-    ],
-    "Facial": [
-      "Face Care"
-    ],
-    "Milk": [
-      "Hand Body"
-    ],
-    "Cr�me": [
-      "Hand Body"
-    ],
-    "Repair & Care": [
-      "Hand Body"
-    ],
-    "Aloe": [
-      "Hand Body"
-    ],
-    "Soft": [
-      "Hand Body"
-    ],
-    "Vitamin Serum": [
-      "Hand Body"
-    ],
-    "Vitamin Range": [
-      "Hand Body"
-    ],
-    "Even Tone Core": [
-      "Hand Body"
-    ],
-    "Natural Glow": [
-      "Hand Body"
-    ],
-    "Deep": [
-      "Hand Body",
-      "Men",
-      "Deo"
-    ],
-    "Radiant Beauty": [
-      "Hand Body"
-    ],
-    "Ozonio": [
-      "Hand Body"
-    ],
-    "Daily Essentials": [
-      "Face Cleansing"
-    ],
-    "Micellar": [
-      "Face Cleansing"
-    ],
-    "Acne": [
-      "Face Cleansing",
-      "Men"
-    ],
-    "Protect & Moisture": [
-      "Sun"
-    ],
-    "UV Face": [
-      "Sun"
-    ],
-    "Sun": [
-      "Sun"
-    ],
-    "Sensitive": [
-      "Men"
-    ],
-    "Men": [
-      "Men"
-    ],
-    "Extra Bright": [
-      "Men"
-    ],
-    "Black & White": [
-      "Deo"
-    ],
-    "Pearl & Beauty": [
-      "Deo"
-    ],
-    "Clinical": [
-      "Deo"
-    ],
-    "Deo Male": [
-      "Deo"
-    ],
-    "Cool Kick": [
-      "Deo"
-    ],
-    "Even Tone": [
-      "Deo"
-    ],
-    "Hijab Fresh": [
-      "Deo"
-    ],
-    "Skin Hero": [
-      "Deo"
-    ],
-    "Lip": [
-      "Lip"
-    ],
-    "All": [
-      "X-Cat"
-    ]
+    "Soft": ["Hand Body"],
+    "Aloe": ["Hand Body"],
+    "Milk": ["Hand Body"],
+    "Vitamin Range": ["Hand Body"],
+    "Vitamin Serum": ["Hand Body"],
+    "Radiant Beauty": ["Hand Body"],
+    "Crème": ["Hand Body"],
+    "Luminous 630": ["Hand Body", "Face Care"],
+    "Q10": ["Hand Body", "Face Care"],
+    "Brightness": ["Hand Body"],
+    "Repair & Care": ["Hand Body"],
+    "Even Tone Core": ["Hand Body"],
+    "Natural Glow": ["Hand Body"],
+    "Body Lotion": ["Hand Body", "Dry Skin"],
+    "Hydration": ["Hand Body", "Dry Skin"],
+    "Aquaphor": ["Hand Body", "Dry Skin"],
+    "pH5": ["Hand Body", "Dry Skin"],
+    "Atopi": ["Hand Body", "Dry Skin"],
+    "Repair": ["Dry Skin"],
+    "Pearl & Beauty": ["Deo"],
+    "Deep": ["Deo", "Men"],
+    "Even Tone": ["Deo"],
+    "Skin Hero": ["Deo"],
+    "Dry Deo": ["Deo"],
+    "Deep Men": ["Deo"],
+    "Derma Control": ["Deo"],
+    "Clinical": ["Deo"],
+    "Hijab": ["Deo"],
+    "Cool Kick": ["Deo", "Men"],
+    "Black & White": ["Deo"],
+    "Cellular": ["Face Care"],
+    "Epigenetics": ["Face Care"],
+    "Facial": ["Face Care"],
+    "Acne": ["Face Care", "Men", "Acne", "Face Cleansing"],
+    "All": ["X-Cat"],
+    "Brand": ["X-Cat"],
+    "Micellar": ["Face Cleansing"],
+    "Daily Essentials": ["Face Cleansing"],
+    "Sensitive": ["Men"],
+    "Extra Bright": ["Men"],
+    "UV Face": ["Sun"],
+    "Protect & Moisture": ["Sun"],
+    "Sun": ["Sun"],
+    "Lip": ["Lip"],
+    "Anti Age": ["Anti Age"],
+    "Anti Pigment": ["Anti Pigment"]
   },
-  "records": [
-    {
-      "Categories": "Face Care",
-      "Range": "Cellular",
-      "Campaigns": "Cellular Filler",
-      "Media Types": "Digital",
-      "Media Sub Types": "PM & FF",
-      "PM Type": "GR Only",
-      "Objectives Values": "NPD"
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Cellular",
-      "Campaigns": "Cellular Lift",
-      "Media Types": "Digital",
-      "Media Sub Types": "PM & FF",
-      "PM Type": "PM Advanced",
-      "Objectives Values": "Maintenance"
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Cellular",
-      "Campaigns": "Genie",
-      "Media Types": "Digital",
-      "Media Sub Types": "PM & FF",
-      "PM Type": "Full Funnel Basic",
-      "Objectives Values": "New Claim / Ingredient"
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Cellular",
-      "Campaigns": "Cellular Bakuchiol",
-      "Media Types": "Digital",
-      "Media Sub Types": "PM & FF",
-      "PM Type": "Full Funnel Advanced",
-      "Objectives Values": "Other (Specify in Comments)"
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Cellular",
-      "Campaigns": "Cellular Cushion",
-      "Media Types": "Digital",
-      "Media Sub Types": "Influencers Amplification",
-      "PM Type": "GR Only",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Epigenetics",
-      "Campaigns": "Epigenetics",
-      "Media Types": "Digital",
-      "Media Sub Types": "Influencers Amplification",
-      "PM Type": "PM Advanced",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Q10",
-      "Campaigns": "Q10 Range",
-      "Media Types": "Digital",
-      "Media Sub Types": "Influencers Amplification",
-      "PM Type": "Full Funnel Basic",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Q10",
-      "Campaigns": "Q10 Guardian",
-      "Media Types": "Digital",
-      "Media Sub Types": "Influencers Amplification",
-      "PM Type": "Full Funnel Advanced",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Q10",
-      "Campaigns": "Q10 Skin Diet",
-      "Media Types": "Digital",
-      "Media Sub Types": "Influencers Organic",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Luminous 630",
-      "Campaigns": "50 Shades",
-      "Media Types": "Digital",
-      "Media Sub Types": "Other Digital",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Luminous 630",
-      "Campaigns": "Lucia",
-      "Media Types": "Digital",
-      "Media Sub Types": "Search",
-      "PM Type": "GR Only",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Luminous 630",
-      "Campaigns": "Sirena",
-      "Media Types": "Traditional",
-      "Media Sub Types": "Open TV",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Luminous 630",
-      "Campaigns": "Luminous Launch",
-      "Media Types": "Traditional",
-      "Media Sub Types": "Paid TV",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Luminous 630",
-      "Campaigns": "Even Glow",
-      "Media Types": "Traditional",
-      "Media Sub Types": "OOH",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Rose Care",
-      "Campaigns": "Petals",
-      "Media Types": "Traditional",
-      "Media Sub Types": "Radio",
-      "PM Type": "Non PM",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Facial",
-      "Campaigns": "Skin Gin",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Care",
-      "Range": "Facial",
-      "Campaigns": "Potinhos",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Milk",
-      "Campaigns": "Body Milk 5 in 1",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Cr�me",
-      "Campaigns": "Cr�me",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Luminous 630",
-      "Campaigns": "Polaris",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Q10",
-      "Campaigns": "Q10 Body",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Repair & Care",
-      "Campaigns": "Repair & Care",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Aloe",
-      "Campaigns": "Body Aloe Summer",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Soft",
-      "Campaigns": "Soft",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Soft",
-      "Campaigns": "Soft UV",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Vitamin Serum",
-      "Campaigns": "C&E Tata",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Vitamin Range",
-      "Campaigns": "Super 10",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Vitamin Range",
-      "Campaigns": "Super 8 Core",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Even Tone Core",
-      "Campaigns": "Even Tone Core",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Natural Glow",
-      "Campaigns": "Natural Glow",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Deep",
-      "Campaigns": "Deep x-Cat",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Radiant Beauty",
-      "Campaigns": "Radiant Beauty",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Hand Body",
-      "Range": "Ozonio",
-      "Campaigns": "Ozonio",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Daily Essentials",
-      "Campaigns": "Daily Essentials",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Micellar",
-      "Campaigns": "Micellar Core",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Micellar",
-      "Campaigns": "Micellar Siri",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Micellar",
-      "Campaigns": "Micellar Pearl Bright",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Micellar",
-      "Campaigns": "Micellar Melange",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Micellar",
-      "Campaigns": "Micellar Siri 2.0",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Acne",
-      "Campaigns": "Derma Skin Clear",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Acne",
-      "Campaigns": "Acne Control",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Face Cleansing",
-      "Range": "Luminous 630",
-      "Campaigns": "Luminous Foam",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "Protect & Moisture",
-      "Campaigns": "Protect & Moisture",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "UV Face",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "UV Face Fluid",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "UV Face Fluid Tinted",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "Sun",
-      "Campaigns": "Sun Range",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "C&E",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "Korea",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Sun",
-      "Range": "UV Face",
-      "Campaigns": "UV Specialist",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Men",
-      "Range": "Deep",
-      "Campaigns": "Deep Cleansing",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Men",
-      "Range": "Sensitive",
-      "Campaigns": "Sensitive Moisture",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Men",
-      "Range": "Men",
-      "Campaigns": "DSR Range",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Men",
-      "Range": "Extra Bright",
-      "Campaigns": "Extra Bright Starwalker",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Men",
-      "Range": "Acne",
-      "Campaigns": "Bright Oil Clear",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Black & White",
-      "Campaigns": "Black & White",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Black & White",
-      "Campaigns": "Black & White Male",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Black & White",
-      "Campaigns": "Black & White Female",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Deep",
-      "Campaigns": "Deep",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Deep",
-      "Campaigns": "Deep Espresso",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Pearl & Beauty",
-      "Campaigns": "Pearl & Beauty",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Clinical",
-      "Campaigns": "Derma Control",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Clinical",
-      "Campaigns": "Clinical",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Deo Male",
-      "Campaigns": "Deo Male",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Cool Kick",
-      "Campaigns": "Cool Kick",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Even Tone",
-      "Campaigns": "Extra Bright",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Even Tone",
-      "Campaigns": "Even Tone Core",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Hijab Fresh",
-      "Campaigns": "Hijab Fresh",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Deo",
-      "Range": "Skin Hero",
-      "Campaigns": "Skin Hero",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Lip",
-      "Range": "Lip",
-      "Campaigns": "Lip",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Lip",
-      "Range": "Lip",
-      "Campaigns": "Disney",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "Lip",
-      "Range": "Lip",
-      "Campaigns": "Hyaluron",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "X-Cat",
-      "Range": "All",
-      "Campaigns": "Search AWON",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    },
-    {
-      "Categories": "X-Cat",
-      "Range": "All",
-      "Campaigns": "Social AWON",
-      "Media Types": "",
-      "Media Sub Types": "",
-      "PM Type": "",
-      "Objectives Values": ""
-    }
-  ]
+  "mediaTypes": [
+    "Digital",
+    "Traditional",
+    "Social",
+    "Search",
+    "Programmatic",
+    "Cinema",
+    "OOH",
+    "Radio",
+    "TV",
+    "Print"
+  ],
+  "categories": [
+    "Face Care",
+    "Hand Body",
+    "Face Cleansing",
+    "Sun",
+    "Men",
+    "Deo",
+    "Lip",
+    "X-Cat",
+    "Acne",
+    "Anti Age",
+    "Anti Pigment",
+    "Dry Skin"
+  ],
+  "ranges": [
+    "Soft",
+    "Aloe",
+    "Milk",
+    "Vitamin Range",
+    "Vitamin Serum",
+    "Radiant Beauty",
+    "Crème",
+    "Luminous 630",
+    "Q10",
+    "Brightness",
+    "Repair & Care",
+    "Even Tone Core",
+    "Natural Glow",
+    "Pearl & Beauty",
+    "Deep",
+    "Even Tone",
+    "Skin Hero",
+    "Dry Deo",
+    "Deep Men",
+    "Derma Control",
+    "Clinical",
+    "Hijab",
+    "Cool Kick",
+    "Black & White",
+    "Cellular",
+    "Epigenetics",
+    "Facial",
+    "Acne",
+    "All",
+    "Micellar",
+    "Daily Essentials",
+    "Sensitive",
+    "Extra Bright",
+    "UV Face",
+    "Protect & Moisture",
+    "Sun",
+    "Lip",
+    "Anti Age",
+    "Anti Pigment",
+    "Body Lotion",
+    "Hydration",
+    "Aquaphor",
+    "pH5",
+    "Atopi",
+    "Repair",
+    "Brand"
+  ],
+  "records": []
 }

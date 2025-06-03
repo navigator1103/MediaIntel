@@ -17,6 +17,11 @@ export default function EnhancedValidate() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [masterData, setMasterData] = useState<any>(null);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
+  const [allValidationIssues, setAllValidationIssues] = useState<ValidationIssue[]>([]);
+  const [totalIssueCount, setTotalIssueCount] = useState<number>(0);
+  const [isLargeDataset, setIsLargeDataset] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [issuesPerPage, setIssuesPerPage] = useState<number>(100);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [importProgress, setImportProgress] = useState<{
@@ -74,11 +79,26 @@ export default function EnhancedValidate() {
           // Ensure validationIssues is an array
           const issues = Array.isArray(data.validationIssues) ? data.validationIssues : [];
           console.log('Validation issues:', issues.length);
-          setValidationIssues(issues);
+          
+          // Handle large datasets
+          if (data.isLargeDataset) {
+            setIsLargeDataset(true);
+            setTotalIssueCount(data.totalIssueCount || issues.length);
+            setAllValidationIssues(issues);
+            // Show first page of issues
+            setValidationIssues(issues.slice(0, issuesPerPage));
+          } else {
+            setValidationIssues(issues);
+            setAllValidationIssues(issues);
+            setTotalIssueCount(issues.length);
+          }
+          
           setValidationStatus('success');
         } else {
           console.log('No validation issues in response');
           setValidationIssues([]);
+          setAllValidationIssues([]);
+          setTotalIssueCount(0);
         }
         
         // Set validation summary if it exists
@@ -88,8 +108,6 @@ export default function EnhancedValidate() {
         
         // Set master data
         if (data.sessionData && data.sessionData.masterData) {
-          setMasterData(data.sessionData.masterData);
-          
           try {
             // Fetch additional master data from our API endpoint
             const masterDataResponse = await fetch('/api/admin/media-sufficiency/master-data');
@@ -102,19 +120,20 @@ export default function EnhancedValidate() {
                 ...additionalMasterData
               };
               
+              // Set master data and initialize validator in one go
               setMasterData(mergedMasterData);
-              
-              // Initialize validator with merged master data
               const newValidator = new MediaSufficiencyValidator(mergedMasterData);
               setValidator(newValidator);
             } else {
               // If API fails, still initialize with original master data
+              setMasterData(data.sessionData.masterData);
               const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
               setValidator(newValidator);
             }
           } catch (error) {
             console.error('Error fetching additional master data:', error);
             // Initialize with original master data if API fails
+            setMasterData(data.sessionData.masterData);
             const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
             setValidator(newValidator);
           }
@@ -145,7 +164,14 @@ export default function EnhancedValidate() {
       // Create an async function inside useEffect
       const executeValidation = async () => {
         try {
-          await runValidation();
+          // Only run client-side validation if we don't already have validation issues
+          // This prevents unnecessary re-validation on initial load
+          if (allValidationIssues.length === 0 && validationIssues.length === 0) {
+            await runValidation();
+          } else {
+            // If we already have validation issues, just set the status to success
+            setValidationStatus('success');
+          }
         } catch (error) {
           console.error('Error executing validation:', error);
           setValidationStatus('error');
@@ -156,36 +182,87 @@ export default function EnhancedValidate() {
       // Call the async function
       executeValidation();
     }
-  }, [csvData, validator]);
+  }, [csvData, validator, allValidationIssues.length, validationIssues.length]);
   
-  // Run validation
+  // Run validation with chunked processing for better performance
   const runValidation = async () => {
     if (!validator || csvData.length === 0) return;
     
     setValidationStatus('validating');
-    console.log('Starting validation with data:', csvData.slice(0, 2)); // Log first 2 records
-    console.log('Master data available:', masterData ? Object.keys(masterData) : 'None');
+    console.log(`Total records to validate: ${csvData.length}`);
     
     try {
-      // Validate all records - properly await the Promise
-      console.log('Running validator.validateAll...');
-      const issues = await validator.validateAll(csvData);
+      // For large datasets, use chunked processing to prevent UI freezing
+      // Use smaller chunks for better UI responsiveness
+      const CHUNK_SIZE = 250; // Process 250 records at a time
+      const allIssues = [];
       
-      // Ensure issues is an array
-      if (!Array.isArray(issues)) {
-        console.error('validateAll did not return an array:', issues);
-        throw new Error('Validation failed: Invalid response format');
+      // For very large datasets, use server-side validation instead
+      if (csvData.length > 5000) {
+        console.log('Large dataset detected, using server-side validation');
+        
+        try {
+          // Call the server-side validation endpoint
+          const response = await fetch(`/api/admin/media-sufficiency/enhanced-validate/batch?sessionId=${sessionId}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              sessionId
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Server validation failed: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          
+          if (Array.isArray(data.validationIssues)) {
+            setValidationIssues(data.validationIssues);
+            setValidationSummary(data.validationSummary);
+            setValidationStatus('success');
+            return;
+          }
+        } catch (error) {
+          console.error('Error with server-side validation, falling back to client-side:', error);
+          // Continue with client-side validation as fallback
+        }
       }
       
-      console.log(`Validation complete. Found ${issues.length} issues.`);
-      if (issues.length > 0) {
-        console.log('Sample issues:', issues.slice(0, 5)); // Log first 5 issues
+      // Process data in chunks
+      for (let i = 0; i < csvData.length; i += CHUNK_SIZE) {
+        // Update progress message to show user validation is still working
+        const progressMessage = `Validating records ${i + 1} to ${Math.min(i + CHUNK_SIZE, csvData.length)} of ${csvData.length}...`;
+        console.log(progressMessage);
+        
+        // Get the current chunk of data
+        const chunk = csvData.slice(i, i + CHUNK_SIZE);
+        
+        // Validate the chunk and collect issues
+        const chunkIssues = await validator.validateAll(chunk, i); // Pass offset to adjust row indices
+        
+        // Ensure chunk issues is an array
+        if (Array.isArray(chunkIssues)) {
+          allIssues.push(...chunkIssues);
+        } else {
+          console.error('Chunk validation did not return an array:', chunkIssues);
+        }
+        
+        // Allow UI to update by yielding execution
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
-      setValidationIssues(issues);
+      
+      console.log(`Validation complete. Found ${allIssues.length} issues.`);
+      if (allIssues.length > 0) {
+        console.log('Sample issues:', allIssues.slice(0, 5)); // Log first 5 issues
+      }
+      setValidationIssues(allIssues);
       
       // Generate validation summary
       console.log('Generating validation summary...');
-      const summary = validator.getValidationSummary(issues);
+      const summary = validator.getValidationSummary(allIssues);
       console.log('Validation summary:', summary);
       setValidationSummary(summary);
       

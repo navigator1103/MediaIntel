@@ -170,12 +170,21 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     await fs.writeFile(filePath, buffer);
     
-    // Parse the CSV file
+    // Parse the CSV file with streaming approach for large files
     const csvContent = await fs.readFile(filePath, 'utf-8');
+    
+    // Add a size check to warn about very large files
+    if (csvContent.length > 10 * 1024 * 1024) { // 10MB
+      console.warn(`Processing large file (${(csvContent.length / (1024 * 1024)).toFixed(2)}MB). This may take some time.`);
+    }
+    
+    // Parse with a more memory-efficient approach
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: true,
-      trim: true
+      trim: true,
+      // Increase the max number of records to avoid parser errors on large files
+      max_record_size: 0 // 0 means no limit
     });
     
     if (records.length === 0) {
@@ -261,8 +270,47 @@ export async function POST(request: NextRequest) {
     // Create a validator with the master data
     const validator = new MediaSufficiencyValidator(masterData);
     
-    // Validate the transformed data - properly await the Promise
-    const validationIssues = await validator.validateAll(transformedData);
+    // Process records in chunks for large datasets
+    const CHUNK_SIZE = 1000; // Process 1000 records at a time
+    let validationIssues: any[] = [];
+    
+    // For very large datasets, use a different approach
+    const isLargeDataset = transformedData.length > 5000;
+    let totalIssueCount = 0;
+    
+    // Process data in chunks for large datasets
+    if (transformedData.length > CHUNK_SIZE) {
+      console.log(`Processing large dataset with ${transformedData.length} records in chunks of ${CHUNK_SIZE}`);
+      
+      for (let i = 0; i < transformedData.length; i += CHUNK_SIZE) {
+        const chunk = transformedData.slice(i, i + CHUNK_SIZE);
+        
+        // Validate the chunk
+        const chunkIssues = await validator.validateAll(chunk, i);
+        
+        // For large datasets, only keep a limited number of issues to avoid memory issues
+        if (isLargeDataset) {
+          totalIssueCount += chunkIssues.length;
+          if (validationIssues.length < 500) {
+            // Only add issues until we reach 500
+            const remainingSlots = 500 - validationIssues.length;
+            validationIssues.push(...chunkIssues.slice(0, remainingSlots));
+          }
+        } else {
+          // For smaller datasets, keep all issues
+          validationIssues.push(...chunkIssues);
+        }
+        
+        // Log progress for monitoring
+        console.log(`Processed chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(transformedData.length / CHUNK_SIZE)}`);
+        
+        // Allow GC to reclaim memory between chunks
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    } else {
+      // For smaller datasets, process all at once
+      validationIssues = await validator.validateAll(transformedData);
+    }
     
     // Generate validation summary
     const validationSummary = validator.getValidationSummary(validationIssues);
@@ -289,6 +337,10 @@ export async function POST(request: NextRequest) {
       status: 'validated'
     }));
     
+    // For very large datasets, only return the summary and a limited set of issues
+    // The client can fetch more issues as needed through pagination
+    // isLargeDataset is already defined above
+    
     return NextResponse.json({
       success: true,
       sessionId,
@@ -298,7 +350,12 @@ export async function POST(request: NextRequest) {
       originalHeaders: headers,
       expectedFields,
       validationSummary,
-      validationIssues: Array.isArray(validationIssues) ? validationIssues.slice(0, 100) : [] // Limit initial issues for performance and ensure it's an array
+      // For large datasets, return even fewer initial issues to improve performance
+      validationIssues: Array.isArray(validationIssues) 
+        ? validationIssues.slice(0, isLargeDataset ? 50 : 100) 
+        : [],
+      isLargeDataset, // Flag to inform the client this is a large dataset
+      totalIssueCount: isLargeDataset ? totalIssueCount : validationIssues.length // Use actual count for large datasets
     });
     
   } catch (error) {

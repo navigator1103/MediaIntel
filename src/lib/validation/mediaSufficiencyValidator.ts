@@ -1,20 +1,53 @@
 import { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
 
+// Define master data interface for better type safety
+interface MasterData {
+  mediaTypes?: string[];
+  categories?: string[];
+  ranges?: string[];
+  categoryToRanges?: Record<string, string[]>;
+  rangeToCategories?: Record<string, string[]>;
+  mediaToSubtypes?: Record<string, Array<string | { name: string }>>;
+  records?: any[];
+  [key: string]: any;
+}
+
+// Define record type for media sufficiency data
+export interface MediaSufficiencyRecord {
+  [key: string]: any;
+  Year?: string | number;
+  Country?: string;
+  Category?: string;
+  Range?: string;
+  Campaign?: string;
+  Media?: string;
+  'Media Subtype'?: string;
+  'Start Date'?: string | Date;
+  'End Date'?: string | Date;
+  Budget?: string | number;
+  'Q1 Budget'?: string | number;
+  'Q2 Budget'?: string | number;
+  'Q3 Budget'?: string | number;
+  'Q4 Budget'?: string | number;
+  'PM Type'?: string;
+  'Objectives Values'?: string;
+}
+
 // Define validation rule types
 export interface ValidationRule {
   field: string;
   type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency';
   severity: 'critical' | 'warning' | 'suggestion';
   message: string;
-  validate: (value: any, record: any, allRecords: any[], masterData?: any) => boolean | Promise<boolean>;
+  validate: (value: any, record: MediaSufficiencyRecord, allRecords: MediaSufficiencyRecord[], masterData?: MasterData) => boolean | Promise<boolean>;
 }
 
 // Define the validator class
 export class MediaSufficiencyValidator {
   private rules: ValidationRule[] = [];
-  private masterData: any = {};
+  private masterData: MasterData = {};
 
-  constructor(masterData?: any) {
+  constructor(masterData?: MasterData) {
     if (masterData) {
       this.masterData = masterData;
     }
@@ -195,7 +228,7 @@ export class MediaSufficiencyValidator {
           console.log('Available categories:', categories);
           console.log('Categories as lowercase:', categories.map(c => {
             if (typeof c === 'string') return c.toLowerCase();
-            if (c && typeof c === 'object' && 'name' in c && typeof c.name === 'string') return c.name.toLowerCase();
+            if (c && typeof c === 'object' && 'name' in c && typeof (c as { name: string }).name === 'string') return (c as { name: string }).name.toLowerCase();
             return String(c);
           }));
         }
@@ -259,20 +292,27 @@ export class MediaSufficiencyValidator {
         
         // If we have category-to-ranges mapping, use it
         if (masterData?.categoryToRanges) {
-          // Special case for Hand Body + Luminous 630
-          if (category === 'Hand Body' && range === 'Luminous 630') {
-            console.log('Found Hand Body + Luminous 630 combination - flagging as invalid');
-            return false;
+          // Handle self-referential mappings (e.g., "Sun" - "Sun", "Acne" - "Acne")
+          if (category.toLowerCase() === range.toLowerCase()) {
+            // Check if the category exists in master data
+            return masterData.categories?.some(c => 
+              typeof c === 'string' && c.toLowerCase() === category.toLowerCase()
+            ) || false;
           }
           
-          const validRanges = masterData.categoryToRanges[category] || [];
+          // Find the category in a case-insensitive way
+          const categoryKey = Object.keys(masterData.categoryToRanges).find(
+            key => key.toLowerCase() === category.toLowerCase()
+          );
           
-          // Case-insensitive search with type checking
-          const isValid = validRanges.some((m: string) => {
-            return m.toLowerCase() === range.toLowerCase();
-          });
+          // Get valid ranges for this category
+          const validRanges = categoryKey ? masterData.categoryToRanges[categoryKey] || [] : [];
           
-          return isValid;
+          // Simplified validation - only check if range is valid for category
+          // This is more performant than bidirectional validation
+          return validRanges.some((m: string) => 
+            m.toLowerCase() === range.toLowerCase()
+          );
         }
         
         // If no mapping available, we can't validate this relationship
@@ -377,7 +417,7 @@ export class MediaSufficiencyValidator {
         console.log('Available media types:', mediaTypes);
         console.log('Media types as lowercase:', mediaTypes.map(m => {
           if (typeof m === 'string') return m.toLowerCase();
-          if (m && typeof m === 'object' && 'name' in m && typeof m.name === 'string') return m.name.toLowerCase();
+          if (m && typeof m === 'object' && 'name' in m && typeof (m as { name: string }).name === 'string') return (m as { name: string }).name.toLowerCase();
           return String(m);
         }));
         
@@ -394,14 +434,14 @@ export class MediaSufficiencyValidator {
         }
         
         // Case-insensitive search with type checking
-        return mediaTypes.some((m: any) => {
+        return mediaTypes.some((m: string | { name: string } | unknown) => {
           // Ensure m is a string before calling toLowerCase
           if (typeof m === 'string') {
             return m.toLowerCase() === mediaInput.toLowerCase();
           }
           // If m is an object with a name property, use that
-          if (m && typeof m === 'object' && 'name' in m && typeof m.name === 'string') {
-            return m.name.toLowerCase() === mediaInput.toLowerCase();
+          if (m && typeof m === 'object' && 'name' in m && typeof (m as { name: string }).name === 'string') {
+            return (m as { name: string }).name.toLowerCase() === mediaInput.toLowerCase();
           }
           // If m is not a string or object with name, compare directly
           return m === mediaInput;
@@ -464,9 +504,24 @@ export class MediaSufficiencyValidator {
     });
   }
   
+  // Helper method to check if a record is completely empty
+  private isRecordEmpty(record: MediaSufficiencyRecord): boolean {
+    // Check if all fields are empty, null, undefined, or just whitespace
+    return Object.values(record).every(value => {
+      if (value === null || value === undefined) return true;
+      if (typeof value === 'string' && value.trim() === '') return true;
+      return false;
+    });
+  }
+
   // Validate a single record
-  public validateRecord(record: any, index: number, allRecords: any[]): ValidationIssue[] {
+  public validateRecord(record: MediaSufficiencyRecord, index: number, allRecords: MediaSufficiencyRecord[]): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
+    
+    // Skip validation for completely empty rows
+    if (this.isRecordEmpty(record)) {
+      return [];
+    }
     
     // Apply each validation rule
     for (const rule of this.rules) {
@@ -479,10 +534,13 @@ export class MediaSufficiencyValidator {
         // For now, we'll handle async validation as synchronous
         // This is because the current architecture expects synchronous validation
         // In the future, this should be refactored to fully support async validation
-        // Add special debug for Budget field
-        if (rule.field === 'Budget') {
-          console.log('Validating Budget field:', value);
-          console.log('Budget rule:', rule);
+        
+        // Add special debug for Budget field and problematic fields
+        if (rule.field === 'Budget' || rule.field === 'Range' || 
+            (record.Category && ['Sun', 'Anti Age', 'Anti Pigment', 'Dry Skin'].includes(record.Category.toString()))) {
+          console.log(`Validating ${rule.field} field:`, value);
+          console.log(`Record Category: ${record.Category}, Range: ${record.Range}`);
+          console.log(`Rule:`, { field: rule.field, type: rule.type, severity: rule.severity, message: rule.message });
         }
         
         const validationResult = rule.validate(value, record, allRecords, this.masterData);
@@ -496,9 +554,9 @@ export class MediaSufficiencyValidator {
         
         const isValid = validationResult;
         
-        // Add special debug for Budget validation result
-        if (rule.field === 'Budget') {
-          console.log('Budget validation result:', isValid);
+        // Only log critical validation failures in production
+        if (!isValid && rule.severity === 'critical' && process.env.NODE_ENV === 'development') {
+          console.log(`Critical validation failure: ${rule.field} at row ${index+1}`);
         }
         
         if (!isValid) {
@@ -510,10 +568,7 @@ export class MediaSufficiencyValidator {
             currentValue: value // Store the current value for comparison
           };
           
-          // Log budget issues specifically
-          if (rule.field === 'Budget') {
-            console.log('Adding Budget validation issue:', issue);
-          }
+          // Minimal logging in production
           
           issues.push(issue);
         }
@@ -533,51 +588,39 @@ export class MediaSufficiencyValidator {
     return issues;
   }
   
-  // Validate all records
-  public async validateAll(records: any[]): Promise<ValidationIssue[]> {
-    console.log(`Validating ${records.length} records...`);
-    console.log('Master data keys:', Object.keys(this.masterData));
-    
-    // Debug: Log all master data for inspection
-    console.log('Master data content:');
-    if (this.masterData.mediaTypes) {
-      console.log('Media Types:', this.masterData.mediaTypes);
-    }
-    if (this.masterData.categories) {
-      console.log('Categories:', this.masterData.categories);
-    }
-    if (this.masterData.ranges) {
-      console.log('Ranges:', this.masterData.ranges);
-    }
-    
-    if (this.masterData.categoryToRanges) {
-      console.log('Using custom master data with category-range mappings');
-      console.log('Categories:', Object.keys(this.masterData.categoryToRanges));
-      console.log('Ranges with multiple categories:', 
-        Object.entries(this.masterData.rangeToCategories || {})
-          .filter((entry) => {
-            const [_, categories] = entry as [string, string[]];
-            return categories.length > 1;
-          })
-          .map((entry) => {
-            const [range, categories] = entry as [string, string[]];
-            return `${range}: ${categories.join(', ')}`;
-          })
-      );
+  // Validate all records with support for chunked processing
+  public async validateAll(records: MediaSufficiencyRecord[], rowOffset: number = 0): Promise<ValidationIssue[]> {
+    // Minimal logging in production
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Validating ${records.length} records with offset ${rowOffset}...`);
     }
     
     let allIssues: ValidationIssue[] = [];
     
-    // Use for...of loop instead of forEach to allow await inside the loop
-    for (let index = 0; index < records.length; index++) {
-      const record = records[index];
+    // Process records in smaller batches to prevent UI freezing
+    // Increase batch size for better performance
+    const MICRO_BATCH_SIZE = 250; // Process 250 records at a time within each chunk
+    
+    for (let i = 0; i < records.length; i += MICRO_BATCH_SIZE) {
+      const batchEnd = Math.min(i + MICRO_BATCH_SIZE, records.length);
+      const batch = records.slice(i, batchEnd);
       
-      if (index < 3) {
-        console.log(`Validating record ${index}:`, record);
+      // Process each record in the micro-batch
+      const batchIssues = await Promise.all(
+        batch.map((record, j) => {
+          const actualIndex = rowOffset + i + j; // Calculate the true row index with offset
+          return this.validateRecord(record, actualIndex, records);
+        })
+      );
+      
+      // Flatten the array of arrays into a single array of issues
+      allIssues = [...allIssues, ...batchIssues.flat()];
+      
+      // Yield to the main thread after each micro-batch to keep UI responsive
+      // Use a shorter timeout to improve responsiveness
+      if (i + MICRO_BATCH_SIZE < records.length) {
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
-      
-      const issues = this.validateRecord(record, index, records);
-      allIssues = [...allIssues, ...issues];
     }
     
     return allIssues;

@@ -35,7 +35,21 @@ export async function GET(request: NextRequest) {
       
       // Validate the data
       try {
-        const validationIssues = validator.validateAll(sessionData.records);
+        // For large datasets, limit the validation to prevent timeouts
+        const isLargeDataset = sessionData.records.length > 5000;
+        let validationIssues;
+        
+        if (isLargeDataset) {
+          // For large datasets, only validate the first 1000 records initially
+          // The client will request batch validation for the rest
+          validationIssues = await validator.validateAll(sessionData.records.slice(0, 1000), 0);
+          sessionData.isLargeDataset = true;
+          sessionData.totalIssueCount = validationIssues.length;
+        } else {
+          // For smaller datasets, validate all records
+          validationIssues = await validator.validateAll(sessionData.records, 0);
+        }
+        
         sessionData.validationIssues = validationIssues;
         
         // Generate validation summary
