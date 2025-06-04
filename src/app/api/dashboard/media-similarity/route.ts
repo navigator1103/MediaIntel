@@ -47,26 +47,57 @@ export async function GET(request: NextRequest) {
         pmType: true,
         category: true
       }
+    }).catch(error => {
+      console.error('Error fetching game plans:', error);
+      return [];
     });
+    
+    // If no game plans found, return empty dashboard data
+    if (!gamePlans || gamePlans.length === 0) {
+      return NextResponse.json({
+        budgetByMediaType: {},
+        budgetByCountry: {},
+        budgetByCategory: {},
+        budgetByCategoryPercentage: {},
+        budgetByQuarter: { Q1: 0, Q2: 0, Q3: 0, Q4: 0 },
+        campaignsByPMType: {},
+        summary: {
+          totalBudget: 0,
+          campaignCount: 0,
+          mediaTypeCount: 0,
+          countryCount: 0,
+          gamePlanCount: 0,
+          lastUpdate: new Date().toISOString()
+        }
+      });
+    }
 
     // Calculate budget by media type
     const budgetByMediaType: BudgetByType = {};
     gamePlans.forEach(plan => {
-      const mediaType = plan.mediaSubType?.mediaType?.name || 'Unknown';
-      if (!budgetByMediaType[mediaType]) {
-        budgetByMediaType[mediaType] = 0;
+      try {
+        const mediaType = plan.mediaSubType?.mediaType?.name || 'Unknown';
+        if (!budgetByMediaType[mediaType]) {
+          budgetByMediaType[mediaType] = 0;
+        }
+        budgetByMediaType[mediaType] += Number(plan.totalBudget) || 0;
+      } catch (error) {
+        console.error('Error processing media type budget:', error);
       }
-      budgetByMediaType[mediaType] += Number(plan.totalBudget) || 0;
     });
 
     // Calculate budget by country
     const budgetByCountry: BudgetByType = {};
     gamePlans.forEach(plan => {
-      const country = plan.country?.name || 'Unknown';
-      if (!budgetByCountry[country]) {
-        budgetByCountry[country] = 0;
+      try {
+        const country = plan.country?.name || 'Unknown';
+        if (!budgetByCountry[country]) {
+          budgetByCountry[country] = 0;
+        }
+        budgetByCountry[country] += Number(plan.totalBudget) || 0;
+      } catch (error) {
+        console.error('Error processing country budget:', error);
       }
-      budgetByCountry[country] += Number(plan.totalBudget) || 0;
     });
     
     // Calculate budget by category
@@ -75,21 +106,25 @@ export async function GET(request: NextRequest) {
     // Process real category data from game plans
     try {
       gamePlans.forEach(plan => {
-        // @ts-ignore - Handle the case where category might not be in the type yet
-        if (plan.category && plan.category.name) {
+        try {
           // @ts-ignore - Handle the case where category might not be in the type yet
-          const categoryName = plan.category.name || 'Unknown';
-          if (!budgetByCategory[categoryName]) {
-            budgetByCategory[categoryName] = 0;
+          if (plan.category && plan.category.name) {
+            // @ts-ignore - Handle the case where category might not be in the type yet
+            const categoryName = plan.category.name || 'Unknown';
+            if (!budgetByCategory[categoryName]) {
+              budgetByCategory[categoryName] = 0;
+            }
+            budgetByCategory[categoryName] += Number(plan.totalBudget) || 0;
+          } else if (plan.category_id) {
+            // If we have a category_id but no relation loaded, use a placeholder name
+            const categoryName = `Category ${plan.category_id}`;
+            if (!budgetByCategory[categoryName]) {
+              budgetByCategory[categoryName] = 0;
+            }
+            budgetByCategory[categoryName] += Number(plan.totalBudget) || 0;
           }
-          budgetByCategory[categoryName] += Number(plan.totalBudget) || 0;
-        } else if (plan.category_id) {
-          // If we have a category_id but no relation loaded, use a placeholder name
-          const categoryName = `Category ${plan.category_id}`;
-          if (!budgetByCategory[categoryName]) {
-            budgetByCategory[categoryName] = 0;
-          }
-          budgetByCategory[categoryName] += Number(plan.totalBudget) || 0;
+        } catch (innerError) {
+          console.error('Error processing individual category:', innerError);
         }
       });
     } catch (error) {
@@ -127,27 +162,44 @@ export async function GET(request: NextRequest) {
     };
     
     gamePlans.forEach(plan => {
-      budgetByQuarter.Q1 += Number(plan.q1Budget) || 0;
-      budgetByQuarter.Q2 += Number(plan.q2Budget) || 0;
-      budgetByQuarter.Q3 += Number(plan.q3Budget) || 0;
-      budgetByQuarter.Q4 += Number(plan.q4Budget) || 0;
+      try {
+        budgetByQuarter.Q1 += Number(plan.q1Budget) || 0;
+        budgetByQuarter.Q2 += Number(plan.q2Budget) || 0;
+        budgetByQuarter.Q3 += Number(plan.q3Budget) || 0;
+        budgetByQuarter.Q4 += Number(plan.q4Budget) || 0;
+      } catch (error) {
+        console.error('Error processing quarter budget:', error);
+      }
     });
 
     // Calculate campaign count by PM type
     const campaignsByPMType: BudgetByType = {};
     gamePlans.forEach(plan => {
-      const pmType = plan.pmType?.name || 'Unknown';
-      if (!campaignsByPMType[pmType]) {
-        campaignsByPMType[pmType] = 0;
+      try {
+        const pmType = plan.pmType?.name || 'Unknown';
+        if (!campaignsByPMType[pmType]) {
+          campaignsByPMType[pmType] = 0;
+        }
+        campaignsByPMType[pmType]++;
+      } catch (error) {
+        console.error('Error processing PM type:', error);
       }
-      campaignsByPMType[pmType]++;
     });
 
     // Calculate total budget and campaign count
-    const totalBudget = gamePlans.reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
-    const campaignCount = new Set(gamePlans.map(plan => plan.campaignId)).size;
-    const mediaTypeCount = new Set(gamePlans.map(plan => plan.mediaSubType?.mediaTypeId)).size;
-    const countryCount = new Set(gamePlans.map(plan => plan.countryId).filter(Boolean)).size;
+    let totalBudget = 0;
+    let campaignCount = 0;
+    let mediaTypeCount = 0;
+    let countryCount = 0;
+    
+    try {
+      totalBudget = gamePlans.reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
+      campaignCount = new Set(gamePlans.map(plan => plan.campaignId).filter(Boolean)).size;
+      mediaTypeCount = new Set(gamePlans.map(plan => plan.mediaSubType?.mediaTypeId).filter(Boolean)).size;
+      countryCount = new Set(gamePlans.map(plan => plan.countryId).filter(Boolean)).size;
+    } catch (error) {
+      console.error('Error calculating summary statistics:', error);
+    }
 
     const dashboardData: DashboardData = {
       budgetByMediaType,
