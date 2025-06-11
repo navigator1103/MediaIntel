@@ -321,7 +321,7 @@ model GamePlan {
   pmType           PMType?      @relation(fields: [pmTypeId], references: [id])
   country          Country?     @relation(fields: [countryId], references: [id])
   lastUpdate       LastUpdate?  @relation(fields: [last_update_id], references: [id])
-  category         Category?     @relation(fields: [category_id], references: [id])
+  category         Category?    @relation(fields: [category_id], references: [id])
 
   @@map("game_plans")
 }

@@ -1,4 +1,13 @@
 {
+  "subRegions": [
+    "ANZ",
+    "LATAM",
+    "AME",
+    "INDIA",
+    "ASEAN",
+    "CIST",
+    "TURKEY"
+  ],
   "categoryToRanges": {
     "Hand Body": [
       "Soft",

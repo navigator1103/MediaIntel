@@ -2,18 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
-import DataPreviewGrid from '@/components/media-sufficiency/DataPreviewGrid';
+import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiLoader } from 'react-icons/fi';
+import DataPreviewGrid, { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
 import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
-
-// Define ValidationIssue interface locally
-interface ValidationIssue {
-  rowIndex: number;
-  columnName: string;
-  severity: 'critical' | 'warning' | 'suggestion';
-  message: string;
-  currentValue?: unknown;
-}
 
 export default function EnhancedValidate() {
   const router = useRouter();
@@ -25,11 +16,6 @@ export default function EnhancedValidate() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [masterData, setMasterData] = useState<any>(null);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
-  const [allValidationIssues, setAllValidationIssues] = useState<ValidationIssue[]>([]);
-  const [totalIssueCount, setTotalIssueCount] = useState<number>(0);
-  const [isLargeDataset, setIsLargeDataset] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [issuesPerPage, setIssuesPerPage] = useState<number>(100);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [importProgress, setImportProgress] = useState<{
@@ -44,7 +30,6 @@ export default function EnhancedValidate() {
   const [recordCount, setRecordCount] = useState<number>(0);
   const [validator, setValidator] = useState<MediaSufficiencyValidator | null>(null);
   const [validationSummary, setValidationSummary] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'summary'>('preview');
   const [highlightedCell, setHighlightedCell] = useState<{rowIndex: number, columnName: string} | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   
@@ -87,26 +72,11 @@ export default function EnhancedValidate() {
           // Ensure validationIssues is an array
           const issues = Array.isArray(data.validationIssues) ? data.validationIssues : [];
           console.log('Validation issues:', issues.length);
-          
-          // Handle large datasets
-          if (data.isLargeDataset) {
-            setIsLargeDataset(true);
-            setTotalIssueCount(data.totalIssueCount || issues.length);
-            setAllValidationIssues(issues);
-            // Show first page of issues
-            setValidationIssues(issues.slice(0, issuesPerPage));
-          } else {
-            setValidationIssues(issues);
-            setAllValidationIssues(issues);
-            setTotalIssueCount(issues.length);
-          }
-          
+          setValidationIssues(issues);
           setValidationStatus('success');
         } else {
           console.log('No validation issues in response');
           setValidationIssues([]);
-          setAllValidationIssues([]);
-          setTotalIssueCount(0);
         }
         
         // Set validation summary if it exists
@@ -116,6 +86,8 @@ export default function EnhancedValidate() {
         
         // Set master data
         if (data.sessionData && data.sessionData.masterData) {
+          setMasterData(data.sessionData.masterData);
+          
           try {
             // Fetch additional master data from our API endpoint
             const masterDataResponse = await fetch('/api/admin/media-sufficiency/master-data');
@@ -128,20 +100,19 @@ export default function EnhancedValidate() {
                 ...additionalMasterData
               };
               
-              // Set master data and initialize validator in one go
               setMasterData(mergedMasterData);
+              
+              // Initialize validator with merged master data
               const newValidator = new MediaSufficiencyValidator(mergedMasterData);
               setValidator(newValidator);
             } else {
               // If API fails, still initialize with original master data
-              setMasterData(data.sessionData.masterData);
               const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
               setValidator(newValidator);
             }
           } catch (error) {
             console.error('Error fetching additional master data:', error);
             // Initialize with original master data if API fails
-            setMasterData(data.sessionData.masterData);
             const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
             setValidator(newValidator);
           }
@@ -172,14 +143,7 @@ export default function EnhancedValidate() {
       // Create an async function inside useEffect
       const executeValidation = async () => {
         try {
-          // Only run client-side validation if we don't already have validation issues
-          // This prevents unnecessary re-validation on initial load
-          if (allValidationIssues.length === 0 && validationIssues.length === 0) {
-            await runValidation();
-          } else {
-            // If we already have validation issues, just set the status to success
-            setValidationStatus('success');
-          }
+          await runValidation();
         } catch (error) {
           console.error('Error executing validation:', error);
           setValidationStatus('error');
@@ -190,87 +154,36 @@ export default function EnhancedValidate() {
       // Call the async function
       executeValidation();
     }
-  }, [csvData, validator, allValidationIssues.length, validationIssues.length]);
+  }, [csvData, validator]);
   
-  // Run validation with chunked processing for better performance
+  // Run validation
   const runValidation = async () => {
     if (!validator || csvData.length === 0) return;
     
     setValidationStatus('validating');
-    console.log(`Total records to validate: ${csvData.length}`);
+    console.log('Starting validation with data:', csvData.slice(0, 2)); // Log first 2 records
+    console.log('Master data available:', masterData ? Object.keys(masterData) : 'None');
     
     try {
-      // For large datasets, use chunked processing to prevent UI freezing
-      // Use smaller chunks for better UI responsiveness
-      const CHUNK_SIZE = 250; // Process 250 records at a time
-      const allIssues = [];
+      // Validate all records - properly await the Promise
+      console.log('Running validator.validateAll...');
+      const issues = await validator.validateAll(csvData);
       
-      // For very large datasets, use server-side validation instead
-      if (csvData.length > 5000) {
-        console.log('Large dataset detected, using server-side validation');
-        
-        try {
-          // Call the server-side validation endpoint
-          const response = await fetch(`/api/admin/media-sufficiency/enhanced-validate/batch?sessionId=${sessionId}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              sessionId
-            })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Server validation failed: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          
-          if (Array.isArray(data.validationIssues)) {
-            setValidationIssues(data.validationIssues);
-            setValidationSummary(data.validationSummary);
-            setValidationStatus('success');
-            return;
-          }
-        } catch (error) {
-          console.error('Error with server-side validation, falling back to client-side:', error);
-          // Continue with client-side validation as fallback
-        }
+      // Ensure issues is an array
+      if (!Array.isArray(issues)) {
+        console.error('validateAll did not return an array:', issues);
+        throw new Error('Validation failed: Invalid response format');
       }
       
-      // Process data in chunks
-      for (let i = 0; i < csvData.length; i += CHUNK_SIZE) {
-        // Update progress message to show user validation is still working
-        const progressMessage = `Validating records ${i + 1} to ${Math.min(i + CHUNK_SIZE, csvData.length)} of ${csvData.length}...`;
-        console.log(progressMessage);
-        
-        // Get the current chunk of data
-        const chunk = csvData.slice(i, i + CHUNK_SIZE);
-        
-        // Validate the chunk and collect issues
-        const chunkIssues = await validator.validateAll(chunk, i); // Pass offset to adjust row indices
-        
-        // Ensure chunk issues is an array
-        if (Array.isArray(chunkIssues)) {
-          allIssues.push(...chunkIssues);
-        } else {
-          console.error('Chunk validation did not return an array:', chunkIssues);
-        }
-        
-        // Allow UI to update by yielding execution
-        await new Promise(resolve => setTimeout(resolve, 0));
+      console.log(`Validation complete. Found ${issues.length} issues.`);
+      if (issues.length > 0) {
+        console.log('Sample issues:', issues.slice(0, 5)); // Log first 5 issues
       }
-      
-      console.log(`Validation complete. Found ${allIssues.length} issues.`);
-      if (allIssues.length > 0) {
-        console.log('Sample issues:', allIssues.slice(0, 5)); // Log first 5 issues
-      }
-      setValidationIssues(allIssues);
+      setValidationIssues(issues);
       
       // Generate validation summary
       console.log('Generating validation summary...');
-      const summary = validator.getValidationSummary(allIssues);
+      const summary = validator.getValidationSummary(issues);
       console.log('Validation summary:', summary);
       setValidationSummary(summary);
       
@@ -379,68 +292,6 @@ export default function EnhancedValidate() {
     }
   };
 
-  // Delete rows with issues
-  const deleteRowsWithIssues = async (severityFilter: ('critical' | 'warning' | 'suggestion')[]) => {
-    if (validationIssues.length === 0) return;
-    
-    // Confirm before deleting
-    if (!window.confirm(`Are you sure you want to delete all rows with ${severityFilter.join('/')} issues? This action cannot be undone.`)) {
-      return;
-    }
-    
-    // Get unique row indices to delete (sorted in descending order to avoid index shifting issues)
-    const rowIndicesToDelete = [...new Set(
-      validationIssues
-        .filter(issue => severityFilter.includes(issue.severity))
-        .map(issue => issue.rowIndex)
-    )].sort((a, b) => b - a);
-    
-    if (rowIndicesToDelete.length === 0) {
-      setSuccessMessage('No rows match the selected severity criteria.');
-      setTimeout(() => setSuccessMessage(''), 3000);
-      return;
-    }
-    
-    // Create a new array without the rows to delete
-    const updatedData = [...csvData];
-    rowIndicesToDelete.forEach(rowIndex => {
-      updatedData.splice(rowIndex, 1);
-    });
-    
-    setCsvData(updatedData);
-    setRecordCount(updatedData.length);
-    
-    // Update session data on the server
-    await updateSessionData(updatedData);
-    
-    // Re-run validation
-    if (validator) {
-      try {
-        const issues = await validator.validateAll(updatedData);
-        
-        if (Array.isArray(issues)) {
-          setValidationIssues(issues);
-          
-          // Update validation summary
-          const summary = validator.getValidationSummary(issues);
-          setValidationSummary(summary);
-          
-          setSuccessMessage(`Successfully deleted ${rowIndicesToDelete.length} rows with issues.`);
-          setTimeout(() => setSuccessMessage(''), 3000);
-        } else {
-          console.error('validateAll did not return an array:', issues);
-          setError('Validation failed: Invalid response format');
-        }
-      } catch (error) {
-        console.error('Error during validation after deleting rows:', error);
-        setError(error instanceof Error ? error.message : 'Validation failed');
-      }
-    }
-  };
-  
-  // We've removed the separate checkImportProgress function to avoid the infinite loop
-  // The polling logic is now directly in the handleImportToSQLite function
-  
   // Handle import to SQLite
   const handleImportToSQLite = async () => {
     if (!sessionId) return;
@@ -661,7 +512,7 @@ export default function EnhancedValidate() {
             </div>
             
             <div className="flex items-center space-x-2">
-              {validationStatus === 'success' && (
+              {validationStatus === 'success' && validationSummary && (
                 <>
                   <FiAlertCircle className="text-red-500" />
                   <span className="text-red-700 font-medium">{validationSummary?.critical || 0}</span>
@@ -695,192 +546,47 @@ export default function EnhancedValidate() {
             </div>
           )}
           
-          {/* Tab Navigation */}
-          <div className="mb-6">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`${activeTab === 'preview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  Data Preview
-                </button>
-                <button
-                  onClick={() => setActiveTab('summary')}
-                  className={`${activeTab === 'summary' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  Validation Summary
-                </button>
-              </nav>
-            </div>
+          {/* Data Preview */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-800 mb-4">Data Preview</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Preview and edit your data below. Click on cells to edit values. Cells with validation issues are highlighted.
+            </p>
             
-            <div className="p-4">
-              {activeTab === 'preview' && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Preview and edit your data below. Click on cells to edit values. Cells with validation issues are highlighted.
-                  </p>
-                  
-                  {/* Batch Corrections Panel removed as requested */}
-                  
-                  {/* Delete Rows Actions */}
-                  {validationIssues.length > 0 && (
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-3">Delete Rows with Issues</h4>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          className="px-3 py-2 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 flex items-center"
-                          onClick={() => deleteRowsWithIssues(['critical'])}
-                          disabled={!validationSummary?.critical}
-                        >
-                          <FiAlertCircle className="mr-1" />
-                          Delete Rows with Critical Issues
-                        </button>
-                        <button
-                          className="px-3 py-2 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 flex items-center"
-                          onClick={() => deleteRowsWithIssues(['warning'])}
-                          disabled={!validationSummary?.warning}
-                        >
-                          <FiAlertTriangle className="mr-1" />
-                          Delete Rows with Warnings
-                        </button>
-                        <button
-                          className="px-3 py-2 text-xs bg-gray-100 text-gray-800 rounded hover:bg-gray-200 flex items-center"
-                          onClick={() => deleteRowsWithIssues(['critical', 'warning', 'suggestion'])}
-                          disabled={!validationIssues.length}
-                        >
-                          Delete All Problematic Rows
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {csvData.length > 0 ? (
-                    <DataPreviewGrid
-                      data={csvData}
-                      validationIssues={validationIssues}
-                      onDataChange={handleDataChange}
-                      onCellEdit={handleCellEdit}
-                      highlightedCell={highlightedCell}
-                    />
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No data available
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Removed redundant validation issues tab */}
-              
-              {activeTab === 'summary' && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Summary of validation results and data statistics.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Validation Summary */}
-                    <div className="bg-white border rounded-lg p-4">
-                      <h3 className="text-lg font-medium text-gray-800 mb-4">Validation Summary</h3>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600">Total Issues:</span>
-                          <span className="font-medium">{validationSummary?.total || 0}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center text-red-600">
-                            <FiAlertCircle className="mr-2" />
-                            Critical Issues:
-                          </span>
-                          <span className="font-medium">{validationSummary?.critical || 0}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center text-yellow-600">
-                            <FiAlertTriangle className="mr-2" />
-                            Warnings:
-                          </span>
-                          <span className="font-medium">{validationSummary?.warning || 0}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center text-blue-600">
-                            <FiInfo className="mr-2" />
-                            Suggestions:
-                          </span>
-                          <span className="font-medium">{validationSummary?.suggestion || 0}</span>
-                        </div>
-                        
-                        <div className="pt-4 border-t">
-                          <h4 className="font-medium text-gray-700 mb-2">Issues by Field</h4>
-                          
-                          {validationSummary && validationSummary.byField && Object.keys(validationSummary.byField).length > 0 ? (
-                            <ul className="space-y-2">
-                              {Object.entries(validationSummary.byField)
-                                .sort(([, a]: [string, any], [, b]: [string, any]) => (b as number) - (a as number))
-                                .map(([field, count]: [string, any]) => (
-                                  <li key={field} className="flex justify-between">
-                                    <span className="text-gray-600">{field}:</span>
-                                    <span className="font-medium">{count}</span>
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p className="text-green-600">No issues found!</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Data Statistics */}
-                    <div className="bg-white border rounded-lg p-4">
-                      <h3 className="text-lg font-medium text-gray-800 mb-4">Data Statistics</h3>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600">Total Records:</span>
-                          <span className="font-medium">{recordCount}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600">File Size:</span>
-                          <span className="font-medium">{(fileSize / 1024).toFixed(2)} KB</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600">File Name:</span>
-                          <span className="font-medium">{fileName}</span>
-                        </div>
-                        
-                        <div className="pt-4 border-t">
-                          <h4 className="font-medium text-gray-700 mb-2">Import Status</h4>
-                          
-                          {validationStatus === 'success' && (
-                            <div className={`p-3 rounded-lg ${canImport ? 'bg-green-50' : 'bg-red-50'}`}>
-                              {canImport ? (
-                                <p className="text-green-700 flex items-center">
-                                  <FiCheckCircle className="mr-2" />
-                                  Data is ready to be imported
-                                </p>
-                              ) : (
-                                <p className="text-red-700 flex items-center">
-                                  <FiAlertCircle className="mr-2" />
-                                  Critical issues must be fixed before import
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {csvData.length > 0 ? (
+              <DataPreviewGrid
+                data={csvData}
+                validationIssues={validationIssues}
+                onDataChange={handleDataChange}
+                onCellEdit={handleCellEdit}
+                highlightedCell={highlightedCell}
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No data available
+              </div>
+            )}
           </div>
+          
+          {/* Import Status Summary */}
+          {validationStatus === 'success' && validationSummary && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <h3 className="text-lg font-medium text-gray-800 mb-3">Import Status</h3>
+              <div className={`p-3 rounded-lg ${canImport ? 'bg-green-50' : 'bg-red-50'}`}>
+                {canImport ? (
+                  <p className="text-green-700 flex items-center">
+                    <FiCheckCircle className="mr-2" />
+                    Data is ready to be imported ({validationSummary.total || 0} total issues found)
+                  </p>
+                ) : (
+                  <p className="text-red-700 flex items-center">
+                    <FiAlertCircle className="mr-2" />
+                    Critical issues must be fixed before import ({validationSummary.critical || 0} critical issues found)
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Action Buttons */}
           <div className="flex justify-between">

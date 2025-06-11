@@ -1,87 +1,73 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FixedSizeList as List } from 'react-window';
-import { FiAlertCircle, FiAlertTriangle, FiInfo, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { AiOutlineLoading3Quarters } from 'react-icons/ai';
-
-// Define the ValidationIssue interface locally
-interface ValidationIssue {
-  rowIndex: number;
-  columnName: string;
-  severity: 'critical' | 'warning' | 'suggestion';
-  message: string;
-  currentValue?: unknown;
-}
+import { FiAlertCircle, FiAlertTriangle, FiInfo, FiCheckCircle, FiEdit2, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 interface DataPreviewGridProps {
   data: any[];
   validationIssues?: ValidationIssue[];
-  onDataChange?: (data: any[]) => void;
+  onDataChange?: (updatedData: any[]) => void;
   onCellEdit?: (rowIndex: number, columnName: string, newValue: any) => void;
-  highlightedCell?: { rowIndex: number; columnName: string } | null;
+  highlightedCell?: {rowIndex: number, columnName: string} | null;
+}
+
+export interface ValidationIssue {
+  rowIndex: number;
+  columnName: string;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  currentValue?: any;
 }
 
 const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({ 
-  data = [], 
+  data, 
   validationIssues = [], 
   onDataChange,
   onCellEdit,
-  highlightedCell 
+  highlightedCell = null
 }) => {
-  // Initialize state
   const [gridData, setGridData] = useState<any[]>([]);
-  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(25);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnName: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showOnlyIssues, setShowOnlyIssues] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeverityFilter, setSelectedSeverityFilter] = useState<string[]>(['critical', 'warning', 'suggestion']);
-  const [showOnlyIssues, setShowOnlyIssues] = useState<boolean>(false);
-
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  
   // Reference for the highlighted cell
-  const highlightedCellRef = React.useRef<HTMLDivElement | null>(null);
+  const highlightedCellRef = React.useRef<HTMLTableCellElement | null>(null);
   
-  // References for scroll synchronization
-  const headerRef = useRef<HTMLDivElement>(null);
-  const listOuterRef = useRef<HTMLDivElement>(null);
+  // References for synchronized scrolling
+  const headerContainerRef = useRef<HTMLDivElement>(null);
+  const bodyContainerRef = useRef<HTMLDivElement>(null);
   
-  // Handle scroll synchronization
+  // Effect to ensure header and body containers are properly synchronized on resize
   useEffect(() => {
-    const listOuter = listOuterRef.current;
-    const header = headerRef.current;
-    
-    if (!listOuter || !header) return;
-    
-    // Flag to prevent infinite scroll loop
-    let isScrolling = false;
-    
-    const handleListScroll = () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      header.scrollLeft = listOuter.scrollLeft;
-      isScrolling = false;
+    const handleResize = () => {
+      if (bodyContainerRef.current && headerContainerRef.current) {
+        // Ensure header width matches body width
+        headerContainerRef.current.style.width = `${bodyContainerRef.current.clientWidth}px`;
+      }
     };
     
-    const handleHeaderScroll = () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      listOuter.scrollLeft = header.scrollLeft;
-      isScrolling = false;
-    };
+    // Initialize on mount
+    handleResize();
     
-    listOuter.addEventListener('scroll', handleListScroll);
-    header.addEventListener('scroll', handleHeaderScroll);
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
     
+    // Cleanup
     return () => {
-      listOuter.removeEventListener('scroll', handleListScroll);
-      header.removeEventListener('scroll', handleHeaderScroll);
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
-
+  
   // Effect to handle highlighted cell scrolling and pagination
   useEffect(() => {
     if (highlightedCell) {
@@ -106,6 +92,27 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     }
   }, [highlightedCell, currentPage, rowsPerPage]);
   
+  // Effect to ensure header and body containers are properly synchronized on resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (bodyContainerRef.current && headerContainerRef.current) {
+        // Ensure header width matches body width
+        headerContainerRef.current.style.width = `${bodyContainerRef.current.clientWidth}px`;
+      }
+    };
+    
+    // Initialize on mount
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   // Initialize grid data and columns
   useEffect(() => {
     if (data && data.length > 0) {
@@ -114,124 +121,155 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     }
   }, [data]);
 
-  // Create a map of row indexes to their validation issues for faster lookup
-  const rowToIssuesMap = React.useMemo(() => {
-    const map = new Map<number, ValidationIssue[]>();
-    validationIssues.forEach(issue => {
-      if (!map.has(issue.rowIndex)) {
-        map.set(issue.rowIndex, []);
-      }
-      map.get(issue.rowIndex)?.push(issue);
-    });
-    return map;
-  }, [validationIssues]);
-
   // Apply filters, search, and pagination with performance optimizations
   useEffect(() => {
-    // Log filtering parameters for debugging
-    console.log('Filtering data with:', { 
-      showOnlyIssues, 
-      selectedSeverityFilter, 
-      rowsWithIssues: Array.from(rowToIssuesMap.keys()).length,
-      totalRows: gridData.length
-    });
-    
-    // Set loading state when filtering starts
-    setIsLoading(true);
-    
-    // Use setTimeout to prevent UI freezing
-    const timeoutId = setTimeout(() => {
-      try {
-        // Create filtered data with original indices preserved
-        let filtered = gridData.map((row, index) => ({ ...row, _originalIndex: index }));
+    // Debounced filtering function to prevent UI freezing
+    const applyFilters = () => {
+      // Start with a limited subset of data for initial rendering
+      // This prevents the browser from freezing when dealing with very large datasets
+      const maxInitialRows = 1000; // Limit initial processing to 1000 rows
+      const initialData = gridData.slice(0, maxInitialRows);
+      let filtered = [...initialData];
+      
+      // Apply search term with optimized search
+      if (searchTerm) {
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(row => {
+          // Only convert values to string when needed
+          for (const key in row) {
+            const value = row[key];
+            if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+      
+      // Apply issues filter with optimized Set lookup
+      if (showOnlyIssues) {
+        // Create a Set of row indexes with issues for faster lookup
+        const rowsWithIssuesSet = new Set(
+          validationIssues
+            .filter(issue => selectedSeverityFilter.includes(issue.severity))
+            .map(issue => issue.rowIndex)
+        );
         
-        if (showOnlyIssues) {
-          console.log('Filtering to show only rows with issues');
-          
-          // Filter to only include rows that have issues matching selected severities
-          filtered = filtered.filter((row) => {
-            const originalIndex = row._originalIndex;
-            const rowIssues = rowToIssuesMap.get(originalIndex);
-            
-            if (!rowIssues || rowIssues.length === 0) {
-              return false; // No issues for this row
-            }
-            
-            // If severity filters are selected, check if any issue matches
-            if (selectedSeverityFilter.length > 0) {
-              return rowIssues.some(issue => selectedSeverityFilter.includes(issue.severity));
-            }
-            
-            // If no severity filters selected, include all rows with any issues
-            return true;
-          });
-          
-          console.log(`After issue filtering: ${filtered.length} rows remain`);
-        }
-        
-        // Then apply search term filter
-        if (searchTerm) {
-          const lowerSearchTerm = searchTerm.toLowerCase();
-          filtered = filtered.filter(row => {
-            for (const key in row) {
-              if (key === '_originalIndex') continue; // Skip our internal field
-              const value = row[key];
-              if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
-                return true;
-              }
-            }
-            return false;
-          });
-        }
-          
-        // Apply sorting if needed
-        if (sortConfig !== null) {
-          filtered.sort((a: any, b: any) => {
-            const aValue = a[sortConfig.key];
-            const bValue = b[sortConfig.key];
-            
-            // Handle null/undefined values
-            if (aValue == null && bValue == null) return 0;
-            if (aValue == null) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (bValue == null) return sortConfig.direction === 'ascending' ? 1 : -1;
-            
-            // Compare values
-            if (aValue < bValue) {
-              return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-              return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
-          });
-        }
-        
-        // All data processed, update state and finish
+        // Keep only rows that have issues
+        filtered = filtered.filter((_, index) => rowsWithIssuesSet.has(index));
+      }
+      
+      // If we're showing less than the max rows and there's more data,
+      // process the rest of the data in chunks asynchronously
+      if (gridData.length > maxInitialRows) {
+        // Set the initial filtered data immediately
         setFilteredData(filtered);
         
-        // Calculate total pages
-        const total = Math.ceil(filtered.length / rowsPerPage);
-        setTotalPages(total || 1); // Ensure at least 1 page
-        
-        // Adjust current page if needed
-        if (currentPage > total && total > 0) {
-          setCurrentPage(1);
-        }
-        
-        // Turn off loading state
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error filtering data:', error);
-        setIsLoading(false);
+        // Process the remaining data in chunks
+        setTimeout(() => {
+          const remainingData = gridData.slice(maxInitialRows);
+          const chunkSize = 500;
+          
+          // Process data in chunks to avoid UI freezing
+          const processChunk = (startIndex: number) => {
+            const endIndex = Math.min(startIndex + chunkSize, remainingData.length);
+            const chunk = remainingData.slice(startIndex, endIndex);
+            
+            // Apply the same filters to this chunk
+            let filteredChunk = [...chunk];
+            
+            if (searchTerm) {
+              const lowerSearchTerm = searchTerm.toLowerCase();
+              filteredChunk = filteredChunk.filter(row => {
+                for (const key in row) {
+                  const value = row[key];
+                  if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
+                    return true;
+                  }
+                }
+                return false;
+              });
+            }
+            
+            if (showOnlyIssues) {
+              const rowsWithIssuesSet = new Set(
+                validationIssues
+                  .filter(issue => selectedSeverityFilter.includes(issue.severity))
+                  .map(issue => issue.rowIndex)
+              );
+              
+              filteredChunk = filteredChunk.filter((_, index) => {
+                // Adjust index to account for the offset in the original array
+                return rowsWithIssuesSet.has(index + maxInitialRows + startIndex);
+              });
+            }
+            
+            // Combine with existing filtered data
+            setFilteredData(prevFiltered => [...prevFiltered, ...filteredChunk]);
+            
+            // Process next chunk if there's more data
+            if (endIndex < remainingData.length) {
+              setTimeout(() => processChunk(endIndex), 0);
+            }
+          };
+          
+          // Start processing chunks
+          processChunk(0);
+        }, 0);
+      } else {
+        // If we have a small dataset, just set the filtered data directly
+        setFilteredData(filtered);
       }
-    }, 0);
+    };
     
-    return () => clearTimeout(timeoutId);
-  }, [gridData, searchTerm, selectedSeverityFilter, sortConfig, currentPage, rowsPerPage, validationIssues, showOnlyIssues, rowToIssuesMap]);
+    // Use setTimeout to defer filtering until after the current render cycle
+    const timerId = setTimeout(applyFilters, 0);
     
-  // We've moved the sorting logic into the main filtering effect for better performance
+    // Cleanup function
+    return () => clearTimeout(timerId);
+  }, [gridData, searchTerm, showOnlyIssues, selectedSeverityFilter, validationIssues]);
+    
+  // Separate effect for sorting to avoid re-sorting on every filter change
+  useEffect(() => {
+    if (sortConfig !== null && filteredData.length > 0) {
+      // Create a copy to avoid mutating the original array
+      const dataToSort = [...filteredData];
+      
+      // Use a more efficient sorting algorithm
+      const sortedData = dataToSort.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        
+        // Handle null/undefined values
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (bValue == null) return sortConfig.direction === 'ascending' ? 1 : -1;
+        
+        // Compare values
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+      
+      setFilteredData(sortedData);
+    }
+  }, [sortConfig, filteredData.length]);
   
-  // Pagination is now handled in the main filtering effect for better performance
+  // Separate effect for pagination calculations
+  useEffect(() => {
+    // Calculate total pages
+    const calculatedTotalPages = Math.ceil(filteredData.length / rowsPerPage);
+    setTotalPages(calculatedTotalPages || 1); // Ensure at least 1 page
+    
+    // Reset to first page if current page is out of bounds
+    if (currentPage > calculatedTotalPages && calculatedTotalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredData.length, rowsPerPage, currentPage]);
 
   // Get paginated data with memoization for better performance
   const getPaginatedData = React.useCallback(() => {
@@ -253,43 +291,28 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
   const handleCellEditComplete = () => {
     if (editingCell) {
       const { rowIndex, columnName } = editingCell;
+      const updatedData = [...gridData];
+      updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
       
-      // Only update if the value has actually changed
-      if (gridData[rowIndex][columnName] !== editValue) {
-        console.log(`Updating cell [${rowIndex}][${columnName}] from '${gridData[rowIndex][columnName]}' to '${editValue}'`);
-        
-        // Create a deep copy of the data to ensure React detects the change
-        const updatedData = JSON.parse(JSON.stringify(gridData));
-        updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
-        
-        // Update local state first
-        setGridData(updatedData);
-        
-        // Call the callback if provided
-        if (onCellEdit) {
-          console.log('Calling onCellEdit callback');
-          onCellEdit(rowIndex, columnName, editValue);
-        }
-        
-        if (onDataChange) {
-          console.log('Calling onDataChange callback');
-          onDataChange(updatedData);
-        }
-      } else {
-        console.log('Cell value unchanged, skipping update');
+      setGridData(updatedData);
+      
+      // Call the callback if provided
+      if (onCellEdit) {
+        onCellEdit(rowIndex, columnName, editValue);
       }
       
-      // Clear editing state regardless of whether value changed
+      if (onDataChange) {
+        onDataChange(updatedData);
+      }
+      
       setEditingCell(null);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Prevent form submission
       handleCellEditComplete();
     } else if (e.key === 'Escape') {
-      e.preventDefault(); // Prevent browser default
       setEditingCell(null);
     }
   };
@@ -353,6 +376,22 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     }
   }, [getCellValidation]);
 
+  // Apply fix to all similar issues
+  const applyFixToAll = (columnName: string, currentValue: any, newValue: any) => {
+    const updatedData = gridData.map(row => {
+      if (row[columnName] === currentValue) {
+        return { ...row, [columnName]: newValue };
+      }
+      return row;
+    });
+    
+    setGridData(updatedData);
+    
+    if (onDataChange) {
+      onDataChange(updatedData);
+    }
+  };
+
   // Toggle severity filter
   const toggleSeverityFilter = (severity: string) => {
     if (selectedSeverityFilter.includes(severity)) {
@@ -377,11 +416,15 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
 
   // Count issues by severity
   const getIssueCounts = () => {
-    const counts = validationIssues.reduce((counts, issue) => {
-      const severity = issue.severity as 'critical' | 'warning' | 'suggestion';
-      counts[severity]++;
-      return counts;
-    }, { critical: 0, warning: 0, suggestion: 0 });
+    const counts = {
+      critical: 0,
+      warning: 0,
+      suggestion: 0
+    };
+    
+    validationIssues.forEach(issue => {
+      counts[issue.severity]++;
+    });
     
     return counts;
   };
@@ -409,11 +452,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
               <input
                 type="checkbox"
                 checked={showOnlyIssues}
-                onChange={() => {
-                  // When toggling show only issues, reset to page 1
-                  setCurrentPage(1);
-                  setShowOnlyIssues(!showOnlyIssues);
-                }}
+                onChange={() => setShowOnlyIssues(!showOnlyIssues)}
                 className="mr-2 h-4 w-4 text-indigo-600 rounded"
               />
               <span>Show only issues</span>
@@ -455,46 +494,23 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         </div>
       </div>
       
-      {/* Data Grid with synchronized horizontal scrolling */}
-      <div className="border border-gray-200 rounded-md" style={{ height: 'calc(100vh - 300px)', position: 'relative' }}>
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50">
-            <div className="flex flex-col items-center p-4 rounded-lg">
-              <AiOutlineLoading3Quarters className="animate-spin text-blue-500 text-3xl mb-2" />
-              <p className="text-gray-700 font-medium">Processing data...</p>
-            </div>
-          </div>
-        )}
-        {/* Fixed Header */}
+      {/* Data Grid with Virtualization */}
+      <div className="relative overflow-hidden max-w-full">
+        {/* Fixed header container with horizontal scrolling sync */}
         <div 
-          ref={headerRef}
-          className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 overflow-x-auto overflow-y-hidden"
-          style={{ 
-            width: '100%',
-            scrollbarWidth: 'none', /* Firefox */
-            msOverflowStyle: 'none', /* IE and Edge */
-          }}
+          ref={headerContainerRef}
+          className="sticky top-0 bg-gray-50 z-10 overflow-hidden"
+          style={{ width: '100%', overflow: 'hidden' }}
         >
-          <style jsx>{`
-            div::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
-          <div className="flex" style={{ width: 'fit-content', minWidth: '100%' }}>
-            <div className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 flex-shrink-0 bg-gray-50">
+          <div className="flex border-b border-gray-200" style={{ width: 'max-content', minWidth: '100%' }}>
+            <div className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 flex-shrink-0">
               Row
             </div>
-            {columns.filter(col => col !== '_originalIndex').map((column) => (
+            {columns.map((column) => (
               <div
                 key={column}
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-gray-50"
-                style={{ 
-                  minWidth: '150px', 
-                  maxWidth: '300px',
-                  width: '150px',
-                  flex: '1 0 150px'
-                }}
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                style={{ minWidth: '150px', maxWidth: '300px', flex: '1 0 auto' }}
                 onClick={() => requestSort(column)}
               >
                 <div className="flex items-center">
@@ -509,24 +525,35 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
             ))}
           </div>
         </div>
-
-        {/* Data Rows */}
-        <div style={{ height: 'calc(100% - 48px)' }}> {/* Subtract header height */}
+        
+        {/* Scrollable content container that syncs with header */}
+        <div 
+          ref={bodyContainerRef}
+          className="overflow-x-auto max-w-full" 
+          style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
+          onScroll={(e) => {
+            if (headerContainerRef.current) {
+              headerContainerRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            }
+          }}
+        >
+        
+        {/* Virtualized List for Table Body */}
+        <div style={{ height: 'calc(100vh - 300px)', width: '100%' }}>
           <List
-            height={Math.min(600 - 48, getPaginatedData().length * 40 + 20)} // Subtract header height
+            height={Math.min(600, getPaginatedData().length * 40 + 20)} // Adjust height based on number of rows, max 600px
             itemCount={getPaginatedData().length}
-            itemSize={40}
+            itemSize={40} // Height of each row
             width="100%"
-            overscanCount={5}
-            outerRef={listOuterRef}
-            className="overflow-auto"
+            overscanCount={5} // Number of items to render outside of the visible area
+            className="divide-y divide-gray-200"
           >
-            {({ index, style }: { index: number; style: React.CSSProperties }) => {
-              const row = getPaginatedData()[index];
-              if (!row) return null;
+            {({ index, style }) => {
+              const actualRowIndex = index;
+              const rowIndex = ((currentPage - 1) * rowsPerPage) + actualRowIndex;
+              const row = getPaginatedData()[actualRowIndex];
               
-              // Get the original row index for validation lookups
-              const originalRowIndex = row._originalIndex;
+              if (!row) return null; // Safety check
               
               return (
                 <div 
@@ -535,64 +562,65 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
-                    width: 'fit-content',
-                    minWidth: '100%'
                   }}
                   className="hover:bg-gray-50"
                 >
                   <div className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 flex-shrink-0">
-                    {originalRowIndex + 1}
+                    {rowIndex + 1}
                   </div>
                   
-                  {columns.filter(col => col !== '_originalIndex').map((column) => (
-                    <div
-                      key={`${originalRowIndex}-${column}`}
-                      ref={highlightedCell && highlightedCell.rowIndex === originalRowIndex && highlightedCell.columnName === column ? highlightedCellRef : null}
-                      className={`px-4 py-2 text-sm ${getCellBackground(originalRowIndex, column)} ${highlightedCell && highlightedCell.rowIndex === originalRowIndex && highlightedCell.columnName === column ? 'ring-2 ring-indigo-500 animate-pulse' : ''} ${getCellValidation(originalRowIndex, column)?.severity === 'critical' ? 'text-red-700 font-medium' : ''}`}
-                      style={{ 
-                        minWidth: '150px', 
-                        maxWidth: '300px', 
-                        width: '150px',
-                        flex: '1 0 150px',
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.3s ease'
-                      }}
-                      onClick={() => handleCellClick(originalRowIndex, column)}
-                    >
-                      {editingCell && editingCell.rowIndex === originalRowIndex && editingCell.columnName === column ? (
+                  {columns.map((column) => {
+                    const isHighlighted = highlightedCell && 
+                      highlightedCell.rowIndex === rowIndex && 
+                      highlightedCell.columnName === column;
+                    
+                    return (
+                      <div
+                        key={`${rowIndex}-${column}`}
+                        ref={isHighlighted ? highlightedCellRef : null}
+                        className={`px-4 py-2 text-sm flex-1 ${getCellBackground(rowIndex, column)} ${isHighlighted ? 'ring-2 ring-indigo-500 animate-pulse' : ''} ${getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-700 font-medium' : ''}`}
+                        style={{ 
+                          minWidth: '150px', 
+                          maxWidth: '300px', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis',
+                          transition: 'all 0.3s ease',
+                          flex: '1 0 auto'
+                        }}
+                        onClick={() => handleCellClick(rowIndex, column)}
+                      >
+                      {editingCell && editingCell.rowIndex === rowIndex && editingCell.columnName === column ? (
                         <input
                           type="text"
                           value={editValue}
                           onChange={handleCellEdit}
                           onBlur={handleCellEditComplete}
                           onKeyDown={handleKeyDown}
-                          className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full p-1 border rounded"
                           autoFocus
-                          // Prevent click events from bubbling up to parent
-                          onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
                         <div className="flex items-center">
-                          <span className="flex-grow truncate">{row[column]}</span>
-                          {getCellIcon(originalRowIndex, column) && (
-                            <div className="ml-2 relative group flex-shrink-0">
-                              {getCellIcon(originalRowIndex, column)}
+                          <span className="flex-grow">{row[column]}</span>
+                          {getCellIcon(rowIndex, column) && (
+                            <div className="ml-2 relative group">
+                              {getCellIcon(rowIndex, column)}
                               <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-white border rounded-md shadow-lg -left-32 top-6">
                                 <div className="text-xs font-medium mb-1">
-                                  {getCellValidation(originalRowIndex, column)?.severity?.toUpperCase() || ''}
+                                  {getCellValidation(rowIndex, column)?.severity?.toUpperCase() || ''}
                                 </div>
                                 <div className="text-xs mb-2">
-                                  {getCellValidation(originalRowIndex, column)?.message || ''}
+                                  {getCellValidation(rowIndex, column)?.message || ''}
                                 </div>
+                                {/* Apply to all similar issues button removed - suggestion functionality has been eliminated */}
                               </div>
                             </div>
                           )}
                         </div>
                       )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }}
@@ -600,7 +628,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         </div>
       </div>
       
-      {/* Pagination Controls */}
+      {/* Pagination Controls with Performance Optimizations */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
         <div className="flex items-center">
           <span className="text-sm text-gray-700 mr-2">
