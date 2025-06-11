@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
-import BatchCorrectionsPanel, { BatchCorrection } from '@/components/media-sufficiency/BatchCorrectionsPanel';
 import DataPreviewGrid from '@/components/media-sufficiency/DataPreviewGrid';
 import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
 
@@ -379,48 +378,6 @@ export default function EnhancedValidate() {
       }
     }
   };
-  
-  // Handle batch corrections
-  const handleBatchCorrections = async (corrections: BatchCorrection[]) => {
-    // Update the data with all corrections
-    const updatedData = [...csvData];
-    
-    corrections.forEach(correction => {
-      updatedData[correction.rowIndex][correction.columnName] = correction.newValue;
-    });
-    
-    setCsvData(updatedData);
-    
-    // Update session data on the server
-    await updateSessionData(updatedData);
-    
-    // Re-validate the data
-    if (validator) {
-      try {
-        // Properly await the Promise
-        const issues = await validator.validateAll(updatedData);
-        
-        // Ensure issues is an array
-        if (Array.isArray(issues)) {
-          setValidationIssues(issues);
-          
-          // Update validation summary
-          const summary = validator.getValidationSummary(issues);
-          setValidationSummary(summary);
-        } else {
-          console.error('validateAll did not return an array:', issues);
-          setError('Validation failed: Invalid response format');
-        }
-      } catch (error) {
-        console.error('Error during validation after batch corrections:', error);
-        setError(error instanceof Error ? error.message : 'Validation failed');
-      }
-    }
-    
-    // Show a success message
-    setSuccessMessage(`Applied ${corrections.length} corrections successfully`);
-    setTimeout(() => setSuccessMessage(''), 3000);
-  };
 
   // Delete rows with issues
   const deleteRowsWithIssues = async (severityFilter: ('critical' | 'warning' | 'suggestion')[]) => {
@@ -764,19 +721,7 @@ export default function EnhancedValidate() {
                     Preview and edit your data below. Click on cells to edit values. Cells with validation issues are highlighted.
                   </p>
                   
-                  {/* Batch Corrections Panel */}
-                  {validationIssues.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Batch Corrections</h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Apply corrections to multiple cells at once based on validation issues.
-                      </p>
-                      <BatchCorrectionsPanel
-                        validationIssues={validationIssues}
-                        onApplyBatchCorrections={handleBatchCorrections}
-                      />
-                    </div>
-                  )}
+                  {/* Batch Corrections Panel removed as requested */}
                   
                   {/* Delete Rows Actions */}
                   {validationIssues.length > 0 && (
