@@ -16,6 +16,7 @@ interface MasterData {
 export interface MediaSufficiencyRecord {
   [key: string]: any;
   Year?: string | number;
+  'Sub Region'?: string;
   Country?: string;
   Category?: string;
   Range?: string;
@@ -91,7 +92,7 @@ export class MediaSufficiencyValidator {
   private initializeRules() {
     // Define all fields that should be validated
     const allFields = [
-      'Year', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 
+      'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 
       'Start Date', 'End Date', 'Budget', 'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
       'PM Type', 'Objectives Values'
     ];
@@ -180,6 +181,35 @@ export class MediaSufficiencyValidator {
       });
     });
 
+    // Sub Region validation
+    this.rules.push({
+      field: 'Sub Region',
+      type: 'relationship',
+      severity: 'warning',
+      message: 'Sub Region should be a valid region name',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return true; // Sub Region is not required
+        
+        // Check if sub region exists in master data
+        const subRegionInput = value.toString().trim();
+        const subRegions = masterData?.subRegions || [];
+        
+        // Case-insensitive search with type checking
+        return subRegions.some((sr: string | { name: string }) => {
+          // Ensure sr is a string before calling toLowerCase
+          if (typeof sr === 'string') {
+            return sr.toLowerCase() === subRegionInput.toLowerCase();
+          }
+          // If sr is an object with a name property, use that
+          if (sr && typeof sr === 'object' && 'name' in sr && typeof sr.name === 'string') {
+            return sr.name.toLowerCase() === subRegionInput.toLowerCase();
+          }
+          // If sr is not a string or object with name, compare directly
+          return sr === subRegionInput;
+        });
+      }
+    });
+
     // Country validation
     this.rules.push({
       field: 'Country',
@@ -206,6 +236,58 @@ export class MediaSufficiencyValidator {
           // If c is not a string or object with name, compare directly
           return c === countryInput;
         });
+      }
+    });
+    
+    // Sub Region to Country mapping validation
+    this.rules.push({
+      field: 'Country',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Country does not match the specified Sub Region',
+      validate: (value, record, allRecords, masterData) => {
+        // Skip validation if either country or sub region is missing
+        if (!value || !record['Sub Region']) return true;
+        
+        const countryInput = value.toString().trim();
+        const subRegionInput = record['Sub Region'].toString().trim();
+        
+        // Get the mappings from master data
+        const countryToSubRegionMap = masterData?.countryToSubRegionMap || {};
+        const subRegionToCountriesMap = masterData?.subRegionToCountriesMap || {};
+        
+        // If we don't have any mapping data, skip validation
+        if (Object.keys(countryToSubRegionMap).length === 0) {
+          return true;
+        }
+        
+        // Find the country in our mappings (case-insensitive)
+        const countryKey = Object.keys(countryToSubRegionMap).find(
+          key => key.toLowerCase() === countryInput.toLowerCase()
+        );
+        
+        // If we found the country in our mappings
+        if (countryKey) {
+          const mappedSubRegion = countryToSubRegionMap[countryKey];
+          // Check if the specified sub-region matches what's in our mapping
+          return mappedSubRegion.toLowerCase() === subRegionInput.toLowerCase();
+        }
+        
+        // If country isn't in our mappings, check if the sub-region exists
+        const subRegionKey = Object.keys(subRegionToCountriesMap).find(
+          key => key.toLowerCase() === subRegionInput.toLowerCase()
+        );
+        
+        // If the sub-region exists in our mappings
+        if (subRegionKey) {
+          // Check if the country is in the list of countries for this sub-region
+          const countries = subRegionToCountriesMap[subRegionKey];
+          return countries.some((c: string) => c.toLowerCase() === countryInput.toLowerCase());
+        }
+        
+        // If neither the country nor the sub-region is in our mappings, we can't validate
+        // So we'll assume it's valid to avoid false positives
+        return true;
       }
     });
 
@@ -319,6 +401,58 @@ export class MediaSufficiencyValidator {
         return true;
       }
     });
+    
+    // Campaign-Range relationship validation
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Campaign does not match the specified Range',
+      validate: (value, record, allRecords, masterData) => {
+        // Skip validation if either campaign or range is missing
+        if (!value || !record.Range) return true;
+        
+        const campaignInput = value.toString().trim();
+        const rangeInput = record.Range.toString().trim();
+        
+        // Get the mappings from master data
+        const campaignToRangeMap = masterData?.campaignToRangeMap || {};
+        const rangeToCampaignsMap = masterData?.rangeToCampaignsMap || {};
+        
+        // If we don't have any mapping data, skip validation
+        if (Object.keys(campaignToRangeMap).length === 0) {
+          return true;
+        }
+        
+        // Find the campaign in our mappings (case-insensitive)
+        const campaignKey = Object.keys(campaignToRangeMap).find(
+          key => key.toLowerCase() === campaignInput.toLowerCase()
+        );
+        
+        // If we found the campaign in our mappings
+        if (campaignKey) {
+          const mappedRange = campaignToRangeMap[campaignKey];
+          // Check if the specified range matches what's in our mapping
+          return mappedRange.toLowerCase() === rangeInput.toLowerCase();
+        }
+        
+        // If campaign isn't in our mappings, check if the range exists
+        const rangeKey = Object.keys(rangeToCampaignsMap).find(
+          key => key.toLowerCase() === rangeInput.toLowerCase()
+        );
+        
+        // If the range exists in our mappings
+        if (rangeKey) {
+          // Check if the campaign is in the list of campaigns for this range
+          const campaigns = rangeToCampaignsMap[rangeKey];
+          return campaigns.some((c: string) => c.toLowerCase() === campaignInput.toLowerCase());
+        }
+        
+        // If neither the campaign nor the range is in our mappings, we can't validate
+        // So we'll assume it's valid to avoid false positives
+        return true;
+      }
+    });
 
     // Budget validation
     this.rules.push({
@@ -360,6 +494,20 @@ export class MediaSufficiencyValidator {
         // Calculate sum
         const sum = q1 + q2 + q3 + q4;
         
+        // Special case: If only one quarterly budget is provided and it equals the total budget,
+        // consider it valid (common pattern in media planning)
+        const nonZeroQuarters = [q1, q2, q3, q4].filter(q => q > 0).length;
+        const singleQuarterMatchesTotal = nonZeroQuarters === 1 && [
+          Math.abs(q1 - budget) < 0.01,
+          Math.abs(q2 - budget) < 0.01,
+          Math.abs(q3 - budget) < 0.01,
+          Math.abs(q4 - budget) < 0.01
+        ].some(match => match);
+        
+        if (singleQuarterMatchesTotal) {
+          return true;
+        }
+        
         // Check if sum equals budget (with small tolerance for floating point errors)
         const tolerance = 0.01; // 1 cent tolerance
         const isEqual = Math.abs(sum - budget) < tolerance;
@@ -368,6 +516,8 @@ export class MediaSufficiencyValidator {
           budget,
           q1, q2, q3, q4,
           sum,
+          nonZeroQuarters,
+          singleQuarterMatchesTotal,
           isEqual
         });
         
@@ -389,7 +539,7 @@ export class MediaSufficiencyValidator {
         
         // Define allowed media types based on our database structure
         // These should match exactly with the media_types table
-        const allowedMediaTypes = ['Digital', 'TV', 'Traditional'];
+        const allowedMediaTypes = ['Digital', 'Traditional'];
         
         // Get media types from master data or use allowed types
         let mediaTypes = masterData?.mediaTypes || allowedMediaTypes;
@@ -432,31 +582,7 @@ export class MediaSufficiencyValidator {
         // Log validation attempt for debugging
         console.log(`Validating Media Subtype: "${subtype}" for Media: "${media}"`);
         
-        // Special case: If media is Traditional, allow TV subtypes
-        if (media.toLowerCase() === 'traditional') {
-          console.log('Traditional media type detected - checking TV subtypes');
-          
-          // For Traditional media, we'll check if the subtype exists under TV
-          if (masterData?.mediaToSubtypes && masterData.mediaToSubtypes['TV']) {
-            const tvSubtypes = masterData.mediaToSubtypes['TV'] || [];
-            
-            // Check if the subtype exists under TV
-            const isValidTvSubtype = tvSubtypes.some((s: string | { name: string }) => {
-              if (typeof s === 'string') {
-                return s.toLowerCase() === subtype.toLowerCase();
-              }
-              if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
-                return s.name.toLowerCase() === subtype.toLowerCase();
-              }
-              return s === subtype;
-            });
-            
-            console.log(`Validation result for Traditional/${subtype}: ${isValidTvSubtype}`);
-            return isValidTvSubtype;
-          }
-        }
-        
-        // Standard validation for other media types
+        // Standard validation for media types
         if (masterData?.mediaToSubtypes) {
           // Find the media type in a case-insensitive way
           const mediaKey = Object.keys(masterData.mediaToSubtypes).find(
@@ -468,28 +594,37 @@ export class MediaSufficiencyValidator {
           
           console.log(`Valid subtypes for ${media}:`, validSubtypes);
           
-          // Case-insensitive search with type checking
-          const isValid = validSubtypes.some((s: string | { name: string }) => {
-            // Ensure s is a string before calling toLowerCase
-            if (typeof s === 'string') {
-              return s.toLowerCase() === subtype.toLowerCase();
-            }
-            // If s is an object with a name property, use that
-            if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
-              return s.name.toLowerCase() === subtype.toLowerCase();
-            }
-            // If s is not a string or object with name, compare directly
-            return s === subtype;
-          });
-          
-          console.log(`Validation result for ${subtype}: ${isValid}`);
-          return isValid;
+          // If we have valid subtypes for this media type, validate against them
+          if (validSubtypes.length > 0) {
+            // Case-insensitive search with type checking
+            const isValid = validSubtypes.some((s: string | { name: string }) => {
+              // Ensure s is a string before calling toLowerCase
+              if (typeof s === 'string') {
+                return s.toLowerCase() === subtype.toLowerCase();
+              }
+              // If s is an object with a name property, use that
+              if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
+                return s.name.toLowerCase() === subtype.toLowerCase();
+              }
+              // If s is not a string or object with name, compare directly
+              return s === subtype;
+            });
+            
+            console.log(`Validation result for ${subtype}: ${isValid}`);
+            return isValid;
+          } else {
+            // If we don't have subtypes for this media type in our mapping,
+            // but the media type itself is valid, we'll accept any subtype
+            // This prevents false positives when the database doesn't have complete mappings
+            console.log(`No subtypes found for media type ${media}, accepting any subtype`);
+            return true;
+          }
         }
         
         // If no mapping available, we can't validate this relationship
-        // In production, this should fail closed (return false) for safety
-        console.log('No media-to-subtypes mapping available, validation failed');
-        return false;
+        // But we'll accept it to avoid false positives
+        console.log('No media-to-subtypes mapping available, accepting any subtype');
+        return true;
       }
     });
 
