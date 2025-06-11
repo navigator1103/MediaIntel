@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
 import BatchCorrectionsPanel, { BatchCorrection } from '@/components/media-sufficiency/BatchCorrectionsPanel';
-import DataPreviewGrid, { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
+import DataPreviewGrid from '@/components/media-sufficiency/DataPreviewGrid';
 import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
+
+// Define ValidationIssue interface locally
+interface ValidationIssue {
+  rowIndex: number;
+  columnName: string;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  currentValue?: unknown;
+}
 
 export default function EnhancedValidate() {
   const router = useRouter();
@@ -36,7 +45,7 @@ export default function EnhancedValidate() {
   const [recordCount, setRecordCount] = useState<number>(0);
   const [validator, setValidator] = useState<MediaSufficiencyValidator | null>(null);
   const [validationSummary, setValidationSummary] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'issues' | 'summary'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'summary'>('preview');
   const [highlightedCell, setHighlightedCell] = useState<{rowIndex: number, columnName: string} | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
   
@@ -740,12 +749,6 @@ export default function EnhancedValidate() {
                   Data Preview
                 </button>
                 <button
-                  onClick={() => setActiveTab('issues')}
-                  className={`${activeTab === 'issues' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                >
-                  Validation Issues ({validationIssues.length})
-                </button>
-                <button
                   onClick={() => setActiveTab('summary')}
                   className={`${activeTab === 'summary' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                 >
@@ -760,6 +763,52 @@ export default function EnhancedValidate() {
                   <p className="text-sm text-gray-600 mb-4">
                     Preview and edit your data below. Click on cells to edit values. Cells with validation issues are highlighted.
                   </p>
+                  
+                  {/* Batch Corrections Panel */}
+                  {validationIssues.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Batch Corrections</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Apply corrections to multiple cells at once based on validation issues.
+                      </p>
+                      <BatchCorrectionsPanel
+                        validationIssues={validationIssues}
+                        onApplyBatchCorrections={handleBatchCorrections}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Delete Rows Actions */}
+                  {validationIssues.length > 0 && (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Delete Rows with Issues</h4>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="px-3 py-2 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 flex items-center"
+                          onClick={() => deleteRowsWithIssues(['critical'])}
+                          disabled={!validationSummary?.critical}
+                        >
+                          <FiAlertCircle className="mr-1" />
+                          Delete Rows with Critical Issues
+                        </button>
+                        <button
+                          className="px-3 py-2 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 flex items-center"
+                          onClick={() => deleteRowsWithIssues(['warning'])}
+                          disabled={!validationSummary?.warning}
+                        >
+                          <FiAlertTriangle className="mr-1" />
+                          Delete Rows with Warnings
+                        </button>
+                        <button
+                          className="px-3 py-2 text-xs bg-gray-100 text-gray-800 rounded hover:bg-gray-200 flex items-center"
+                          onClick={() => deleteRowsWithIssues(['critical', 'warning', 'suggestion'])}
+                          disabled={!validationIssues.length}
+                        >
+                          Delete All Problematic Rows
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   
                   {csvData.length > 0 ? (
                     <DataPreviewGrid
@@ -777,180 +826,7 @@ export default function EnhancedValidate() {
                 </div>
               )}
               
-              {activeTab === 'issues' && (
-                <div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Review validation issues below. Click on an issue to navigate to the corresponding cell or use batch corrections to fix multiple issues at once.
-                  </p>
-                  
-                  {/* Batch Corrections Panel */}
-                  <div className="mb-6">
-                    <BatchCorrectionsPanel
-                      validationIssues={validationIssues}
-                      onApplyBatchCorrections={handleBatchCorrections}
-                    />
-                  </div>
-                  
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">All Validation Issues</h3>
-                  
-                  {validationIssues.length > 0 ? (
-                    <div className="space-y-6">
-                      {/* Delete Rows Actions */}
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">Delete Rows with Issues</h4>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            className="px-3 py-2 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200 flex items-center"
-                            onClick={() => deleteRowsWithIssues(['critical'])}
-                            disabled={!validationSummary?.critical}
-                          >
-                            <FiAlertCircle className="mr-1" />
-                            Delete Rows with Critical Issues
-                          </button>
-                          <button
-                            className="px-3 py-2 text-xs bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 flex items-center"
-                            onClick={() => deleteRowsWithIssues(['warning'])}
-                            disabled={!validationSummary?.warning}
-                          >
-                            <FiAlertTriangle className="mr-1" />
-                            Delete Rows with Warnings
-                          </button>
-                          <button
-                            className="px-3 py-2 text-xs bg-gray-100 text-gray-800 rounded hover:bg-gray-200 flex items-center"
-                            onClick={() => deleteRowsWithIssues(['critical', 'warning', 'suggestion'])}
-                            disabled={!validationIssues.length}
-                          >
-                            Delete All Problematic Rows
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Critical Issues */}
-                      <div>
-                        <h3 className="text-lg font-medium text-red-700 flex items-center mb-2">
-                          <FiAlertCircle className="mr-2" />
-                          Critical Issues ({validationIssues.filter(i => i.severity === 'critical').length})
-                        </h3>
-                        <div className="bg-red-50 rounded-lg p-4">
-                          {validationIssues.filter(i => i.severity === 'critical').length > 0 ? (
-                            <ul className="space-y-2">
-                              {validationIssues
-                                .filter(i => i.severity === 'critical')
-                                .map((issue, index) => (
-                                  <li key={`critical-${index}`} className="flex items-start p-2 hover:bg-red-100 rounded">
-                                    <FiAlertCircle className="text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-                                    <div className="flex-grow">
-                                      <div className="flex justify-between">
-                                        <span className="font-medium">Row {issue.rowIndex + 1}, Column: {issue.columnName}</span>
-                                        <button
-                                          className="text-xs bg-white text-red-700 px-2 py-1 rounded border border-red-300 hover:bg-red-50"
-                                          onClick={() => {
-                                            setActiveTab('preview');
-                                            setHighlightedCell({rowIndex: issue.rowIndex, columnName: issue.columnName});
-                                          }}
-                                        >
-                                          Go to Cell
-                                        </button>
-                                      </div>
-                                      <p className="text-red-700">{issue.message}</p>
-                                      {/* Suggestion functionality has been removed */}
-                                    </div>
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p className="text-green-700">No critical issues found!</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Warnings */}
-                      <div>
-                        <h3 className="text-lg font-medium text-yellow-700 flex items-center mb-2">
-                          <FiAlertTriangle className="mr-2" />
-                          Warnings ({validationIssues.filter(i => i.severity === 'warning').length})
-                        </h3>
-                        <div className="bg-yellow-50 rounded-lg p-4">
-                          {validationIssues.filter(i => i.severity === 'warning').length > 0 ? (
-                            <ul className="space-y-2">
-                              {validationIssues
-                                .filter(i => i.severity === 'warning')
-                                .map((issue, index) => (
-                                  <li key={`warning-${index}`} className="flex items-start p-2 hover:bg-yellow-100 rounded">
-                                    <FiAlertTriangle className="text-yellow-500 mt-0.5 mr-2 flex-shrink-0" />
-                                    <div className="flex-grow">
-                                      <div className="flex justify-between">
-                                        <span className="font-medium">Row {issue.rowIndex + 1}, Column: {issue.columnName}</span>
-                                        <button
-                                          className="text-xs bg-white text-yellow-700 px-2 py-1 rounded border border-yellow-300 hover:bg-yellow-50"
-                                          onClick={() => {
-                                            setActiveTab('preview');
-                                            setHighlightedCell({rowIndex: issue.rowIndex, columnName: issue.columnName});
-                                          }}
-                                        >
-                                          Go to Cell
-                                        </button>
-                                      </div>
-                                      <p className="text-yellow-700">{issue.message}</p>
-                                      {/* Suggestion functionality has been removed */}
-                                    </div>
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p className="text-green-700">No warnings found!</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Suggestions */}
-                      <div>
-                        <h3 className="text-lg font-medium text-blue-700 flex items-center mb-2">
-                          <FiInfo className="mr-2" />
-                          Suggestions ({validationIssues.filter(i => i.severity === 'suggestion').length})
-                        </h3>
-                        <div className="bg-blue-50 rounded-lg p-4">
-                          {validationIssues.filter(i => i.severity === 'suggestion').length > 0 ? (
-                            <ul className="space-y-2">
-                              {validationIssues
-                                .filter(i => i.severity === 'suggestion')
-                                .map((issue, index) => (
-                                  <li key={`suggestion-${index}`} className="flex items-start p-2 hover:bg-blue-100 rounded">
-                                    <FiInfo className="text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
-                                    <div className="flex-grow">
-                                      <div className="flex justify-between">
-                                        <span className="font-medium">Row {issue.rowIndex + 1}, Column: {issue.columnName}</span>
-                                        <button
-                                          className="text-xs bg-white text-blue-700 px-2 py-1 rounded border border-blue-300 hover:bg-blue-50"
-                                          onClick={() => {
-                                            setActiveTab('preview');
-                                            setHighlightedCell({rowIndex: issue.rowIndex, columnName: issue.columnName});
-                                          }}
-                                        >
-                                          Go to Cell
-                                        </button>
-                                      </div>
-                                      <p className="text-blue-700">{issue.message}</p>
-                                      {/* Removed recommendations UI */}
-                                    </div>
-                                  </li>
-                                ))}
-                            </ul>
-                          ) : (
-                            <p className="text-green-700">No validation issues found!</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-green-50 rounded-lg">
-                      <FiCheckCircle className="text-green-500 h-12 w-12 mx-auto mb-4" />
-                      <p className="text-green-700 font-medium text-lg">No validation issues found!</p>
-                      <p className="text-green-600">Your data is ready to be imported.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Removed redundant validation issues tab */}
               
               {activeTab === 'summary' && (
                 <div>
