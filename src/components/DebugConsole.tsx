@@ -6,6 +6,21 @@ export default function DebugConsole() {
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const originalConsole = useRef<{log: typeof console.log, error: typeof console.error, warn: typeof console.warn} | null>(null);
+  
+  // Test database connection
+  const testConnection = async () => {
+    try {
+      console.log('Testing database connection...');
+      const response = await fetch('/api/debug/db-test');
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('Database connection test:', data);
+    } catch (error) {
+      console.error('Database connection test failed:', error instanceof Error ? error.message : String(error));
+    }
+  };
 
   useEffect(() => {
     // Only store original console methods once
@@ -52,19 +67,8 @@ export default function DebugConsole() {
       safeAddLog('WARN', args);
     };
 
-    // Test database connection
-    const testConnection = async () => {
-      try {
-        const response = await fetch('/api/debug/db-test');
-        const data = await response.json();
-        console.log('Database connection test:', data);
-      } catch (error) {
-        console.error('Database connection test failed:', error);
-      }
-    };
-
-    // Run test connection on mount
-    testConnection();
+    // Don't automatically run test connection on mount - this was causing the ChunkLoadError
+    // We've moved the testConnection function outside of useEffect so it can be called from the JSX
 
     // Clean up
     return () => {
@@ -88,12 +92,20 @@ export default function DebugConsole() {
       {isOpen && (
         <div className="bg-black bg-opacity-90 text-white p-4 w-full md:w-[600px] h-[400px] overflow-auto">
           <h3 className="text-xl mb-2">Debug Console</h3>
-          <button 
-            onClick={() => setLogs([])}
-            className="bg-red-500 text-white px-2 py-1 rounded mb-2"
-          >
-            Clear
-          </button>
+          <div className="flex space-x-2 mb-2">
+            <button 
+              onClick={() => setLogs([])}
+              className="bg-red-500 text-white px-2 py-1 rounded"
+            >
+              Clear
+            </button>
+            <button
+              onClick={testConnection}
+              className="bg-blue-500 text-white px-2 py-1 rounded"
+            >
+              Test DB Connection
+            </button>
+          </div>
           <div className="text-xs font-mono">
             {logs.map((log, i) => (
               <div key={i} className={`mb-1 ${log.startsWith('ERROR') ? 'text-red-400' : log.startsWith('WARN') ? 'text-yellow-400' : 'text-green-400'}`}>

@@ -1,15 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FixedSizeList as List } from 'react-window';
-import { FiAlertCircle, FiAlertTriangle, FiInfo, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiAlertCircle, FiAlertTriangle, FiInfo, FiFilter, FiSearch, FiChevronLeft, FiChevronRight, FiCheckCircle, FiLoader } from 'react-icons/fi';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import debounce from 'lodash/debounce';
 
 // Define the ValidationIssue interface locally
-interface ValidationIssue {
+export interface ValidationIssue {
   rowIndex: number;
   columnName: string;
   severity: 'critical' | 'warning' | 'suggestion';
   message: string;
   currentValue?: unknown;
+}
+
+// Define the ValidationSummary interface
+export interface ValidationSummary {
+  critical: number;
+  warning: number;
+  suggestion: number;
+  total: number;
+}
+
+// Define the ImportProgress interface
+export interface ImportProgress {
+  current: number;
+  total: number;
+  percentage: number;
+  stage: string;
 }
 
 interface DataPreviewGridProps {
@@ -18,6 +35,14 @@ interface DataPreviewGridProps {
   onDataChange?: (data: any[]) => void;
   onCellEdit?: (rowIndex: number, columnName: string, newValue: any) => void;
   highlightedCell?: { rowIndex: number; columnName: string } | null;
+  validationStatus?: 'idle' | 'validating' | 'in-progress' | 'success' | 'error';
+  validationProgress?: number;
+  validationSummary?: ValidationSummary | null;
+  importStatus?: 'idle' | 'importing' | 'success' | 'error';
+  importProgress?: ImportProgress;
+  importErrors?: Array<{ message: string }>;
+  onImport?: () => Promise<void> | void;
+  canImport?: boolean;
 }
 
 const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({ 
@@ -25,7 +50,15 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
   validationIssues = [], 
   onDataChange,
   onCellEdit,
-  highlightedCell 
+  highlightedCell,
+  validationStatus = 'idle',
+  validationProgress = 0,
+  validationSummary = null,
+  importStatus = 'idle',
+  importProgress = { current: 0, total: 0, percentage: 0, stage: 'Not started' },
+  importErrors = [],
+  onImport,
+  canImport = false
 }) => {
   // Initialize state
   const [gridData, setGridData] = useState<any[]>([]);
@@ -126,7 +159,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     return map;
   }, [validationIssues]);
 
-  // Apply filters, search, and pagination with performance optimizations
+  // Apply filters, search, and pagination with performance optimizations using chunked processing
   useEffect(() => {
     // Log filtering parameters for debugging
     console.log('Filtering data with:', { 
@@ -139,53 +172,80 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     // Set loading state when filtering starts
     setIsLoading(true);
     
-    // Use setTimeout to prevent UI freezing
-    const timeoutId = setTimeout(() => {
-      try {
-        // Create filtered data with original indices preserved
-        let filtered = gridData.map((row, index) => ({ ...row, _originalIndex: index }));
-        
-        if (showOnlyIssues) {
-          console.log('Filtering to show only rows with issues');
+    // Define chunk size for processing large datasets
+    const CHUNK_SIZE = 1000;
+    let filtered: any[] = [];
+    let currentChunk = 0;
+    
+    // Create a copy of the grid data with original indices preserved
+    const dataWithIndices = gridData.map((row, index) => ({ ...row, _originalIndex: index }));
+    
+    // Process data in chunks to prevent UI freezing
+    const processNextChunk = () => {
+      // Calculate chunk boundaries
+      const startIndex = currentChunk * CHUNK_SIZE;
+      const endIndex = Math.min(startIndex + CHUNK_SIZE, dataWithIndices.length);
+      
+      // Get current chunk of data
+      const chunk = dataWithIndices.slice(startIndex, endIndex);
+      
+      // Process this chunk
+      let filteredChunk = chunk;
+      
+      // Apply issue filtering if needed
+      if (showOnlyIssues) {
+        filteredChunk = filteredChunk.filter((row) => {
+          const originalIndex = row._originalIndex;
+          const rowIssues = rowToIssuesMap.get(originalIndex);
           
-          // Filter to only include rows that have issues matching selected severities
-          filtered = filtered.filter((row) => {
-            const originalIndex = row._originalIndex;
-            const rowIssues = rowToIssuesMap.get(originalIndex);
-            
-            if (!rowIssues || rowIssues.length === 0) {
-              return false; // No issues for this row
-            }
-            
-            // If severity filters are selected, check if any issue matches
-            if (selectedSeverityFilter.length > 0) {
-              return rowIssues.some(issue => selectedSeverityFilter.includes(issue.severity));
-            }
-            
-            // If no severity filters selected, include all rows with any issues
-            return true;
-          });
+          if (!rowIssues || rowIssues.length === 0) {
+            return false; // No issues for this row
+          }
           
-          console.log(`After issue filtering: ${filtered.length} rows remain`);
-        }
-        
-        // Then apply search term filter
-        if (searchTerm) {
-          const lowerSearchTerm = searchTerm.toLowerCase();
-          filtered = filtered.filter(row => {
-            for (const key in row) {
-              if (key === '_originalIndex') continue; // Skip our internal field
-              const value = row[key];
-              if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
-                return true;
-              }
-            }
-            return false;
-          });
-        }
+          // If severity filters are selected, check if any issue matches
+          if (selectedSeverityFilter.length > 0) {
+            return rowIssues.some(issue => selectedSeverityFilter.includes(issue.severity));
+          }
           
-        // Apply sorting if needed
+          // If no severity filters selected, include all rows with any issues
+          return true;
+        });
+      }
+      
+      // Apply search term filter
+      if (searchTerm) {
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        filteredChunk = filteredChunk.filter(row => {
+          for (const key in row) {
+            if (key === '_originalIndex') continue; // Skip our internal field
+            const value = row[key];
+            if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+      
+      // Add filtered chunk to results
+      filtered = [...filtered, ...filteredChunk];
+      
+      // Check if we need to process more chunks
+      currentChunk++;
+      if (currentChunk * CHUNK_SIZE < dataWithIndices.length) {
+        // Schedule next chunk with requestAnimationFrame for better UI responsiveness
+        requestAnimationFrame(() => {
+          // Update progress indicator if needed for very large datasets
+          if (dataWithIndices.length > CHUNK_SIZE * 5) {
+            const progress = Math.round((currentChunk * CHUNK_SIZE / dataWithIndices.length) * 100);
+            console.log(`Processing data: ${progress}% complete`);
+          }
+          processNextChunk();
+        });
+      } else {
+        // All chunks processed, now apply sorting
         if (sortConfig !== null) {
+          console.log('Applying sorting...');
           filtered.sort((a: any, b: any) => {
             const aValue = a[sortConfig.key];
             const bValue = b[sortConfig.key];
@@ -207,6 +267,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         }
         
         // All data processed, update state and finish
+        console.log(`Filtering complete: ${filtered.length} rows after filtering`);
         setFilteredData(filtered);
         
         // Calculate total pages
@@ -220,13 +281,16 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         
         // Turn off loading state
         setIsLoading(false);
-      } catch (error) {
-        console.error('Error filtering data:', error);
-        setIsLoading(false);
       }
-    }, 0);
+    };
     
-    return () => clearTimeout(timeoutId);
+    // Start processing the first chunk
+    processNextChunk();
+    
+    // Cleanup function
+    return () => {
+      // Nothing specific to clean up since we're using requestAnimationFrame
+    };
   }, [gridData, searchTerm, selectedSeverityFilter, sortConfig, currentPage, rowsPerPage, validationIssues, showOnlyIssues, rowToIssuesMap]);
     
   // We've moved the sorting logic into the main filtering effect for better performance
@@ -234,11 +298,16 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
   // Pagination is now handled in the main filtering effect for better performance
 
   // Get paginated data with memoization for better performance
-  const getPaginatedData = React.useCallback(() => {
+  const paginatedData = React.useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
     return filteredData.slice(startIndex, endIndex);
   }, [filteredData, currentPage, rowsPerPage]);
+  
+  // Use this function to access the memoized data
+  const getPaginatedData = React.useCallback(() => {
+    return paginatedData;
+  }, [paginatedData]);
 
   // Handle cell editing
   const handleCellClick = (rowIndex: number, columnName: string) => {
@@ -250,38 +319,46 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     setEditValue(e.target.value);
   };
 
-  const handleCellEditComplete = () => {
-    if (editingCell) {
-      const { rowIndex, columnName } = editingCell;
-      
-      // Only update if the value has actually changed
-      if (gridData[rowIndex][columnName] !== editValue) {
-        console.log(`Updating cell [${rowIndex}][${columnName}] from '${gridData[rowIndex][columnName]}' to '${editValue}'`);
+  // Create a debounced version of the cell edit complete handler
+  const debouncedCellEditComplete = useCallback(
+    debounce(() => {
+      if (editingCell) {
+        const { rowIndex, columnName } = editingCell;
         
-        // Create a deep copy of the data to ensure React detects the change
-        const updatedData = JSON.parse(JSON.stringify(gridData));
-        updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
-        
-        // Update local state first
-        setGridData(updatedData);
-        
-        // Call the callback if provided
-        if (onCellEdit) {
-          console.log('Calling onCellEdit callback');
-          onCellEdit(rowIndex, columnName, editValue);
+        // Only update if the value has actually changed
+        if (gridData[rowIndex][columnName] !== editValue) {
+          console.log(`Updating cell [${rowIndex}][${columnName}] from '${gridData[rowIndex][columnName]}' to '${editValue}'`);
+          
+          // Create a deep copy of the data to ensure React detects the change
+          const updatedData = JSON.parse(JSON.stringify(gridData));
+          updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
+          
+          // Update local state first
+          setGridData(updatedData);
+          
+          // Call the callback if provided
+          if (onCellEdit) {
+            console.log('Calling onCellEdit callback');
+            onCellEdit(rowIndex, columnName, editValue);
+          }
+          
+          if (onDataChange) {
+            console.log('Calling onDataChange callback');
+            onDataChange(updatedData);
+          }
+        } else {
+          console.log('Cell value unchanged, skipping update');
         }
         
-        if (onDataChange) {
-          console.log('Calling onDataChange callback');
-          onDataChange(updatedData);
-        }
-      } else {
-        console.log('Cell value unchanged, skipping update');
+        // Clear editing state regardless of whether value changed
+        setEditingCell(null);
       }
-      
-      // Clear editing state regardless of whether value changed
-      setEditingCell(null);
-    }
+    }, 500),
+    [editingCell, editValue, gridData, onCellEdit, onDataChange]
+  );
+
+  const handleCellEditComplete = () => {
+    debouncedCellEditComplete();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -387,6 +464,13 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
   };
 
   const issueCounts = getIssueCounts();
+
+  // Clean up debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedCellEditComplete.cancel();
+    };
+  }, [debouncedCellEditComplete]);
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -513,13 +597,14 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         {/* Data Rows */}
         <div style={{ height: 'calc(100% - 48px)' }}> {/* Subtract header height */}
           <List
-            height={Math.min(600 - 48, getPaginatedData().length * 40 + 20)} // Subtract header height
-            itemCount={getPaginatedData().length}
+            height={Math.min(600 - 48, paginatedData.length * 40 + 20)} // Subtract header height
+            itemCount={paginatedData.length}
             itemSize={40}
             width="100%"
-            overscanCount={5}
+            overscanCount={10} // Increase overscan for smoother scrolling
             outerRef={listOuterRef}
             className="overflow-auto"
+            initialScrollOffset={0} // Reset scroll position when data changes
           >
             {({ index, style }: { index: number; style: React.CSSProperties }) => {
               const row = getPaginatedData()[index];
@@ -600,6 +685,116 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
         </div>
       </div>
       
+      {/* Validation and Import Status */}
+      {(validationStatus !== 'idle' || importStatus !== 'idle') && (
+        <div className="px-4 py-3 border-t border-gray-200">
+          {/* Validation Status */}
+          {(validationStatus === 'validating' || validationStatus === 'in-progress') && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center">
+                <AiOutlineLoading3Quarters className="text-blue-500 mr-2 animate-spin" />
+                <span className="text-blue-700">Validating data...</span>
+              </div>
+              {validationStatus === 'in-progress' && (
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                      style={{ width: `${validationProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-sm text-gray-600 text-right">
+                    {validationProgress}% complete
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {validationStatus === 'error' && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex items-center">
+                <FiAlertCircle className="text-red-500 mr-2" />
+                <span className="text-red-700">Validation error occurred</span>
+              </div>
+            </div>
+          )}
+
+          {validationStatus === 'success' && validationSummary && (
+            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+              <h4 className="font-medium mb-2">Validation Summary</h4>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <FiAlertCircle className="text-red-500 mr-1" />
+                  <span className="text-red-700">{validationSummary.critical} Critical</span>
+                </div>
+                <div className="flex items-center">
+                  <FiAlertTriangle className="text-yellow-500 mr-1" />
+                  <span className="text-yellow-700">{validationSummary.warning} Warnings</span>
+                </div>
+                <div className="flex items-center">
+                  <FiInfo className="text-blue-500 mr-1" />
+                  <span className="text-blue-700">{validationSummary.suggestion} Suggestions</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Import Status */}
+          {importStatus === 'importing' && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <h4 className="font-medium mb-2">Import Progress</h4>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                  style={{ width: `${importProgress.percentage}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>{importProgress.stage}</span>
+                <span>{importProgress.current} of {importProgress.total} ({importProgress.percentage}%)</span>
+              </div>
+            </div>
+          )}
+
+          {importStatus === 'error' && importErrors.length > 0 && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <h4 className="font-medium text-red-700 mb-2">Import Errors</h4>
+              <ul className="list-disc pl-5 text-red-700">
+                {importErrors.map((error, index) => (
+                  <li key={index}>{error.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {importStatus === 'success' && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex items-center">
+                <FiCheckCircle className="text-green-500 mr-2" />
+                <span className="text-green-700">Data imported successfully!</span>
+              </div>
+            </div>
+          )}
+
+          {/* Import Button */}
+          {validationStatus === 'success' && importStatus === 'idle' && (
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={onImport}
+                disabled={!canImport}
+                className={`px-4 py-2 rounded-md ${canImport
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                } transition-colors`}
+              >
+                {canImport ? 'Import Data' : 'Fix Critical Issues to Import'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Pagination Controls */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
         <div className="flex items-center">

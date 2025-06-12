@@ -16,7 +16,8 @@ export default function EnhancedValidate() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [masterData, setMasterData] = useState<any>(null);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
-  const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'in-progress' | 'success' | 'error'>('idle');
+  const [validationProgress, setValidationProgress] = useState<number>(0);
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [importProgress, setImportProgress] = useState<{
     current: number;
@@ -224,33 +225,73 @@ export default function EnhancedValidate() {
     }
   };
   
-  // Handle data changes from the grid
+  // Handle data changes from the grid with chunked validation for large datasets
   const handleDataChange = async (updatedData: any[]) => {
     setCsvData(updatedData);
     
     // Update session data on the server
     await updateSessionData(updatedData);
     
-    // Re-run validation
+    // Re-run validation with chunking for large datasets
     if (validator) {
       try {
-        // Properly await the Promise
-        const issues = await validator.validateAll(updatedData);
+        // Set validation status to in-progress
+        setValidationStatus('in-progress');
+        setValidationProgress(0);
         
-        // Ensure issues is an array
-        if (Array.isArray(issues)) {
-          setValidationIssues(issues);
+        // Define chunk size based on data size
+        const CHUNK_SIZE = updatedData.length > 5000 ? 500 : 1000;
+        const totalChunks = Math.ceil(updatedData.length / CHUNK_SIZE);
+        let allIssues: ValidationIssue[] = [];
+        
+        // Process validation in chunks
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const startIndex = chunkIndex * CHUNK_SIZE;
+          const endIndex = Math.min(startIndex + CHUNK_SIZE, updatedData.length);
+          const dataChunk = updatedData.slice(startIndex, endIndex);
           
-          // Update validation summary
-          const summary = validator.getValidationSummary(issues);
-          setValidationSummary(summary);
-        } else {
-          console.error('validateAll did not return an array:', issues);
-          setError('Validation failed: Invalid response format');
+          // Update progress
+          const currentProgress = Math.round(((chunkIndex) / totalChunks) * 100);
+          setValidationProgress(currentProgress);
+          
+          // Process this chunk
+          // Use a small timeout to allow UI updates between chunks
+          await new Promise<void>((resolve) => {
+            setTimeout(async () => {
+              try {
+                // Validate this chunk - use validateAll with offset adjustment
+                const chunkIssues = await validator.validateAll(dataChunk);
+                if (Array.isArray(chunkIssues)) {
+                  // Adjust row indices to match the original data
+                  const adjustedIssues = chunkIssues.map(issue => ({
+                    ...issue,
+                    rowIndex: issue.rowIndex + startIndex
+                  }));
+                  allIssues = [...allIssues, ...adjustedIssues];
+                }
+                resolve();
+              } catch (error) {
+                console.error(`Error validating chunk ${chunkIndex}:`, error);
+                resolve(); // Continue despite errors
+              }
+            }, 0);
+          });
         }
+        
+        // All chunks processed
+        setValidationProgress(100);
+        setValidationIssues(allIssues);
+        
+        // Update validation summary
+        const summary = validator.getValidationSummary(allIssues);
+        setValidationSummary(summary);
+        
+        // Update validation status
+        setValidationStatus('success');
       } catch (error) {
-        console.error('Error during validation after data change:', error);
+        console.error('Error during validation:', error);
         setError(error instanceof Error ? error.message : 'Validation failed');
+        setValidationStatus('error');
       }
     }
   };
@@ -465,13 +506,13 @@ export default function EnhancedValidate() {
   };
   
   // Check if import is allowed
-  const canImport = validator && validationStatus === 'success' && (() => {
+  const canImport: boolean = !!(validator && validationStatus === 'success' && (() => {
     // Ensure validationIssues is an array before calling canImport
     if (validator && Array.isArray(validationIssues)) {
       return validator.canImport(validationIssues);
     }
     return false;
-  })();
+  })());
   
   return (
     <div className="p-6 max-w-full mx-auto" style={{ maxWidth: '95vw' }}>
@@ -560,6 +601,13 @@ export default function EnhancedValidate() {
                 onDataChange={handleDataChange}
                 onCellEdit={handleCellEdit}
                 highlightedCell={highlightedCell}
+                validationStatus={validationStatus}
+                validationSummary={validationSummary}
+                importStatus={importStatus}
+                importProgress={importProgress}
+                importErrors={importErrors}
+                onImport={handleImportToSQLite}
+                canImport={canImport}
               />
             ) : (
               <div className="text-center py-8 text-gray-500">
