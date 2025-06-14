@@ -1,120 +1,67 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FixedSizeList as List } from 'react-window';
-import { FiAlertCircle, FiAlertTriangle, FiInfo, FiFilter, FiSearch, FiChevronLeft, FiChevronRight, FiCheckCircle, FiLoader } from 'react-icons/fi';
-import { AiOutlineLoading3Quarters } from 'react-icons/ai';
-import debounce from 'lodash/debounce';
+import React, { useState, useEffect } from 'react';
+import { FiAlertCircle, FiAlertTriangle, FiInfo, FiCheckCircle, FiEdit2, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
-// Define the ValidationIssue interface locally
+interface DataPreviewGridProps {
+  data: any[];
+  validationIssues?: ValidationIssue[];
+  onDataChange?: (updatedData: any[]) => void;
+  onCellEdit?: (rowIndex: number, columnName: string, newValue: any) => void;
+  highlightedCell?: {rowIndex: number, columnName: string} | null;
+  validationStatus?: 'idle' | 'validating' | 'in-progress' | 'success' | 'error';
+  validationSummary?: any;
+  importStatus?: 'idle' | 'importing' | 'success' | 'error';
+  importProgress?: {
+    current: number;
+    total: number;
+    percentage: number;
+    stage: string;
+  };
+  importErrors?: Array<{ message: string }>;
+  onImport?: () => void;
+  canImport?: boolean;
+}
+
 export interface ValidationIssue {
   rowIndex: number;
   columnName: string;
   severity: 'critical' | 'warning' | 'suggestion';
   message: string;
-  currentValue?: unknown;
-}
-
-// Define the ValidationSummary interface
-export interface ValidationSummary {
-  critical: number;
-  warning: number;
-  suggestion: number;
-  total: number;
-}
-
-// Define the ImportProgress interface
-export interface ImportProgress {
-  current: number;
-  total: number;
-  percentage: number;
-  stage: string;
-}
-
-interface DataPreviewGridProps {
-  data: any[];
-  validationIssues?: ValidationIssue[];
-  onDataChange?: (data: any[]) => void;
-  onCellEdit?: (rowIndex: number, columnName: string, newValue: any) => void;
-  highlightedCell?: { rowIndex: number; columnName: string } | null;
-  validationStatus?: 'idle' | 'validating' | 'in-progress' | 'success' | 'error';
-  validationProgress?: number;
-  validationSummary?: ValidationSummary | null;
-  importStatus?: 'idle' | 'importing' | 'success' | 'error';
-  importProgress?: ImportProgress;
-  importErrors?: Array<{ message: string }>;
-  onImport?: () => Promise<void> | void;
-  canImport?: boolean;
+  currentValue?: any;
+  suggestedValue?: any;
 }
 
 const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({ 
-  data = [], 
+  data, 
   validationIssues = [], 
   onDataChange,
   onCellEdit,
-  highlightedCell,
-  validationStatus = 'idle',
-  validationProgress = 0,
-  validationSummary = null,
-  importStatus = 'idle',
-  importProgress = { current: 0, total: 0, percentage: 0, stage: 'Not started' },
-  importErrors = [],
+  highlightedCell = null,
+  validationStatus,
+  validationSummary,
+  importStatus,
+  importProgress,
+  importErrors,
   onImport,
-  canImport = false
+  canImport
 }) => {
-  // Initialize state
   const [gridData, setGridData] = useState<any[]>([]);
-  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(25);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: string } | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnName: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showOnlyIssues, setShowOnlyIssues] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeverityFilter, setSelectedSeverityFilter] = useState<string[]>(['critical', 'warning', 'suggestion']);
-  const [showOnlyIssues, setShowOnlyIssues] = useState<boolean>(false);
-
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  
   // Reference for the highlighted cell
-  const highlightedCellRef = React.useRef<HTMLDivElement | null>(null);
+  const highlightedCellRef = React.useRef<HTMLTableCellElement | null>(null);
   
-  // References for scroll synchronization
-  const headerRef = useRef<HTMLDivElement>(null);
-  const listOuterRef = useRef<HTMLDivElement>(null);
-  
-  // Handle scroll synchronization
-  useEffect(() => {
-    const listOuter = listOuterRef.current;
-    const header = headerRef.current;
-    
-    if (!listOuter || !header) return;
-    
-    // Flag to prevent infinite scroll loop
-    let isScrolling = false;
-    
-    const handleListScroll = () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      header.scrollLeft = listOuter.scrollLeft;
-      isScrolling = false;
-    };
-    
-    const handleHeaderScroll = () => {
-      if (isScrolling) return;
-      isScrolling = true;
-      listOuter.scrollLeft = header.scrollLeft;
-      isScrolling = false;
-    };
-    
-    listOuter.addEventListener('scroll', handleListScroll);
-    header.addEventListener('scroll', handleHeaderScroll);
-    
-    return () => {
-      listOuter.removeEventListener('scroll', handleListScroll);
-      header.removeEventListener('scroll', handleHeaderScroll);
-    };
-  }, []);
-
   // Effect to handle highlighted cell scrolling and pagination
   useEffect(() => {
     if (highlightedCell) {
@@ -138,7 +85,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
       }, 100);
     }
   }, [highlightedCell, currentPage, rowsPerPage]);
-  
+
   // Initialize grid data and columns
   useEffect(() => {
     if (data && data.length > 0) {
@@ -147,167 +94,63 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     }
   }, [data]);
 
-  // Create a map of row indexes to their validation issues for faster lookup
-  const rowToIssuesMap = React.useMemo(() => {
-    const map = new Map<number, ValidationIssue[]>();
-    validationIssues.forEach(issue => {
-      if (!map.has(issue.rowIndex)) {
-        map.set(issue.rowIndex, []);
-      }
-      map.get(issue.rowIndex)?.push(issue);
-    });
-    return map;
-  }, [validationIssues]);
-
-  // Apply filters, search, and pagination with performance optimizations using chunked processing
+  // Apply filters, search, and pagination
   useEffect(() => {
-    // Log filtering parameters for debugging
-    console.log('Filtering data with:', { 
-      showOnlyIssues, 
-      selectedSeverityFilter, 
-      rowsWithIssues: Array.from(rowToIssuesMap.keys()).length,
-      totalRows: gridData.length
-    });
+    let filtered = [...gridData];
     
-    // Set loading state when filtering starts
-    setIsLoading(true);
+    // Apply search term
+    if (searchTerm) {
+      filtered = filtered.filter(row => {
+        return Object.values(row).some(value => 
+          String(value).toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+    }
     
-    // Define chunk size for processing large datasets
-    const CHUNK_SIZE = 1000;
-    let filtered: any[] = [];
-    let currentChunk = 0;
+    // Apply issues filter
+    if (showOnlyIssues) {
+      // Create a Set of row indexes with issues for faster lookup
+      const rowsWithIssuesSet = new Set(
+        validationIssues
+          .filter(issue => selectedSeverityFilter.includes(issue.severity))
+          .map(issue => issue.rowIndex)
+      );
+      
+      // Keep only rows that have issues
+      filtered = filtered.filter((_, index) => rowsWithIssuesSet.has(index));
+    }
     
-    // Create a copy of the grid data with original indices preserved
-    const dataWithIndices = gridData.map((row, index) => ({ ...row, _originalIndex: index }));
-    
-    // Process data in chunks to prevent UI freezing
-    const processNextChunk = () => {
-      // Calculate chunk boundaries
-      const startIndex = currentChunk * CHUNK_SIZE;
-      const endIndex = Math.min(startIndex + CHUNK_SIZE, dataWithIndices.length);
-      
-      // Get current chunk of data
-      const chunk = dataWithIndices.slice(startIndex, endIndex);
-      
-      // Process this chunk
-      let filteredChunk = chunk;
-      
-      // Apply issue filtering if needed
-      if (showOnlyIssues) {
-        filteredChunk = filteredChunk.filter((row) => {
-          const originalIndex = row._originalIndex;
-          const rowIssues = rowToIssuesMap.get(originalIndex);
-          
-          if (!rowIssues || rowIssues.length === 0) {
-            return false; // No issues for this row
-          }
-          
-          // If severity filters are selected, check if any issue matches
-          if (selectedSeverityFilter.length > 0) {
-            return rowIssues.some(issue => selectedSeverityFilter.includes(issue.severity));
-          }
-          
-          // If no severity filters selected, include all rows with any issues
-          return true;
-        });
-      }
-      
-      // Apply search term filter
-      if (searchTerm) {
-        const lowerSearchTerm = searchTerm.toLowerCase();
-        filteredChunk = filteredChunk.filter(row => {
-          for (const key in row) {
-            if (key === '_originalIndex') continue; // Skip our internal field
-            const value = row[key];
-            if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
-              return true;
-            }
-          }
-          return false;
-        });
-      }
-      
-      // Add filtered chunk to results
-      filtered = [...filtered, ...filteredChunk];
-      
-      // Check if we need to process more chunks
-      currentChunk++;
-      if (currentChunk * CHUNK_SIZE < dataWithIndices.length) {
-        // Schedule next chunk with requestAnimationFrame for better UI responsiveness
-        requestAnimationFrame(() => {
-          // Update progress indicator if needed for very large datasets
-          if (dataWithIndices.length > CHUNK_SIZE * 5) {
-            const progress = Math.round((currentChunk * CHUNK_SIZE / dataWithIndices.length) * 100);
-            console.log(`Processing data: ${progress}% complete`);
-          }
-          processNextChunk();
-        });
-      } else {
-        // All chunks processed, now apply sorting
-        if (sortConfig !== null) {
-          console.log('Applying sorting...');
-          filtered.sort((a: any, b: any) => {
-            const aValue = a[sortConfig.key];
-            const bValue = b[sortConfig.key];
-            
-            // Handle null/undefined values
-            if (aValue == null && bValue == null) return 0;
-            if (aValue == null) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (bValue == null) return sortConfig.direction === 'ascending' ? 1 : -1;
-            
-            // Compare values
-            if (aValue < bValue) {
-              return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-              return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
-          });
+    // Apply sorting
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
         }
-        
-        // All data processed, update state and finish
-        console.log(`Filtering complete: ${filtered.length} rows after filtering`);
-        setFilteredData(filtered);
-        
-        // Calculate total pages
-        const total = Math.ceil(filtered.length / rowsPerPage);
-        setTotalPages(total || 1); // Ensure at least 1 page
-        
-        // Adjust current page if needed
-        if (currentPage > total && total > 0) {
-          setCurrentPage(1);
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
         }
-        
-        // Turn off loading state
-        setIsLoading(false);
-      }
-    };
+        return 0;
+      });
+    }
     
-    // Start processing the first chunk
-    processNextChunk();
+    // Calculate total pages
+    const calculatedTotalPages = Math.ceil(filtered.length / rowsPerPage);
+    setTotalPages(calculatedTotalPages || 1); // Ensure at least 1 page
     
-    // Cleanup function
-    return () => {
-      // Nothing specific to clean up since we're using requestAnimationFrame
-    };
-  }, [gridData, searchTerm, selectedSeverityFilter, sortConfig, currentPage, rowsPerPage, validationIssues, showOnlyIssues, rowToIssuesMap]);
+    // Reset to first page if current page is out of bounds
+    if (currentPage > calculatedTotalPages && calculatedTotalPages > 0) {
+      setCurrentPage(1);
+    }
     
-  // We've moved the sorting logic into the main filtering effect for better performance
-  
-  // Pagination is now handled in the main filtering effect for better performance
+    setFilteredData(filtered);
+  }, [gridData, searchTerm, showOnlyIssues, selectedSeverityFilter, sortConfig, validationIssues, rowsPerPage]);
 
-  // Get paginated data with memoization for better performance
-  const paginatedData = React.useMemo(() => {
+  // Get paginated data
+  const getPaginatedData = () => {
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
     return filteredData.slice(startIndex, endIndex);
-  }, [filteredData, currentPage, rowsPerPage]);
-  
-  // Use this function to access the memoized data
-  const getPaginatedData = React.useCallback(() => {
-    return paginatedData;
-  }, [paginatedData]);
+  };
 
   // Handle cell editing
   const handleCellClick = (rowIndex: number, columnName: string) => {
@@ -319,54 +162,31 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     setEditValue(e.target.value);
   };
 
-  // Create a debounced version of the cell edit complete handler
-  const debouncedCellEditComplete = useCallback(
-    debounce(() => {
-      if (editingCell) {
-        const { rowIndex, columnName } = editingCell;
-        
-        // Only update if the value has actually changed
-        if (gridData[rowIndex][columnName] !== editValue) {
-          console.log(`Updating cell [${rowIndex}][${columnName}] from '${gridData[rowIndex][columnName]}' to '${editValue}'`);
-          
-          // Create a deep copy of the data to ensure React detects the change
-          const updatedData = JSON.parse(JSON.stringify(gridData));
-          updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
-          
-          // Update local state first
-          setGridData(updatedData);
-          
-          // Call the callback if provided
-          if (onCellEdit) {
-            console.log('Calling onCellEdit callback');
-            onCellEdit(rowIndex, columnName, editValue);
-          }
-          
-          if (onDataChange) {
-            console.log('Calling onDataChange callback');
-            onDataChange(updatedData);
-          }
-        } else {
-          console.log('Cell value unchanged, skipping update');
-        }
-        
-        // Clear editing state regardless of whether value changed
-        setEditingCell(null);
-      }
-    }, 500),
-    [editingCell, editValue, gridData, onCellEdit, onDataChange]
-  );
-
   const handleCellEditComplete = () => {
-    debouncedCellEditComplete();
+    if (editingCell) {
+      const { rowIndex, columnName } = editingCell;
+      const updatedData = [...gridData];
+      updatedData[rowIndex] = { ...updatedData[rowIndex], [columnName]: editValue };
+      
+      setGridData(updatedData);
+      
+      // Call the callback if provided
+      if (onCellEdit) {
+        onCellEdit(rowIndex, columnName, editValue);
+      }
+      
+      if (onDataChange) {
+        onDataChange(updatedData);
+      }
+      
+      setEditingCell(null);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Prevent form submission
       handleCellEditComplete();
     } else if (e.key === 'Escape') {
-      e.preventDefault(); // Prevent browser default
       setEditingCell(null);
     }
   };
@@ -380,55 +200,62 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
     setSortConfig({ key, direction });
   };
 
-  // Create a memoized validation issue lookup map for faster access
-  const validationIssueMap = React.useMemo(() => {
-    const map = new Map();
-    validationIssues.forEach(issue => {
-      const key = `${issue.rowIndex}-${issue.columnName}`;
-      map.set(key, issue);
-    });
-    return map;
-  }, [validationIssues]);
-
-  // Get cell validation status with optimized lookup
-  const getCellValidation = React.useCallback((rowIndex: number, columnName: string) => {
-    const key = `${rowIndex}-${columnName}`;
-    return validationIssueMap.get(key);
-  }, [validationIssueMap]);
+  // Get cell validation status
+  const getCellValidation = (rowIndex: number, columnName: string) => {
+    return validationIssues.find(
+      issue => issue.rowIndex === rowIndex && issue.columnName === columnName
+    );
+  };
 
   // Get cell background color based on validation status
-  const getCellBackground = React.useCallback((rowIndex: number, columnName: string) => {
+  const getCellBackground = (rowIndex: number, columnName: string) => {
     const issue = getCellValidation(rowIndex, columnName);
-    if (!issue) return 'bg-white';
+    if (!issue) return 'bg-gradient-to-r from-white to-gray-50';
     
     switch (issue.severity) {
       case 'critical':
-        return 'bg-red-100 border-red-300 border';
+        return 'bg-gradient-to-r from-red-100 via-red-50 to-[#fd7f6f]/20 border-l-8 border-l-[#fd7f6f] shadow-lg shadow-red-200/50';
       case 'warning':
-        return 'bg-yellow-50';
+        return 'bg-gradient-to-r from-amber-100 via-yellow-50 to-orange-50 border-l-8 border-l-amber-500 shadow-lg shadow-amber-200/50';
       case 'suggestion':
-        return 'bg-blue-50';
+        return 'bg-gradient-to-r from-blue-100 via-indigo-50 to-[#7eb0d5]/20 border-l-8 border-l-[#7eb0d5] shadow-lg shadow-blue-200/50';
       default:
-        return 'bg-white';
+        return 'bg-gradient-to-r from-white to-gray-50';
     }
-  }, [getCellValidation]);
+  };
 
   // Get cell icon based on validation status
-  const getCellIcon = React.useCallback((rowIndex: number, columnName: string) => {
+  const getCellIcon = (rowIndex: number, columnName: string) => {
     const issue = getCellValidation(rowIndex, columnName);
     if (!issue) return null;
     
     switch (issue.severity) {
       case 'critical':
-        return <FiAlertCircle className="text-red-500" />;
+        return <FiAlertCircle className="text-red-600 h-5 w-5 animate-pulse" />;
       case 'warning':
-        return <FiAlertTriangle className="text-yellow-500" />;
+        return <FiAlertTriangle className="text-amber-600 h-5 w-5" />;
       case 'suggestion':
-        return <FiInfo className="text-blue-500" />;
+        return <FiInfo className="text-blue-600 h-5 w-5" />;
       default:
         return null;
     }
-  }, [getCellValidation]);
+  };
+
+  // Apply fix to all similar issues
+  const applyFixToAll = (columnName: string, currentValue: any, newValue: any) => {
+    const updatedData = gridData.map(row => {
+      if (row[columnName] === currentValue) {
+        return { ...row, [columnName]: newValue };
+      }
+      return row;
+    });
+    
+    setGridData(updatedData);
+    
+    if (onDataChange) {
+      onDataChange(updatedData);
+    }
+  };
 
   // Toggle severity filter
   const toggleSeverityFilter = (severity: string) => {
@@ -454,372 +281,243 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
 
   // Count issues by severity
   const getIssueCounts = () => {
-    const counts = validationIssues.reduce((counts, issue) => {
-      const severity = issue.severity as 'critical' | 'warning' | 'suggestion';
-      counts[severity]++;
-      return counts;
-    }, { critical: 0, warning: 0, suggestion: 0 });
+    const counts = {
+      critical: 0,
+      warning: 0,
+      suggestion: 0
+    };
+    
+    validationIssues.forEach(issue => {
+      counts[issue.severity]++;
+    });
     
     return counts;
   };
 
   const issueCounts = getIssueCounts();
 
-  // Clean up debounced function on unmount
-  useEffect(() => {
-    return () => {
-      debouncedCellEditComplete.cancel();
-    };
-  }, [debouncedCellEditComplete]);
-
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border-0">
       {/* Toolbar */}
-      <div className="p-4 border-b flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
+      <div className="px-8 py-6 bg-gradient-to-r from-[#115f9a] via-[#1984c5] to-[#7eb0d5] flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-6">
           <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search data..."
-              className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Search your data..."
+              className="pl-12 pr-6 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1984c5] focus:border-[#1984c5] bg-white text-gray-700 placeholder-gray-400 shadow-sm transition-all duration-200 hover:shadow-md min-w-[280px]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          <div className="flex items-center space-x-2">
-            <label className="flex items-center">
+          <div className="flex items-center space-x-3">
+            <label className="flex items-center bg-white/20 backdrop-blur-sm px-4 py-3 rounded-xl border border-white/30 hover:bg-white/30 transition-all duration-300 cursor-pointer shadow-lg">
               <input
                 type="checkbox"
                 checked={showOnlyIssues}
-                onChange={() => {
-                  // When toggling show only issues, reset to page 1
-                  setCurrentPage(1);
-                  setShowOnlyIssues(!showOnlyIssues);
-                }}
-                className="mr-2 h-4 w-4 text-indigo-600 rounded"
+                onChange={() => setShowOnlyIssues(!showOnlyIssues)}
+                className="mr-3 h-5 w-5 text-indigo-600 rounded-lg focus:ring-white/50 bg-white/80"
               />
-              <span>Show only issues</span>
+              <span className="text-sm font-semibold text-white">Issues Only</span>
             </label>
           </div>
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">Filter:</span>
+          <div className="flex items-center space-x-3">
+            <span className="text-sm font-bold text-white/90">Filters:</span>
             <button
-              className={`px-2 py-1 rounded-md text-xs flex items-center ${
-                selectedSeverityFilter.includes('critical') ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all duration-300 transform hover:scale-105 ${
+                selectedSeverityFilter.includes('critical') 
+                  ? 'bg-[#fd7f6f] text-white shadow-lg shadow-red-500/30' 
+                  : 'bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30 shadow-lg'
               }`}
               onClick={() => toggleSeverityFilter('critical')}
             >
-              <FiAlertCircle className="mr-1" />
+              <FiAlertCircle className="mr-2 h-4 w-4" />
               Critical ({issueCounts.critical})
             </button>
             <button
-              className={`px-2 py-1 rounded-md text-xs flex items-center ${
-                selectedSeverityFilter.includes('warning') ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'
+              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all duration-300 transform hover:scale-105 ${
+                selectedSeverityFilter.includes('warning') 
+                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' 
+                  : 'bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30 shadow-lg'
               }`}
               onClick={() => toggleSeverityFilter('warning')}
             >
-              <FiAlertTriangle className="mr-1" />
+              <FiAlertTriangle className="mr-2 h-4 w-4" />
               Warnings ({issueCounts.warning})
             </button>
             <button
-              className={`px-2 py-1 rounded-md text-xs flex items-center ${
-                selectedSeverityFilter.includes('suggestion') ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+              className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center transition-all duration-300 transform hover:scale-105 ${
+                selectedSeverityFilter.includes('suggestion') 
+                  ? 'bg-[#7eb0d5] text-white shadow-lg shadow-blue-500/30' 
+                  : 'bg-white/20 backdrop-blur-sm text-white border border-white/30 hover:bg-white/30 shadow-lg'
               }`}
               onClick={() => toggleSeverityFilter('suggestion')}
             >
-              <FiInfo className="mr-1" />
-              Suggestions ({issueCounts.suggestion})
+              <FiInfo className="mr-2 h-4 w-4" />
+              Tips ({issueCounts.suggestion})
             </button>
           </div>
         </div>
       </div>
       
-      {/* Data Grid with synchronized horizontal scrolling */}
-      <div className="border border-gray-200 rounded-md" style={{ height: 'calc(100vh - 300px)', position: 'relative' }}>
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-50">
-            <div className="flex flex-col items-center p-4 rounded-lg">
-              <AiOutlineLoading3Quarters className="animate-spin text-blue-500 text-3xl mb-2" />
-              <p className="text-gray-700 font-medium">Processing data...</p>
-            </div>
-          </div>
-        )}
-        {/* Fixed Header */}
-        <div 
-          ref={headerRef}
-          className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 overflow-x-auto overflow-y-hidden"
-          style={{ 
-            width: '100%',
-            scrollbarWidth: 'none', /* Firefox */
-            msOverflowStyle: 'none', /* IE and Edge */
-          }}
-        >
-          <style jsx>{`
-            div::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
-          <div className="flex" style={{ width: 'fit-content', minWidth: '100%' }}>
-            <div className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12 flex-shrink-0 bg-gray-50">
-              Row
-            </div>
-            {columns.filter(col => col !== '_originalIndex').map((column) => (
-              <div
-                key={column}
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 bg-gray-50"
-                style={{ 
-                  minWidth: '150px', 
-                  maxWidth: '300px',
-                  width: '150px',
-                  flex: '1 0 150px'
-                }}
-                onClick={() => requestSort(column)}
-              >
-                <div className="flex items-center">
-                  <span>{column}</span>
-                  {sortConfig?.key === column && (
-                    <span className="ml-1">
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Data Rows */}
-        <div style={{ height: 'calc(100% - 48px)' }}> {/* Subtract header height */}
-          <List
-            height={Math.min(600 - 48, paginatedData.length * 40 + 20)} // Subtract header height
-            itemCount={paginatedData.length}
-            itemSize={40}
-            width="100%"
-            overscanCount={10} // Increase overscan for smoother scrolling
-            outerRef={listOuterRef}
-            className="overflow-auto"
-            initialScrollOffset={0} // Reset scroll position when data changes
-          >
-            {({ index, style }: { index: number; style: React.CSSProperties }) => {
-              const row = getPaginatedData()[index];
-              if (!row) return null;
-              
-              // Get the original row index for validation lookups
-              const originalRowIndex = row._originalIndex;
-              
-              return (
-                <div 
-                  style={{
-                    ...style,
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
-                    width: 'fit-content',
-                    minWidth: '100%'
-                  }}
-                  className="hover:bg-gray-50"
+      {/* Data Grid */}
+      <div className="overflow-x-auto max-w-full bg-gray-50" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table className="w-auto divide-y divide-gray-300" style={{ tableLayout: 'fixed' }}>
+          <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-16 bg-gray-200">
+                #
+              </th>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  className="px-6 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-300 transition-all duration-300 hover:shadow-lg"
+                  style={{ minWidth: '150px', maxWidth: '300px' }}
+                  onClick={() => requestSort(column)}
                 >
-                  <div className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 w-12 flex-shrink-0">
-                    {originalRowIndex + 1}
+                  <div className="flex items-center">
+                    <span>{column}</span>
+                    {sortConfig?.key === column && (
+                      <span className="ml-2 text-[#1984c5] font-bold text-lg">
+                        {sortConfig.direction === 'ascending' ? '↗' : '↘'}
+                      </span>
+                    )}
                   </div>
-                  
-                  {columns.filter(col => col !== '_originalIndex').map((column) => (
-                    <div
-                      key={`${originalRowIndex}-${column}`}
-                      ref={highlightedCell && highlightedCell.rowIndex === originalRowIndex && highlightedCell.columnName === column ? highlightedCellRef : null}
-                      className={`px-4 py-2 text-sm ${getCellBackground(originalRowIndex, column)} ${highlightedCell && highlightedCell.rowIndex === originalRowIndex && highlightedCell.columnName === column ? 'ring-2 ring-indigo-500 animate-pulse' : ''} ${getCellValidation(originalRowIndex, column)?.severity === 'critical' ? 'text-red-700 font-medium' : ''}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {getPaginatedData().map((row, actualRowIndex) => {
+              // Calculate the actual row index in the full dataset
+              const rowIndex = ((currentPage - 1) * rowsPerPage) + actualRowIndex;
+              return (
+                <tr key={rowIndex} className="hover:bg-gradient-to-r hover:from-[#7eb0d5]/10 hover:via-[#1984c5]/10 hover:to-blue-50 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] border-l-4 border-l-transparent hover:border-l-[#1984c5]">
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-700 bg-gray-100">
+                    {rowIndex + 1}
+                  </td>
+                  {columns.map((column) => {
+                    const isHighlighted = highlightedCell && 
+                      highlightedCell.rowIndex === rowIndex && 
+                      highlightedCell.columnName === column;
+                    
+                    return (
+                    <td
+                      key={`${rowIndex}-${column}`}
+                      ref={isHighlighted ? highlightedCellRef : null}
+                      className={`px-6 py-2 text-sm cursor-pointer relative group ${getCellBackground(rowIndex, column)} ${isHighlighted ? 'ring-4 ring-cyan-400 ring-offset-2 animate-pulse shadow-lg' : ''} ${getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-800 font-bold' : 'text-gray-800'} hover:shadow-md transition-all duration-300`}
                       style={{ 
                         minWidth: '150px', 
                         maxWidth: '300px', 
-                        width: '150px',
-                        flex: '1 0 150px',
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
                         transition: 'all 0.3s ease'
                       }}
-                      onClick={() => handleCellClick(originalRowIndex, column)}
+                      onClick={() => handleCellClick(rowIndex, column)}
+                      title={getCellValidation(rowIndex, column) ? `${getCellValidation(rowIndex, column)?.severity.toUpperCase()}: ${getCellValidation(rowIndex, column)?.message}` : ''}
                     >
-                      {editingCell && editingCell.rowIndex === originalRowIndex && editingCell.columnName === column ? (
+                      {editingCell && editingCell.rowIndex === rowIndex && editingCell.columnName === column ? (
                         <input
                           type="text"
                           value={editValue}
                           onChange={handleCellEdit}
                           onBlur={handleCellEditComplete}
                           onKeyDown={handleKeyDown}
-                          className="w-full p-1 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full p-2 border-2 border-indigo-400 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 bg-gradient-to-r from-white to-indigo-50 shadow-lg font-semibold text-gray-800"
                           autoFocus
-                          // Prevent click events from bubbling up to parent
-                          onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
                         <div className="flex items-center">
-                          <span className="flex-grow truncate">{row[column]}</span>
-                          {getCellIcon(originalRowIndex, column) && (
-                            <div className="ml-2 relative group flex-shrink-0">
-                              {getCellIcon(originalRowIndex, column)}
-                              <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-white border rounded-md shadow-lg -left-32 top-6">
-                                <div className="text-xs font-medium mb-1">
-                                  {getCellValidation(originalRowIndex, column)?.severity?.toUpperCase() || ''}
+                          <span className="flex-grow font-semibold">{row[column]}</span>
+                          {getCellIcon(rowIndex, column) && (
+                            <div className="ml-3 relative group">
+                              <div className="p-2 rounded-full hover:bg-indigo-100 transition-all duration-300 transform hover:scale-110">
+                                {getCellIcon(rowIndex, column)}
+                              </div>
+                              <div className="hidden group-hover:block absolute z-30 w-80 p-5 bg-white border-2 border-gray-300 rounded-2xl shadow-2xl -left-40 top-10">
+                                <div className={`text-sm font-bold mb-3 ${
+                                  getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-600' :
+                                  getCellValidation(rowIndex, column)?.severity === 'warning' ? 'text-amber-600' :
+                                  'text-blue-600'
+                                }`}>
+                                  {getCellValidation(rowIndex, column)?.severity === 'critical' ? '🚨 CRITICAL ERROR' :
+                                   getCellValidation(rowIndex, column)?.severity === 'warning' ? '⚠️ WARNING' :
+                                   '💡 SUGGESTION'}
                                 </div>
-                                <div className="text-xs mb-2">
-                                  {getCellValidation(originalRowIndex, column)?.message || ''}
+                                <div className="text-sm mb-4 text-gray-700 leading-relaxed font-medium">
+                                  {getCellValidation(rowIndex, column)?.message}
                                 </div>
+                                {getCellValidation(rowIndex, column)?.suggestedValue && (
+                                  <div className="text-xs mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                    <span className="font-semibold text-green-700">Suggested fix:</span>
+                                    <span className="text-green-600 ml-1">{getCellValidation(rowIndex, column)?.suggestedValue}</span>
+                                  </div>
+                                )}
+                                <button
+                                  className="text-sm bg-gradient-to-r from-[#1984c5] to-[#115f9a] text-white px-4 py-2 rounded-xl hover:from-[#7eb0d5] hover:to-[#1984c5] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-bold"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const issue = getCellValidation(rowIndex, column);
+                                    if (issue && issue.suggestedValue !== undefined) {
+                                      applyFixToAll(column, row[column], issue.suggestedValue);
+                                    }
+                                  }}
+                                >
+                                  🔧 Fix All Similar
+                                </button>
                               </div>
                             </div>
                           )}
                         </div>
                       )}
-                    </div>
-                  ))}
-                </div>
+                      {/* Cell hover tooltip */}
+                      {getCellValidation(rowIndex, column) && (
+                        <div className="hidden group-hover:block absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
+                          <div className="font-semibold">
+                            {getCellValidation(rowIndex, column)?.severity === 'critical' ? '🚨 Critical' :
+                             getCellValidation(rowIndex, column)?.severity === 'warning' ? '⚠️ Warning' : '💡 Tip'}
+                          </div>
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      )}
+                    </td>
+                  );
+                  })}
+                </tr>
               );
-            }}
-          </List>
-        </div>
+            })}
+          </tbody>
+        </table>
       </div>
       
-      {/* Validation and Import Status */}
-      {(validationStatus !== 'idle' || importStatus !== 'idle') && (
-        <div className="px-4 py-3 border-t border-gray-200">
-          {/* Validation Status */}
-          {(validationStatus === 'validating' || validationStatus === 'in-progress') && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <div className="flex items-center">
-                <AiOutlineLoading3Quarters className="text-blue-500 mr-2 animate-spin" />
-                <span className="text-blue-700">Validating data...</span>
-              </div>
-              {validationStatus === 'in-progress' && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                      style={{ width: `${validationProgress}%` }}
-                    ></div>
-                  </div>
-                  <div className="text-sm text-gray-600 text-right">
-                    {validationProgress}% complete
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {validationStatus === 'error' && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <div className="flex items-center">
-                <FiAlertCircle className="text-red-500 mr-2" />
-                <span className="text-red-700">Validation error occurred</span>
-              </div>
-            </div>
-          )}
-
-          {validationStatus === 'success' && validationSummary && (
-            <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
-              <h4 className="font-medium mb-2">Validation Summary</h4>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center">
-                  <FiAlertCircle className="text-red-500 mr-1" />
-                  <span className="text-red-700">{validationSummary.critical} Critical</span>
-                </div>
-                <div className="flex items-center">
-                  <FiAlertTriangle className="text-yellow-500 mr-1" />
-                  <span className="text-yellow-700">{validationSummary.warning} Warnings</span>
-                </div>
-                <div className="flex items-center">
-                  <FiInfo className="text-blue-500 mr-1" />
-                  <span className="text-blue-700">{validationSummary.suggestion} Suggestions</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Import Status */}
-          {importStatus === 'importing' && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <h4 className="font-medium mb-2">Import Progress</h4>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-                <div 
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                  style={{ width: `${importProgress.percentage}%` }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>{importProgress.stage}</span>
-                <span>{importProgress.current} of {importProgress.total} ({importProgress.percentage}%)</span>
-              </div>
-            </div>
-          )}
-
-          {importStatus === 'error' && importErrors.length > 0 && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <h4 className="font-medium text-red-700 mb-2">Import Errors</h4>
-              <ul className="list-disc pl-5 text-red-700">
-                {importErrors.map((error, index) => (
-                  <li key={index}>{error.message}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {importStatus === 'success' && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-              <div className="flex items-center">
-                <FiCheckCircle className="text-green-500 mr-2" />
-                <span className="text-green-700">Data imported successfully!</span>
-              </div>
-            </div>
-          )}
-
-          {/* Import Button */}
-          {validationStatus === 'success' && importStatus === 'idle' && (
-            <div className="mb-4 flex justify-end">
-              <button
-                onClick={onImport}
-                disabled={!canImport}
-                className={`px-4 py-2 rounded-md ${canImport
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                } transition-colors`}
-              >
-                {canImport ? 'Import Data' : 'Fix Critical Issues to Import'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Pagination Controls */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+      <div className="px-8 py-6 bg-gradient-to-r from-[#115f9a] via-[#1984c5] to-[#7eb0d5] flex items-center justify-between">
         <div className="flex items-center">
-          <span className="text-sm text-gray-700 mr-2">
+          <span className="text-sm font-medium text-white mr-4">
             Rows per page:
           </span>
           <select
-            className="border border-gray-300 rounded px-2 py-1 text-sm"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1984c5] focus:border-[#1984c5] transition-all duration-200"
             value={rowsPerPage}
             onChange={handleRowsPerPageChange}
           >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-            <option value={250}>250</option>
-            <option value={500}>500</option>
+            <option value={10} className="text-gray-800">10</option>
+            <option value={25} className="text-gray-800">25</option>
+            <option value={50} className="text-gray-800">50</option>
+            <option value={100} className="text-gray-800">100</option>
           </select>
         </div>
         
         <div className="flex items-center">
-          <span className="text-sm text-gray-700 mr-4">
+          <span className="text-sm font-medium text-white mr-6">
             {filteredData.length > 0 ? (
               <>
-                Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
+                Showing <span className="font-semibold text-white/90">{((currentPage - 1) * rowsPerPage) + 1}</span> to <span className="font-semibold text-white/90">{Math.min(currentPage * rowsPerPage, filteredData.length)}</span> of <span className="font-semibold text-white/90">{filteredData.length}</span> entries
               </>
             ) : (
               'No entries to show'
@@ -828,7 +526,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
           
           <div className="flex items-center space-x-2">
             <button
-              className={`p-1 rounded-full ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed bg-gray-200' : 'text-gray-600 hover:bg-gray-300 hover:text-gray-800 bg-white border border-gray-300 shadow-sm hover:shadow-md'}`}
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
@@ -836,66 +534,12 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
               <FiChevronLeft className="h-5 w-5" />
             </button>
             
-            {/* Page number selector with quick jumps */}
-            <div className="flex items-center space-x-1">
-              {totalPages <= 7 ? (
-                // Show all page numbers if there are 7 or fewer
-                [...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i + 1}
-                    className={`px-2 py-1 text-sm rounded ${currentPage === i + 1 ? 'bg-indigo-100 text-indigo-700 font-medium' : 'hover:bg-gray-100'}`}
-                    onClick={() => handlePageChange(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))
-              ) : (
-                // Show abbreviated page numbers for many pages
-                <>
-                  {/* First page */}
-                  <button
-                    className={`px-2 py-1 text-sm rounded ${currentPage === 1 ? 'bg-indigo-100 text-indigo-700 font-medium' : 'hover:bg-gray-100'}`}
-                    onClick={() => handlePageChange(1)}
-                  >
-                    1
-                  </button>
-                  
-                  {/* Ellipsis or page numbers */}
-                  {currentPage > 3 && <span className="px-1">...</span>}
-                  
-                  {/* Pages around current page */}
-                  {[...Array(5)].map((_, i) => {
-                    const pageNum = Math.max(2, currentPage - 2) + i;
-                    if (pageNum > 1 && pageNum < totalPages) {
-                      return (
-                        <button
-                          key={pageNum}
-                          className={`px-2 py-1 text-sm rounded ${currentPage === pageNum ? 'bg-indigo-100 text-indigo-700 font-medium' : 'hover:bg-gray-100'}`}
-                          onClick={() => handlePageChange(pageNum)}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    }
-                    return null;
-                  })}
-                  
-                  {/* Ellipsis or page numbers */}
-                  {currentPage < totalPages - 2 && <span className="px-1">...</span>}
-                  
-                  {/* Last page */}
-                  <button
-                    className={`px-2 py-1 text-sm rounded ${currentPage === totalPages ? 'bg-indigo-100 text-indigo-700 font-medium' : 'hover:bg-gray-100'}`}
-                    onClick={() => handlePageChange(totalPages)}
-                  >
-                    {totalPages}
-                  </button>
-                </>
-              )}
-            </div>
+            <span className="px-4 py-2 text-sm font-medium bg-white rounded-lg shadow-sm border border-gray-300">
+              <span className="text-gray-700">Page</span> <span className="text-[#1984c5] font-semibold">{currentPage}</span> <span className="text-gray-700">of</span> <span className="text-[#1984c5] font-semibold">{totalPages}</span>
+            </span>
             
             <button
-              className={`p-1 rounded-full ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-200'}`}
+              className={`p-2 rounded-lg transition-all duration-200 ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed bg-gray-200' : 'text-gray-600 hover:bg-gray-300 hover:text-gray-800 bg-white border border-gray-300 shadow-sm hover:shadow-md'}`}
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
             >

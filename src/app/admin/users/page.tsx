@@ -16,20 +16,9 @@ interface User {
   updatedAt: string;
 }
 
-interface Country {
-  id: number;
-  name: string;
-}
-
-interface Brand {
-  id: number;
-  name: string;
-}
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -38,9 +27,9 @@ export default function UserManagementPage() {
 
   // Available pages for access control
   const availablePages = [
-    { id: 'golden-rules', name: 'Golden Rules' },
-    { id: 'five-stars', name: '5 Stars' },
-    { id: 'change-requests', name: 'Change Requests' }
+    { id: 'media-sufficiency', name: 'Media Sufficiency' },
+    { id: 'game-plans', name: 'Game Plans' },
+    { id: 'admin', name: 'Admin Panel' }
   ];
 
   useEffect(() => {
@@ -55,22 +44,6 @@ export default function UserManagementPage() {
         }
         const usersData = await usersResponse.json();
         setUsers(usersData);
-        
-        // Fetch countries
-        const countriesResponse = await fetch('/api/admin/countries');
-        if (!countriesResponse.ok) {
-          throw new Error('Failed to fetch countries');
-        }
-        const countriesData = await countriesResponse.json();
-        setCountries(countriesData);
-        
-        // Fetch brands
-        const brandsResponse = await fetch('/api/admin/brands');
-        if (!brandsResponse.ok) {
-          throw new Error('Failed to fetch brands');
-        }
-        const brandsData = await brandsResponse.json();
-        setBrands(brandsData);
         
         setError(null);
       } catch (err) {
@@ -157,34 +130,16 @@ export default function UserManagementPage() {
     }
   };
 
-  // Helper function to parse comma-separated IDs
-  const parseIds = (idsString: string | null) => {
-    if (!idsString) return [];
-    return idsString.split(',').map(id => parseInt(id.trim(), 10));
-  };
-
-  // Helper function to get country names from IDs
+  // Helper function to get country names (simplified for media sufficiency focus)
   const getCountryNames = (countryIds: string | null) => {
     if (!countryIds) return 'All Countries';
-    const ids = parseIds(countryIds);
-    if (ids.length === 0) return 'All Countries';
-    
-    return countries
-      .filter(country => ids.includes(country.id))
-      .map(country => country.name)
-      .join(', ');
+    return countryIds || 'All Countries';
   };
 
-  // Helper function to get brand names from IDs
+  // Helper function to get brand names (simplified for media sufficiency focus)
   const getBrandNames = (brandIds: string | null) => {
     if (!brandIds) return 'All Brands';
-    const ids = parseIds(brandIds);
-    if (ids.length === 0) return 'All Brands';
-    
-    return brands
-      .filter(brand => ids.includes(brand.id))
-      .map(brand => brand.name)
-      .join(', ');
+    return brandIds || 'All Brands';
   };
 
   // Helper function to get page names
@@ -237,8 +192,8 @@ export default function UserManagementPage() {
       {isFormOpen && (
         <UserForm
           user={selectedUser}
-          countries={countries}
-          brands={brands}
+          countries={[]}
+          brands={[]}
           availablePages={availablePages}
           onSubmit={handleFormSubmit}
           onCancel={handleFormClose}
@@ -256,13 +211,7 @@ export default function UserManagementPage() {
                 Role
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Countries
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Brands
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Pages
+                Accessible Pages
               </th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -292,12 +241,6 @@ export default function UserManagementPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {getCountryNames(user.accessibleCountries)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {getBrandNames(user.accessibleBrands)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {getPageNames(user.accessiblePages)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -320,7 +263,7 @@ export default function UserManagementPage() {
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
                   No users found. Click "Add New User" to create one.
                 </td>
               </tr>

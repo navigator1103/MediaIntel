@@ -57,15 +57,36 @@ export default function EnhancedValidate() {
         }
         
         const data = await response.json();
+        console.log('Session data structure:', Object.keys(data));
         
-        // Set session metadata
-        setFileName(data.sessionData.fileName || 'Unknown file');
-        setFileSize(data.sessionData.fileSize || 0);
-        setRecordCount(data.sessionData.recordCount || 0);
+        // Set session metadata - handle different response structures
+        if (data.sessionData && data.sessionData.fileName) {
+          // Original structure
+          setFileName(data.sessionData.fileName || 'Unknown file');
+          setFileSize(data.sessionData.fileSize || 0);
+          setRecordCount(data.sessionData.recordCount || 0);
+        } else if (data.fileName) {
+          // Direct properties in data
+          setFileName(data.fileName || 'Unknown file');
+          setFileSize(data.fileSize || 0);
+          setRecordCount(data.recordCount || 0);
+        } else if (data.data && data.data.fileName) {
+          // Nested in data property
+          setFileName(data.data.fileName || 'Unknown file');
+          setFileSize(data.data.fileSize || 0);
+          setRecordCount(data.data.recordCount || 0);
+        } else {
+          // Last resort fallback
+          setFileName(sessionId ? `Session ${sessionId}` : 'Data file');
+          setFileSize(0);
+          setRecordCount(data.data?.records?.length || data.records?.length || 0);
+        }
         
-        // Set CSV data
+        // Set CSV data - handle different response structures
         if (data.records && data.records.length > 0) {
           setCsvData(data.records);
+        } else if (data.data && data.data.records && data.data.records.length > 0) {
+          setCsvData(data.data.records);
         }
         
         // Set validation issues if they exist in the response
@@ -85,38 +106,41 @@ export default function EnhancedValidate() {
           setValidationSummary(data.validationSummary);
         }
         
-        // Set master data
-        if (data.sessionData && data.sessionData.masterData) {
-          setMasterData(data.sessionData.masterData);
+        // Extract master data from the response based on its structure
+        const extractedMasterData = data.sessionData?.masterData || data.masterData || data.data?.masterData || {};
+        
+        // Set the master data
+        setMasterData(extractedMasterData);
+        
+        try {
+          // Fetch additional master data from our API endpoint
+          const masterDataResponse = await fetch('/api/admin/media-sufficiency/master-data');
           
-          try {
-            // Fetch additional master data from our API endpoint
-            const masterDataResponse = await fetch('/api/admin/media-sufficiency/master-data');
-            if (masterDataResponse.ok) {
-              const additionalMasterData = await masterDataResponse.json();
-              
-              // Merge the master data
-              const mergedMasterData = {
-                ...data.sessionData.masterData,
-                ...additionalMasterData
-              };
-              
-              setMasterData(mergedMasterData);
-              
-              // Initialize validator with merged master data
-              const newValidator = new MediaSufficiencyValidator(mergedMasterData);
-              setValidator(newValidator);
-            } else {
-              // If API fails, still initialize with original master data
-              const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
-              setValidator(newValidator);
-            }
-          } catch (error) {
-            console.error('Error fetching additional master data:', error);
-            // Initialize with original master data if API fails
-            const newValidator = new MediaSufficiencyValidator(data.sessionData.masterData);
+          if (masterDataResponse.ok) {
+            const additionalMasterData = await masterDataResponse.json();
+            
+            // Merge the master data
+            const mergedMasterData = {
+              ...extractedMasterData,
+              ...additionalMasterData
+            };
+            
+            // Update master data with merged data
+            setMasterData(mergedMasterData);
+            
+            // Initialize validator with merged master data
+            const newValidator = new MediaSufficiencyValidator(mergedMasterData);
+            setValidator(newValidator);
+          } else {
+            // If API fails, still initialize with original master data
+            const newValidator = new MediaSufficiencyValidator(extractedMasterData);
             setValidator(newValidator);
           }
+        } catch (error) {
+          console.error('Error fetching additional master data:', error);
+          // Initialize with original master data if API fails
+          const newValidator = new MediaSufficiencyValidator(extractedMasterData);
+          setValidator(newValidator);
         }
         
         setLoading(false);
@@ -515,7 +539,7 @@ export default function EnhancedValidate() {
   })());
   
   return (
-    <div className="p-6 max-w-full mx-auto" style={{ maxWidth: '95vw' }}>
+    <div className="p-6 max-w-full mx-auto" style={{ maxWidth: '95vw', minHeight: '100vh', paddingBottom: '2rem' }}>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Enhanced Data Validation</h1>
         <button
@@ -542,7 +566,7 @@ export default function EnhancedValidate() {
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 mb-8">
           {/* File Info */}
           <div className="bg-white rounded-lg shadow p-4 flex justify-between items-center">
             <div>
@@ -684,7 +708,7 @@ export default function EnhancedValidate() {
           
           {/* Import Progress Bar */}
           {importStatus === 'importing' && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-8">
               <div className="flex items-center text-blue-700 mb-2">
                 <FiLoader className="animate-spin mr-2" />
                 <span className="font-medium">Import Progress</span>
@@ -709,7 +733,7 @@ export default function EnhancedValidate() {
           
           {/* Import Error */}
           {importStatus === 'error' && (
-            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg mb-8">
               <div className="flex items-center text-red-700 mb-2">
                 <FiAlertTriangle className="mr-2" />
                 <span className="font-medium">Import Error</span>

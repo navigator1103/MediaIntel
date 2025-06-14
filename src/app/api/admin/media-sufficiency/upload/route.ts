@@ -30,34 +30,32 @@ export async function POST(request: NextRequest) {
     const fileBuffer = await file.arrayBuffer();
     const fileContent = new TextDecoder().decode(fileBuffer);
     
-    // Parse CSV data with a more robust approach
-    // First, let's examine the first few lines to understand the structure
-    const lines = fileContent.split('\n').filter(line => line.trim() !== '');
-    
-    if (lines.length < 2) {
+    // Parse CSV data using proper CSV parser to handle quotes and commas correctly
+    let records;
+    try {
+      records = parse(fileContent, {
+        columns: true, // Use first row as column headers
+        skip_empty_lines: true,
+        trim: true,
+        auto_parse: false, // Keep all values as strings initially
+        relax_column_count: true, // Allow inconsistent column counts
+        delimiter: ',',
+        quote: '"',
+        escape: '"'
+      });
+    } catch (parseError) {
+      console.error('CSV parsing error:', parseError);
       return NextResponse.json(
-        { error: 'CSV file must contain at least a header row and one data row' },
+        { error: `CSV parsing failed: ${parseError instanceof Error ? parseError.message : 'Invalid CSV format'}` },
         { status: 400 }
       );
     }
     
-    // Get the header row and parse it
-    const headerRow = lines[0];
-    const headers = headerRow.split(',').map(h => h.trim());
-    
-    // Parse the data rows manually
-    const records = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      const values = line.split(',').map(v => v.trim());
-      
-      // Create an object with header keys and row values
-      const record = {};
-      headers.forEach((header, index) => {
-        record[header] = values[index] || '';
-      });
-      
-      records.push(record);
+    if (!records || records.length === 0) {
+      return NextResponse.json(
+        { error: 'CSV file appears to be empty or contains no valid data rows' },
+        { status: 400 }
+      );
     }
     
     // Log detailed information about the parsed records
@@ -250,23 +248,37 @@ export async function GET(request: NextRequest) {
     );
   }
   
-  const session = uploadSessions.get(sessionId);
-  
-  if (!session) {
+  try {
+    // Read session data from file
+    const dataDir = path.join(process.cwd(), 'data', 'sessions');
+    const sessionFilePath = path.join(dataDir, `${sessionId}.json`);
+    
+    if (!fs.existsSync(sessionFilePath)) {
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Read and parse the session data
+    const sessionDataStr = fs.readFileSync(sessionFilePath, 'utf8');
+    const session = JSON.parse(sessionDataStr);
+    
+    // Return session metadata without the full records
+    return NextResponse.json({
+      sessionId,
+      fileName: session.fileName,
+      fileSize: session.fileSize,
+      recordCount: session.recordCount,
+      createdAt: session.createdAt,
+      status: session.status,
+      masterData: summarizeMasterData(session.data.masterData)
+    });
+  } catch (error) {
+    console.error('Error retrieving session data:', error);
     return NextResponse.json(
-      { error: 'Session not found' },
-      { status: 404 }
+      { error: 'Failed to retrieve session data' },
+      { status: 500 }
     );
   }
-  
-  // Return session metadata without the full records
-  return NextResponse.json({
-    sessionId,
-    fileName: session.fileName,
-    fileSize: session.fileSize,
-    recordCount: session.records.length,
-    timestamp: session.timestamp,
-    status: session.status,
-    masterData: summarizeMasterData(session.masterData)
-  });
 }

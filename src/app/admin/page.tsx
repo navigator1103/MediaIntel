@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import LogoutButton from '@/components/LogoutButton';
-import { FiUsers, FiDatabase, FiMap, FiTag, FiBarChart2, FiUploadCloud, FiFileText, FiAlertCircle, FiCalendar, FiPieChart } from 'react-icons/fi';
+import { FiUsers, FiDatabase, FiMap, FiTag, FiBarChart2, FiUploadCloud, FiFileText, FiAlertCircle, FiCalendar, FiPieChart, FiUpload, FiDollarSign } from 'react-icons/fi';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
@@ -21,18 +21,16 @@ ChartJS.register(
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    totalRules: 0,
-    totalCountries: 0,
-    totalBrands: 0,
-    pendingChangeRequests: 0,
     totalGamePlans: 0,
     totalUsers: 0,
+    totalCampaigns: 0,
+    totalBudget: 0,
     lastUpdated: '',
     monthlyData: {
       labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
       datasets: [
         {
-          label: 'Rule Changes',
+          label: 'Game Plans Created',
           data: [12, 19, 8, 15, 22, 27],
           borderColor: 'rgb(79, 70, 229)',
           backgroundColor: 'rgba(79, 70, 229, 0.1)',
@@ -46,8 +44,8 @@ export default function AdminDashboard() {
           pointHoverRadius: 6,
         },
         {
-          label: 'Change Requests',
-          data: [8, 15, 12, 9, 17, 22],
+          label: 'Budget Allocated (k)',
+          data: [800, 1500, 1200, 900, 1700, 2200],
           borderColor: 'rgb(245, 158, 11)',
           backgroundColor: 'rgba(245, 158, 11, 0.1)',
           tension: 0.4,
@@ -62,9 +60,9 @@ export default function AdminDashboard() {
       ]
     },
     distributionData: {
-      labels: ['Rules', 'Countries', 'Brands', 'Game Plans'],
+      labels: ['Game Plans', 'Campaigns', 'Users', 'Media Types'],
       datasets: [{
-        data: [300, 50, 100, 80],
+        data: [80, 50, 10, 15],
         backgroundColor: [
           'rgba(79, 70, 229, 0.85)',
           'rgba(59, 130, 246, 0.85)',
@@ -83,40 +81,47 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Fetch dashboard statistics
-        const [rulesRes, countriesRes, brandsRes, changeRequestsRes, gamePlansRes, usersRes] = await Promise.all([
-          fetch('/api/rules'),
-          fetch('/api/countries'),
-          fetch('/api/brands'),
-          fetch('/api/change-requests?status=Submitted for Review'),
+        // Fetch media sufficiency dashboard statistics
+        const [gamePlansRes, usersRes, dashboardRes] = await Promise.all([
           fetch('/api/admin/media-sufficiency/game-plans').catch(() => ({ json: () => Promise.resolve([]) })),
-          fetch('/api/admin/users').catch(() => ({ json: () => Promise.resolve([]) }))
+          fetch('/api/admin/users').catch(() => ({ json: () => Promise.resolve([]) })),
+          fetch('/api/dashboard/media-sufficiency').catch(() => ({ json: () => Promise.resolve({}) }))
         ]);
 
-        const [rules, countries, brands, changeRequests, gamePlans, users] = await Promise.all([
-          rulesRes.json(),
-          countriesRes.json(),
-          brandsRes.json(),
-          changeRequestsRes.json(),
+        const [gamePlans, users, dashboardData] = await Promise.all([
           gamePlansRes.json ? gamePlansRes.json() : [],
-          usersRes.json ? usersRes.json() : []
+          usersRes.json ? usersRes.json() : [],
+          dashboardRes.json ? dashboardRes.json() : {}
         ]);
+
+        // Count unique campaigns from game plans
+        const uniqueCampaigns = new Set();
+        const uniqueMediaTypes = new Set();
+        if (Array.isArray(gamePlans)) {
+          gamePlans.forEach(plan => {
+            if (plan.campaign?.name) uniqueCampaigns.add(plan.campaign.name);
+            if (plan.mediaSubType?.mediaType?.name) uniqueMediaTypes.add(plan.mediaSubType.mediaType.name);
+          });
+        }
 
         // Preserve the chart data when updating stats
         setStats(prevStats => ({
-          totalRules: rules.length,
-          totalCountries: countries.length,
-          totalBrands: brands.length,
-          pendingChangeRequests: changeRequests.length,
           totalGamePlans: Array.isArray(gamePlans) ? gamePlans.length : 0,
           totalUsers: Array.isArray(users) ? users.length : 0,
+          totalCampaigns: uniqueCampaigns.size,
+          totalBudget: dashboardData.summary?.totalBudget || 0,
           lastUpdated: new Date().toLocaleString(),
           monthlyData: prevStats.monthlyData,
           distributionData: {
             ...prevStats.distributionData,
             datasets: [{
               ...prevStats.distributionData.datasets[0],
-              data: [rules.length, countries.length, brands.length, Array.isArray(gamePlans) ? gamePlans.length : 0]
+              data: [
+                Array.isArray(gamePlans) ? gamePlans.length : 0,
+                uniqueCampaigns.size,
+                Array.isArray(users) ? users.length : 0,
+                uniqueMediaTypes.size
+              ]
             }]
           }
         }));
@@ -161,9 +166,7 @@ export default function AdminDashboard() {
     // Check if the page is implemented
     const implementedPages = [
       '/admin',
-      '/admin/change-requests',
-      '/admin/countries',
-      '/admin/taxonomy',
+      '/admin/users',
       '/admin/media-sufficiency',
       '/admin/media-sufficiency/enhanced-upload',
       '/admin/media-sufficiency/game-plans'
@@ -189,53 +192,10 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Simple header */}
-      <div className="bg-indigo-600 text-white p-5 shadow-sm">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold font-quicksand">Media IQ Admin Dashboard</h1>
-            <LogoutButton />
-          </div>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 pt-16">
       <div className="max-w-6xl mx-auto p-6">
         {/* Key Stats Overview - Simplified */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => handleNavigate('/admin/rules')}
-          >
-            <div className="flex items-center mb-1">
-              <FiDatabase className="h-4 w-4 text-indigo-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Rules</h2>
-            </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.totalRules}</p>
-          </div>
-          
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => handleNavigate('/admin/countries')}
-          >
-            <div className="flex items-center mb-1">
-              <FiMap className="h-4 w-4 text-indigo-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Countries</h2>
-            </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.totalCountries}</p>
-          </div>
-          
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => handleNavigate('/admin/change-requests')}
-          >
-            <div className="flex items-center mb-1">
-              <FiAlertCircle className="h-4 w-4 text-amber-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Pending Requests</h2>
-            </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.pendingChangeRequests}</p>
-          </div>
-
           <div 
             className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
@@ -245,6 +205,38 @@ export default function AdminDashboard() {
               <h2 className="text-sm font-medium text-gray-500">Game Plans</h2>
             </div>
             <p className="text-2xl font-bold text-gray-800">{stats.totalGamePlans}</p>
+          </div>
+          
+          <div 
+            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
+          >
+            <div className="flex items-center mb-1">
+              <FiUpload className="h-4 w-4 text-indigo-500 mr-2" />
+              <h2 className="text-sm font-medium text-gray-500">Campaigns</h2>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">{stats.totalCampaigns}</p>
+          </div>
+          
+          <div 
+            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => handleNavigate('/admin/users')}
+          >
+            <div className="flex items-center mb-1">
+              <FiUsers className="h-4 w-4 text-indigo-500 mr-2" />
+              <h2 className="text-sm font-medium text-gray-500">Users</h2>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">{stats.totalUsers}</p>
+          </div>
+
+          <div 
+            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center mb-1">
+              <FiDollarSign className="h-4 w-4 text-green-500 mr-2" />
+              <h2 className="text-sm font-medium text-gray-500">Total Budget</h2>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">${(stats.totalBudget / 1000).toFixed(0)}k</p>
           </div>
         </div>
         

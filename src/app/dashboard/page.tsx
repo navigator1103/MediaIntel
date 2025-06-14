@@ -3,5 +3,5 @@
 import { redirect } from 'next/navigation';
 
 export default function DashboardPage() {
-  redirect('/dashboard/media-similarity');
+  redirect('/dashboard/media-sufficiency');
 }

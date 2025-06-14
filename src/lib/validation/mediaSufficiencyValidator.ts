@@ -194,19 +194,22 @@ export class MediaSufficiencyValidator {
         const subRegionInput = value.toString().trim();
         const subRegions = masterData?.subRegions || [];
         
-        // Case-insensitive search with type checking
-        return subRegions.some((sr: string | { name: string }) => {
-          // Ensure sr is a string before calling toLowerCase
-          if (typeof sr === 'string') {
-            return sr.toLowerCase() === subRegionInput.toLowerCase();
-          }
-          // If sr is an object with a name property, use that
-          if (sr && typeof sr === 'object' && 'name' in sr && typeof sr.name === 'string') {
-            return sr.name.toLowerCase() === subRegionInput.toLowerCase();
-          }
-          // If sr is not a string or object with name, compare directly
-          return sr === subRegionInput;
+        // Check if it's in the subRegions list (case insensitive)
+        const isValidSubRegion = subRegions.some((sr: string) => {
+          return sr.toLowerCase() === subRegionInput.toLowerCase();
         });
+        
+        if (isValidSubRegion) {
+          return true;
+        }
+        
+        // If not in subRegions, check if it's a valid country name (sometimes countries are used as sub-regions)
+        const countries = masterData?.countries || [];
+        const isValidCountry = countries.some((country: string) => 
+          country.toLowerCase() === subRegionInput.toLowerCase()
+        );
+        
+        return isValidCountry;
       }
     });
 
@@ -223,19 +226,22 @@ export class MediaSufficiencyValidator {
         const countryInput = value.toString().trim();
         const countries = masterData?.countries || [];
         
-        // Case-insensitive search with type checking
-        return countries.some((c: string | { name: string }) => {
-          // Ensure c is a string before calling toLowerCase
-          if (typeof c === 'string') {
-            return c.toLowerCase() === countryInput.toLowerCase();
-          }
-          // If c is an object with a name property, use that
-          if (c && typeof c === 'object' && 'name' in c && typeof c.name === 'string') {
-            return c.name.toLowerCase() === countryInput.toLowerCase();
-          }
-          // If c is not a string or object with name, compare directly
-          return c === countryInput;
+        // Debug logging for country validation
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Validating country: "${countryInput}"`);
+          console.log(`Available countries: ${countries.length}`, countries.slice(0, 5));
+        }
+        
+        // Case-insensitive search - countries array now contains strings directly
+        const isValid = countries.some((country: string) => {
+          return country.toLowerCase() === countryInput.toLowerCase();
         });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Country "${countryInput}" validation result: ${isValid}`);
+        }
+        
+        return isValid;
       }
     });
     
@@ -243,7 +249,7 @@ export class MediaSufficiencyValidator {
     this.rules.push({
       field: 'Country',
       type: 'relationship',
-      severity: 'critical',
+      severity: 'warning',
       message: 'Country does not match the specified Sub Region',
       validate: (value, record, allRecords, masterData) => {
         // Skip validation if either country or sub region is missing
@@ -257,7 +263,7 @@ export class MediaSufficiencyValidator {
         const subRegionToCountriesMap = masterData?.subRegionToCountriesMap || {};
         
         // If we don't have any mapping data, skip validation
-        if (Object.keys(countryToSubRegionMap).length === 0) {
+        if (Object.keys(countryToSubRegionMap).length === 0 && Object.keys(subRegionToCountriesMap).length === 0) {
           return true;
         }
         
@@ -286,7 +292,7 @@ export class MediaSufficiencyValidator {
         }
         
         // If neither the country nor the sub-region is in our mappings, we can't validate
-        // So we'll assume it's valid to avoid false positives
+        // So we'll assume it's valid to avoid false positives but reduce severity to warning
         return true;
       }
     });
@@ -304,29 +310,9 @@ export class MediaSufficiencyValidator {
         const categoryInput = value.toString().trim();
         const categories = masterData?.categories || [];
         
-        // Debug: Log the value being validated and available categories
-        if (categoryInput.toLowerCase().includes('traditional')) {
-          console.log('Validating category value:', categoryInput);
-          console.log('Available categories:', categories);
-          console.log('Categories as lowercase:', categories.map(c => {
-            if (typeof c === 'string') return c.toLowerCase();
-            if (c && typeof c === 'object' && 'name' in c && typeof (c as { name: string }).name === 'string') return (c as { name: string }).name.toLowerCase();
-            return String(c);
-          }));
-        }
-        
-        // Case-insensitive search with type checking
-        return categories.some((c: string | { name: string }) => {
-          // Ensure c is a string before calling toLowerCase
-          if (typeof c === 'string') {
-            return c.toLowerCase() === categoryInput.toLowerCase();
-          }
-          // If c is an object with a name property, use that
-          if (c && typeof c === 'object' && 'name' in c && typeof c.name === 'string') {
-            return c.name.toLowerCase() === categoryInput.toLowerCase();
-          }
-          // If c is not a string or object with name, compare directly
-          return c === categoryInput;
+        // Case-insensitive search - categories array now contains strings directly
+        return categories.some((category: string) => {
+          return category.toLowerCase() === categoryInput.toLowerCase();
         });
       }
     });
@@ -344,18 +330,9 @@ export class MediaSufficiencyValidator {
         const rangeInput = value.toString().trim();
         const ranges = masterData?.ranges || [];
         
-        // Case-insensitive search with type checking
-        return ranges.some((r: string | { name: string }) => {
-          // Ensure r is a string before calling toLowerCase
-          if (typeof r === 'string') {
-            return r.toLowerCase() === rangeInput.toLowerCase();
-          }
-          // If r is an object with a name property, use that
-          if (r && typeof r === 'object' && 'name' in r && typeof r.name === 'string') {
-            return r.name.toLowerCase() === rangeInput.toLowerCase();
-          }
-          // If r is not a string or object with name, compare directly
-          return r === rangeInput;
+        // Case-insensitive search - ranges array now contains strings directly
+        return ranges.some((range: string) => {
+          return range.toLowerCase() === rangeInput.toLowerCase();
         });
       }
     });
@@ -544,25 +521,21 @@ export class MediaSufficiencyValidator {
         // Get media types from master data or use allowed types
         let mediaTypes = masterData?.mediaTypes || allowedMediaTypes;
         
-        // Debug: Log media validation attempt
-        console.log('Validating media value:', mediaInput);
-        console.log('Available media types:', mediaTypes);
+        // Debug logging for media validation
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Validating media: "${mediaInput}"`);
+          console.log(`Available media types: ${mediaTypes.length}`, mediaTypes);
+        }
         
-        // Case-insensitive search with type checking
-        const isValid = mediaTypes.some((m: string | { name: string } | unknown) => {
-          // Ensure m is a string before calling toLowerCase
-          if (typeof m === 'string') {
-            return m.toLowerCase() === mediaInput.toLowerCase();
-          }
-          // If m is an object with a name property, use that
-          if (m && typeof m === 'object' && 'name' in m && typeof (m as { name: string }).name === 'string') {
-            return (m as { name: string }).name.toLowerCase() === mediaInput.toLowerCase();
-          }
-          // If m is not a string or object with name, compare directly
-          return m === mediaInput;
+        // Case-insensitive search - mediaTypes array now contains strings directly
+        const isValid = mediaTypes.some((mediaType: string) => {
+          return mediaType.toLowerCase() === mediaInput.toLowerCase();
         });
         
-        console.log(`Media validation result for ${mediaInput}: ${isValid}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Media "${mediaInput}" validation result: ${isValid}`);
+        }
+        
         return isValid;
       }
     });
@@ -596,18 +569,9 @@ export class MediaSufficiencyValidator {
           
           // If we have valid subtypes for this media type, validate against them
           if (validSubtypes.length > 0) {
-            // Case-insensitive search with type checking
-            const isValid = validSubtypes.some((s: string | { name: string }) => {
-              // Ensure s is a string before calling toLowerCase
-              if (typeof s === 'string') {
-                return s.toLowerCase() === subtype.toLowerCase();
-              }
-              // If s is an object with a name property, use that
-              if (s && typeof s === 'object' && 'name' in s && typeof s.name === 'string') {
-                return s.name.toLowerCase() === subtype.toLowerCase();
-              }
-              // If s is not a string or object with name, compare directly
-              return s === subtype;
+            // Case-insensitive search - validSubtypes array now contains strings directly
+            const isValid = validSubtypes.some((subType: string) => {
+              return subType.toLowerCase() === subtype.toLowerCase();
             });
             
             console.log(`Validation result for ${subtype}: ${isValid}`);
@@ -625,6 +589,38 @@ export class MediaSufficiencyValidator {
         // But we'll accept it to avoid false positives
         console.log('No media-to-subtypes mapping available, accepting any subtype');
         return true;
+      }
+    });
+
+    // PM Type validation
+    this.rules.push({
+      field: 'PM Type',
+      type: 'relationship',
+      severity: 'warning',
+      message: 'PM Type must be a valid type from the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return true; // PM Type is optional
+        
+        // Check if PM Type exists in master data
+        const pmTypeInput = value.toString().trim();
+        const pmTypes = masterData?.pmTypes || [];
+        
+        // Debug logging for PM Type validation
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Validating PM Type: "${pmTypeInput}"`);
+          console.log(`Available PM Types: ${pmTypes.length}`, pmTypes);
+        }
+        
+        // Case-insensitive search - pmTypes array contains strings directly
+        const isValid = pmTypes.some((pmType: string) => {
+          return pmType.toLowerCase() === pmTypeInput.toLowerCase();
+        });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`PM Type "${pmTypeInput}" validation result: ${isValid}`);
+        }
+        
+        return isValid;
       }
     });
 

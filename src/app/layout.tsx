@@ -10,8 +10,8 @@ const quicksand = Quicksand({
 });
 
 export const metadata: Metadata = {
-  title: "MediaIQ Dashboard",
-  description: "Track and manage digital marketing performance across platforms",
+  title: "Beiersdorf MediaIntel",
+  description: "Beiersdorf Media Intelligence Platform - Advanced analytics and campaign management for global media operations",
 };
 
 export default function RootLayout({

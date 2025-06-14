@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const preprocessValidation = formData.get('preprocessValidation') === 'true';
     
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -212,7 +213,8 @@ export async function POST(request: NextRequest) {
       pmTypes: any[],
       campaigns: any[],
       mediaToSubtypes?: Record<string, string[]>,
-      categoryToRanges?: Record<string, string[]>
+      categoryToRanges?: Record<string, string[]>,
+      subRegions?: string[]
     } = {
       countries: [],
       categories: [],
@@ -221,7 +223,8 @@ export async function POST(request: NextRequest) {
       mediaSubTypes: [],
       businessUnits: [],
       pmTypes: [],
-      campaigns: []
+      campaigns: [],
+      subRegions: []
     };
     
     // Wrap each query in a try/catch to handle potential errors
@@ -240,7 +243,7 @@ export async function POST(request: NextRequest) {
       // Using type assertions to help TypeScript understand these properties exist
       const prismaAny = prisma as any;
       
-      const [countries, categories, ranges, mediaTypes, mediaSubTypes, businessUnits, pmTypes, campaigns] = 
+      const [countries, categories, ranges, mediaTypes, mediaSubTypes, businessUnits, pmTypes, campaigns, subRegions] = 
         await Promise.all([
           safeQuery(() => prisma.country.findMany()),
           safeQuery(() => prisma.category.findMany()),
@@ -252,7 +255,8 @@ export async function POST(request: NextRequest) {
             { id: 2, name: 'Derma' }
           ]),
           safeQuery(() => prismaAny.pMType.findMany()),
-          safeQuery(() => prisma.campaign.findMany())
+          safeQuery(() => prisma.campaign.findMany()),
+          safeQuery(() => prisma.subRegion.findMany())
         ]);
       
       // Assign the results to masterData
@@ -264,6 +268,33 @@ export async function POST(request: NextRequest) {
       masterData.businessUnits = businessUnits;
       masterData.pmTypes = pmTypes;
       masterData.campaigns = campaigns;
+      
+      // Process sub-regions and extract names
+      if (Array.isArray(subRegions)) {
+        // Initialize subRegions array if it doesn't exist
+        if (!masterData.subRegions) {
+          masterData.subRegions = [];
+        }
+        
+        // Extract names from database sub-regions
+        const dbSubRegionNames = subRegions.map(sr => sr.name);
+        masterData.subRegions.push(...dbSubRegionNames);
+        
+        // Also add common region names that might be in the data but not in the database
+        const additionalRegions = ['APAC', 'Europe', 'North America', 'Middle East'];
+        additionalRegions.forEach(region => {
+          if (masterData.subRegions && !masterData.subRegions.includes(region)) {
+            masterData.subRegions.push(region);
+          }
+        });
+        
+        // Make sure all sub-region names are uppercase for consistent comparison
+        if (masterData.subRegions) {
+          masterData.subRegions = masterData.subRegions.map(region => region.toUpperCase());
+        }
+        
+        console.log('Sub-regions for validation:', masterData.subRegions);
+      }
       
       // Create media type to subtype mapping for validation
       const mediaToSubtypes: Record<string, string[]> = {};
@@ -393,6 +424,18 @@ export async function POST(request: NextRequest) {
     // The client can fetch more issues as needed through pagination
     // isLargeDataset is already defined above
     
+    // If preprocessValidation is true, only return basic session info
+    // This is used when validation is done during upload and we just want to redirect to the data preview page
+    if (preprocessValidation) {
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        fileName: file.name,
+        recordCount: records.length
+      });
+    }
+    
+    // Otherwise return full validation results
     return NextResponse.json({
       success: true,
       sessionId,

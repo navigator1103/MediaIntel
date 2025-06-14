@@ -50,8 +50,8 @@ export default function LoginForm() {
         console.log('Redirecting to admin dashboard...');
         window.location.href = '/admin';
       } else {
-        console.log('Redirecting to user dashboard...');
-        window.location.href = '/';
+        console.log('Redirecting to media sufficiency dashboard...');
+        window.location.href = '/dashboard/media-sufficiency';
       }
     } catch (err: any) {
       console.error('Login error:', err);
@@ -95,7 +95,7 @@ export default function LoginForm() {
     localStorage.setItem('user', JSON.stringify(userData.user));
     
     // Use direct navigation
-    window.location.href = '/';
+    window.location.href = '/dashboard/media-sufficiency';
   };
   
   return (

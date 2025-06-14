@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUpload, FiFile, FiAlertCircle, FiCheckCircle, FiLoader } from 'react-icons/fi';
+import { FiUpload, FiFile, FiAlertCircle } from 'react-icons/fi';
 import Link from 'next/link';
 
 export default function EnhancedUpload() {
@@ -11,9 +11,10 @@ export default function EnhancedUpload() {
   
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,6 +22,9 @@ export default function EnhancedUpload() {
     if (selectedFile) {
       validateAndSetFile(selectedFile);
     }
+    
+    // Reset the input value to allow selecting the same file again
+    e.target.value = '';
   };
   
   // Handle drag events
@@ -84,12 +88,14 @@ export default function EnhancedUpload() {
     try {
       setUploadStatus('uploading');
       setUploadProgress(0);
+      setError(null); // Clear any previous errors
       
       // Create form data
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('preprocessValidation', 'true'); // Tell the API to validate during upload
       
-      // Simulate progress updates
+      // Simulate progress updates for upload
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           const newProgress = prev + Math.random() * 20;
@@ -97,11 +103,26 @@ export default function EnhancedUpload() {
         });
       }, 300);
       
-      // Send the file to the enhanced validation endpoint
-      const response = await fetch('/api/admin/media-sufficiency/enhanced-validate', {
-        method: 'POST',
-        body: formData
-      });
+      // Send the file to the simple upload endpoint first with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      let response: Response;
+      try {
+        response = await fetch('/api/admin/media-sufficiency/upload', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        clearInterval(progressInterval);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Upload timed out after 30 seconds. Please try with a smaller file.');
+        }
+        throw fetchError;
+      }
       
       // Clear progress interval
       clearInterval(progressInterval);
@@ -111,27 +132,36 @@ export default function EnhancedUpload() {
         throw new Error(errorData.error || 'Failed to upload file');
       }
       
+      // Set upload progress to 100%
+      setUploadProgress(100);
+      
+      // Process the response data
       const data = await response.json();
       
-      // Set progress to 100%
-      setUploadProgress(100);
-      setUploadStatus('success');
+      // Check if upload was successful
+      if (!data.success || !data.sessionId) {
+        throw new Error(data.error || 'Upload failed - no session ID returned');
+      }
       
-      // Redirect to enhanced validation page
-      setTimeout(() => {
-        router.push(`/admin/media-sufficiency/enhanced-validate?sessionId=${data.sessionId}`);
-      }, 1000);
+      // Store session ID
+      setSessionId(data.sessionId);
+      
+      // Upload complete - redirect to validation page
+      router.push(`/admin/media-sufficiency/enhanced-validate?sessionId=${data.sessionId}`);
       
     } catch (error) {
-      console.error('Error uploading file:', error);
       setUploadStatus('error');
       setError(error instanceof Error ? error.message : 'Failed to upload file');
     }
   };
   
+  // No longer needed as we redirect automatically after upload
+  
   // Trigger file input click
   const triggerFileInput = () => {
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
   
   return (
@@ -159,46 +189,53 @@ export default function EnhancedUpload() {
           <li>Provide batch resolution tools for common issues</li>
         </ul>
         
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
-            isDragging
-              ? 'border-indigo-500 bg-indigo-50'
-              : file
-              ? 'border-green-500 bg-green-50'
-              : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
-          }`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          onClick={triggerFileInput}
-        >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            accept=".csv"
-            className="hidden"
-          />
-          
-          {file ? (
-            <div className="flex flex-col items-center">
-              <FiFile className="h-12 w-12 text-green-500 mb-4" />
-              <p className="text-lg font-medium text-gray-700">{file.name}</p>
-              <p className="text-sm text-gray-500">
-                {(file.size / 1024).toFixed(2)} KB • CSV
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <FiUpload className="h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-lg font-medium text-gray-700">
-                {isDragging ? 'Drop your file here' : 'Drag & drop your CSV file here'}
-              </p>
-              <p className="text-sm text-gray-500 mt-2">or click to browse</p>
-            </div>
-          )}
-        </div>
+        {uploadStatus === 'idle' && (
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
+              isDragging
+                ? 'border-indigo-500 bg-indigo-50'
+                : file
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".csv"
+              className="hidden"
+            />
+            
+            {file ? (
+              <div className="flex flex-col items-center">
+                <FiFile className="h-12 w-12 text-green-500 mb-4" />
+                <p className="text-lg font-medium text-gray-700">{file.name}</p>
+                <p className="text-sm text-gray-500">
+                  {(file.size / 1024).toFixed(2)} KB • CSV
+                </p>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center cursor-pointer w-full h-full">
+                <FiUpload className="h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-700">
+                  {isDragging ? 'Drop your file here' : 'Drag & drop your CSV file here'}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">or click to browse</p>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+        )}
         
         {error && (
           <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-start">
@@ -206,52 +243,62 @@ export default function EnhancedUpload() {
             <p>{error}</p>
           </div>
         )}
-        
-        {uploadStatus === 'uploading' && (
+      </div>
+      
+      {/* Upload Progress UI */}
+      {uploadStatus === 'uploading' && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Uploading and Processing File...</h3>
+          
           <div className="mb-6">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Uploading...</span>
-              <span>{Math.round(uploadProgress)}%</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Uploading and preprocessing data</span>
+              <span className="text-sm font-medium text-gray-700">{Math.round(uploadProgress)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div
-                className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
                 style={{ width: `${uploadProgress}%` }}
               ></div>
             </div>
+            <p className="text-sm text-gray-500 mt-2">
+              Please wait while we upload and preprocess your data. You'll be redirected to the data preview page automatically.
+            </p>
           </div>
-        )}
-        
-        <div className="flex justify-end">
+        </div>
+      )}
+      
+      {/* File Selection Button */}
+      {!file && (
+        <div className="flex justify-center mb-8">
+          <label className="px-6 py-3 bg-[#115f9a] text-white rounded-md hover:bg-[#1984c5] transition-colors flex items-center gap-2 cursor-pointer">
+            <FiFile className="text-lg" />
+            Select CSV File
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+        </div>
+      )}
+
+      {/* Upload Button */}
+      {file && uploadStatus !== 'uploading' && (
+        <div className="flex justify-center mb-8">
           <button
             onClick={handleUpload}
-            disabled={!file || uploadStatus === 'uploading'}
-            className={`px-6 py-2 rounded-md flex items-center ${
-              !file || uploadStatus === 'uploading'
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }`}
+            className="px-6 py-3 bg-[#115f9a] text-white rounded-md hover:bg-[#1984c5] transition-colors flex items-center gap-2"
+            disabled={uploadStatus === 'uploading'}
           >
-            {uploadStatus === 'uploading' ? (
-              <>
-                <FiLoader className="animate-spin mr-2" />
-                Uploading...
-              </>
-            ) : uploadStatus === 'success' ? (
-              <>
-                <FiCheckCircle className="mr-2" />
-                Uploaded Successfully
-              </>
-            ) : (
-              <>
-                <FiUpload className="mr-2" />
-                Upload & Validate
-              </>
-            )}
+            <FiUpload className="text-lg" />
+            Upload CSV File
           </button>
         </div>
-      </div>
+      )}
       
+      {/* CSV Template Guidelines */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-medium text-blue-800 mb-3">CSV Template Guidelines</h3>
         <p className="text-blue-700 mb-4">

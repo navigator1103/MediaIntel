@@ -78,38 +78,25 @@ const Navigation = () => {
     <nav className="bg-indigo-800 fixed top-0 left-0 right-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center flex-grow">
+          <div className="flex items-center">
             <div className="flex-shrink-0">
               <Link href="/" className="text-white font-bold text-xl font-quicksand">
                 MediaIQ
               </Link>
             </div>
-            <div className="hidden md:block flex-grow">
+            <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
                 {isLoggedIn && (
                   <>
-                    <Link href="/home" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/home')}`}>
-                      Home
-                    </Link>
-                    <Link href="/" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/')}`}>
-                      Golden Rules
-                    </Link>
-                    <Link href="/five-stars" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/five-stars')}`}>
-                      5 Stars
-                    </Link>
-                    <Link href="/taxonomy" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/taxonomy')}`}>
-                      Taxonomy
-                    </Link>
                     <Link href="/dashboard/media-sufficiency" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard/media-sufficiency')}`}>
-                      Media Sufficiency
+                      Dashboard
                     </Link>
-                    {/* Dashboard link removed as it was redundant */}
                   </>
                 )}
               </div>
             </div>
           </div>
-          <div className="hidden md:block flex-shrink-0">
+          <div className="hidden md:block">
             <div className="ml-4 flex items-center md:ml-6">
               {isLoggedIn ? (
                 <div className="relative" ref={dropdownRef}>
@@ -136,9 +123,6 @@ const Navigation = () => {
                         <p className="text-sm text-gray-500 truncate">{userEmail}</p>
                       </div>
                       <div className="border-t border-gray-100"></div>
-                      <Link href="/change-requests" className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Change Requests
-                      </Link>
                       <div className="border-t border-gray-100"></div>
                       <button
                         onClick={onLogout}
@@ -183,20 +167,8 @@ const Navigation = () => {
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {isLoggedIn ? (
               <>
-                <Link href="/home" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/home')}`} onClick={() => setIsOpen(false)}>
-                  Home
-                </Link>
-                <Link href="/" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/')}`}>
-                  Golden Rules
-                </Link>
-                <Link href="/five-stars" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/five-stars')}`}>
-                  5 Stars
-                </Link>
-                <Link href="/taxonomy" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/taxonomy')}`}>
-                  Taxonomy
-                </Link>
-                <Link href="/dashboard/media-sufficiency" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/dashboard/media-sufficiency')}`}>
-                  Media Sufficiency
+                <Link href="/dashboard/media-sufficiency" className={`block px-3 py-2 rounded-md text-base font-medium ${isActive('/dashboard/media-sufficiency')}`} onClick={() => setIsOpen(false)}>
+                  Dashboard
                 </Link>
                 <div className="px-3 py-2 rounded-md">
                   <div className="flex items-center space-x-2 mb-2">
@@ -214,9 +186,6 @@ const Navigation = () => {
                       </div>
                     </div>
                   </div>
-                  <Link href="/change-requests" className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-indigo-600 hover:text-white">
-                    Change Requests
-                  </Link>
                 </div>
                 <button
                   onClick={onLogout}

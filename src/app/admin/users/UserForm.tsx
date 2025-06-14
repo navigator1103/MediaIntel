@@ -49,19 +49,11 @@ export default function UserForm({
     name: '',
     password: '',
     role: 'user',
-    selectedCountries: [] as number[],
-    selectedBrands: [] as number[],
     selectedPages: [] as string[],
   });
   
   useEffect(() => {
     if (user) {
-      // Parse comma-separated IDs for countries, brands, and pages
-      const parseIds = (idsString: string | null): number[] => {
-        if (!idsString) return [];
-        return idsString.split(',').map(id => parseInt(id.trim(), 10));
-      };
-      
       const parsePageIds = (idsString: string | null): string[] => {
         if (!idsString) return [];
         return idsString.split(',').map(id => id.trim());
@@ -72,8 +64,6 @@ export default function UserForm({
         name: user.name || '',
         password: '', // Don't populate password for security reasons
         role: user.role,
-        selectedCountries: parseIds(user.accessibleCountries),
-        selectedBrands: parseIds(user.accessibleBrands),
         selectedPages: parsePageIds(user.accessiblePages),
       });
     }
@@ -84,16 +74,6 @@ export default function UserForm({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => parseInt(option.value, 10));
-    setFormData(prev => ({ ...prev, selectedCountries: selectedOptions }));
-  };
-  
-  const handleBrandChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => parseInt(option.value, 10));
-    setFormData(prev => ({ ...prev, selectedBrands: selectedOptions }));
-  };
-  
   const handlePageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
     setFormData(prev => ({ ...prev, selectedPages: selectedOptions }));
@@ -102,17 +82,12 @@ export default function UserForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Convert arrays to comma-separated strings
     const userData = {
       email: formData.email,
       name: formData.name || null,
       role: formData.role,
-      accessibleCountries: formData.selectedCountries.length > 0 
-        ? formData.selectedCountries.join(',') 
-        : null,
-      accessibleBrands: formData.selectedBrands.length > 0 
-        ? formData.selectedBrands.join(',') 
-        : null,
+      accessibleCountries: null, // Simplified for media sufficiency focus
+      accessibleBrands: null, // Simplified for media sufficiency focus
       accessiblePages: formData.selectedPages.length > 0 
         ? formData.selectedPages.join(',') 
         : null,
@@ -188,48 +163,6 @@ export default function UserForm({
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Accessible Countries (Hold Ctrl/Cmd to select multiple)
-            </label>
-            <select
-              multiple
-              value={formData.selectedCountries.map(String)}
-              onChange={handleCountryChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-32"
-            >
-              {countries.map(country => (
-                <option key={country.id} value={country.id}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty for access to all countries
-            </p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Accessible Brands (Hold Ctrl/Cmd to select multiple)
-            </label>
-            <select
-              multiple
-              value={formData.selectedBrands.map(String)}
-              onChange={handleBrandChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-32"
-            >
-              {brands.map(brand => (
-                <option key={brand.id} value={brand.id}>
-                  {brand.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty for access to all brands
-            </p>
           </div>
           
           <div>

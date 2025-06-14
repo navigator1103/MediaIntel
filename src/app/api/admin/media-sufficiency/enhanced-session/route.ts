@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
     const sessionData = JSON.parse(sessionDataRaw);
     
     // If validation issues aren't in the session data, generate them
-    if (!sessionData.validationIssues && sessionData.records && sessionData.sessionData?.masterData) {
+    if (!sessionData.validationIssues && sessionData.data?.records && sessionData.data?.masterData) {
       const MediaSufficiencyValidator = require('@/lib/validation/mediaSufficiencyValidator').default;
-      const validator = new MediaSufficiencyValidator(sessionData.sessionData.masterData);
+      const validator = new MediaSufficiencyValidator(sessionData.data.masterData);
       
       // Validate the data
       try {
@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
         if (isLargeDataset) {
           // For large datasets, only validate the first 1000 records initially
           // The client will request batch validation for the rest
-          validationIssues = await validator.validateAll(sessionData.records.slice(0, 1000), 0);
+          validationIssues = await validator.validateAll(sessionData.data.records.slice(0, 1000), 0);
           sessionData.isLargeDataset = true;
           sessionData.totalIssueCount = validationIssues.length;
         } else {
           // For smaller datasets, validate all records
-          validationIssues = await validator.validateAll(sessionData.records, 0);
+          validationIssues = await validator.validateAll(sessionData.data.records, 0);
         }
         
         sessionData.validationIssues = validationIssues;

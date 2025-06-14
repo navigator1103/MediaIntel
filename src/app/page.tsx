@@ -20,8 +20,8 @@ export default function Home() {
       if (user.role === 'admin') {
         router.push('/admin');
       } else {
-        // For regular users, redirect to the user dashboard
-        router.push('/user-dashboard');
+        // For regular users, redirect to the media sufficiency dashboard
+        router.push('/dashboard/media-sufficiency');
       }
     } catch (error) {
       console.error('Error parsing user data:', error);

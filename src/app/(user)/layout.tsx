@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import UserNavigation from '@/components/UserNavigation';
-import Navigation from '@/components/Navigation';
 import FilterProvider from '@/components/FilterProvider';
 
 export default function UserLayout({
@@ -57,11 +56,8 @@ export default function UserLayout({
         
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top navigation */}
-          <Navigation />
-          
           {/* Main content */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto pt-16">
             {children}
           </main>
         </div>

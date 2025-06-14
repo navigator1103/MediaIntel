@@ -13,19 +13,10 @@ const DashboardNavigation = () => {
 
   return (
     <div className="bg-indigo-700 p-3 flex items-center justify-between mt-16 shadow-sm">
-      <h1 className="text-white text-xl font-bold">Media Dashboard</h1>
+      <h1 className="text-white text-xl font-bold">Media Sufficiency Platform</h1>
       <div className="flex space-x-4">
-        <Link href="/dashboard" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard')}`}>
-          Overview
-        </Link>
-        <Link href="/dashboard/game-plan" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard/game-plan')}`}>
-          Game Plan
-        </Link>
         <Link href="/dashboard/media-sufficiency" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard/media-sufficiency')}`}>
-          Sufficiency
-        </Link>
-        <Link href="/dashboard/media-similarity" className={`px-3 py-2 rounded-md text-sm font-medium ${isActive('/dashboard/media-similarity')}`}>
-          Similarity
+          Media Sufficiency Dashboard
         </Link>
       </div>
       <div className="flex items-center">

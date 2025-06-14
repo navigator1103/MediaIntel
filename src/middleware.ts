@@ -40,8 +40,7 @@ export function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith('/api/change-requests') ||
       request.nextUrl.pathname.startsWith('/api/seed-taxonomy') ||
       request.nextUrl.pathname.startsWith('/api/media-sufficiency') ||
-      request.nextUrl.pathname.startsWith('/api/admin/media-sufficiency/import') ||
-      request.nextUrl.pathname.startsWith('/api/admin/media-sufficiency/import-progress') ||
+      request.nextUrl.pathname.startsWith('/api/admin/media-sufficiency') ||
       request.nextUrl.pathname.startsWith('/api/debug/db-test')) {
     console.log('API route detected, allowing access without authentication');
     return NextResponse.next();

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Navigation from '@/components/Navigation';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
@@ -138,7 +137,7 @@ export default function MediaSufficiencyDashboard() {
         setIsLoading(true);
         
         // Fetch aggregated dashboard data
-        const dashboardResponse = await axios.get('/api/dashboard/media-similarity');
+        const dashboardResponse = await axios.get('/api/dashboard/media-sufficiency');
         
         // Add lastUpdate field if not present
         if (dashboardResponse.data && dashboardResponse.data.summary && !dashboardResponse.data.summary.lastUpdate) {
@@ -623,13 +622,10 @@ export default function MediaSufficiencyDashboard() {
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen">
-      {/* Top Navigation */}
-      <Navigation />
-      
       {/* Dashboard Header */}
-      <div className="border-b border-gray-200 px-6 py-4 mt-16">
-        <h1 className="text-2xl font-bold text-gray-800">Media Sufficiency Dashboard</h1>
-        <p className="text-gray-600 mt-1">Game Plans Overview and Budget Analysis</p>
+      <div className="border-b border-gray-200 px-6 py-6 bg-white shadow-sm">
+        <h1 className="text-3xl font-bold text-gray-900">Media Intelligence Dashboard</h1>
+        <p className="text-gray-600 mt-2 text-lg">Comprehensive analytics and insights for global media operations</p>
       </div>
       
       {/* Main Content with Sidebar */}
