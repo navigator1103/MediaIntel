@@ -240,6 +240,8 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Sub Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PM Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Budget</th>
@@ -268,6 +270,8 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.mediaType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.pmType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'startDate', row.startDate, 'date')}
                 </td>
@@ -293,7 +297,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
             ))
           ) : (
             <tr>
-              <td colSpan={13} className="px-6 py-4 text-center text-sm text-gray-500">
+              <td colSpan={15} className="px-6 py-4 text-center text-sm text-gray-500">
                 No game plans found
               </td>
             </tr>
