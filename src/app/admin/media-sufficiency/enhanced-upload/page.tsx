@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiUpload, FiFile, FiAlertCircle } from 'react-icons/fi';
 import Link from 'next/link';
+
+interface LastUpdate {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function EnhancedUpload() {
   const router = useRouter();
@@ -11,11 +18,36 @@ export default function EnhancedUpload() {
   
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'error'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lastUpdates, setLastUpdates] = useState<LastUpdate[]>([]);
+  const [selectedLastUpdateId, setSelectedLastUpdateId] = useState<string>('');
+  const [isLoadingLastUpdates, setIsLoadingLastUpdates] = useState(false);
   
+  // Fetch last updates when component mounts
+  useEffect(() => {
+    const fetchLastUpdates = async () => {
+      setIsLoadingLastUpdates(true);
+      try {
+        const response = await fetch('/api/admin/media-sufficiency/last-updates');
+        if (!response.ok) {
+          throw new Error('Failed to fetch last updates');
+        }
+        const data = await response.json();
+        setLastUpdates(data);
+      } catch (err) {
+        console.error('Error fetching last updates:', err);
+        setError('Failed to load last update options. Please try refreshing the page.');
+      } finally {
+        setIsLoadingLastUpdates(false);
+      }
+    };
+
+    fetchLastUpdates();
+  }, []);
+
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -28,35 +60,43 @@ export default function EnhancedUpload() {
   };
   
   // Handle drag events
-  const handleDragEnter = (e: React.DragEvent) => {
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
   
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   };
   
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   };
   
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
-      validateAndSetFile(droppedFile);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && droppedFile.name.endsWith('.csv')) {
+      setFile(droppedFile);
+      setError(null);
+    } else {
+      setError('Please upload a CSV file');
     }
   };
   
+  // Handle last update selection change
+  const handleLastUpdateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedLastUpdateId(e.target.value);
+  };
+
   // Validate file type and size
   const validateAndSetFile = (file: File) => {
     // Reset previous errors
@@ -85,14 +125,19 @@ export default function EnhancedUpload() {
       return;
     }
     
+    if (!selectedLastUpdateId) {
+      setError('Please select a Financial Cycle');
+      return;
+    }
+    
     try {
       setUploadStatus('uploading');
+      setError(null);
       setUploadProgress(0);
-      setError(null); // Clear any previous errors
       
-      // Create form data
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('lastUpdateId', selectedLastUpdateId);
       formData.append('preprocessValidation', 'true'); // Tell the API to validate during upload
       
       // Simulate progress updates for upload
@@ -155,8 +200,6 @@ export default function EnhancedUpload() {
     }
   };
   
-  // No longer needed as we redirect automatically after upload
-  
   // Trigger file input click
   const triggerFileInput = () => {
     if (fileInputRef.current) {
@@ -188,6 +231,34 @@ export default function EnhancedUpload() {
           <li>Allow you to preview and edit data before importing</li>
           <li>Provide batch resolution tools for common issues</li>
         </ul>
+        
+        <div className="mb-6">
+          <label htmlFor="lastUpdate" className="block mb-2 font-medium text-gray-700">
+            Select Financial Cycle
+          </label>
+          <select
+            id="lastUpdate"
+            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={selectedLastUpdateId}
+            onChange={handleLastUpdateChange}
+            disabled={isLoadingLastUpdates}
+          >
+            <option value="">Select a Last Update</option>
+            {lastUpdates.map((update) => (
+              <option key={update.id} value={update.id.toString()}>
+                {update.name}
+              </option>
+            ))}
+          </select>
+          {isLoadingLastUpdates && (
+            <p className="text-sm text-gray-500 mt-2">Loading options...</p>
+          )}
+          {lastUpdates.length === 0 && !isLoadingLastUpdates && (
+            <p className="text-sm text-amber-600 mt-2">
+              No Last Update options available. Please create one first.
+            </p>
+          )}
+        </div>
         
         {uploadStatus === 'idle' && (
           <div
@@ -247,23 +318,16 @@ export default function EnhancedUpload() {
       
       {/* Upload Progress UI */}
       {uploadStatus === 'uploading' && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Uploading and Processing File...</h3>
-          
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Uploading and preprocessing data</span>
-              <span className="text-sm font-medium text-gray-700">{Math.round(uploadProgress)}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Please wait while we upload and preprocess your data. You'll be redirected to the data preview page automatically.
-            </p>
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-blue-700 font-medium">Uploading...</span>
+            <span className="text-blue-700">{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full" 
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
           </div>
         </div>
       )}
@@ -290,7 +354,7 @@ export default function EnhancedUpload() {
           <button
             onClick={handleUpload}
             className="px-6 py-3 bg-[#115f9a] text-white rounded-md hover:bg-[#1984c5] transition-colors flex items-center gap-2"
-            disabled={uploadStatus === 'uploading'}
+            disabled={uploadStatus !== 'idle'}
           >
             <FiUpload className="text-lg" />
             Upload CSV File

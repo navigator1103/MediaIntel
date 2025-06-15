@@ -81,68 +81,42 @@ const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
 
 // Enhanced import route with detailed error logging
 export async function POST(request: NextRequest) {
-  logWithTimestamp('Import to SQLite API called');
-  let sessionId: string = '';
-  
   try {
-    // Get the session ID from the request body
-    logWithTimestamp('Parsing request body...');
-    const body = await request.json();
-    sessionId = body.sessionId;
-    logWithTimestamp(`Session ID: ${sessionId}`);
+    const { sessionId } = await request.json();
     
     if (!sessionId) {
-      logErrorWithTimestamp('No session ID provided');
-      return NextResponse.json(
-        { error: 'No session ID provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
     }
     
-    // Check if session file exists
+    // Log the request details
+    logWithTimestamp(`Import request received for session: ${sessionId}`);
+    
+    // Read the session file
     const sessionFilePath = path.join(SESSIONS_DIR, `${sessionId}.json`);
-    logWithTimestamp(`Looking for session file: ${sessionFilePath}`);
     
     if (!fs.existsSync(sessionFilePath)) {
-      logErrorWithTimestamp(`Session file not found: ${sessionFilePath}`);
-      return NextResponse.json(
-        { error: 'Session file not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
     
-    // Read the session data from the file
-    const sessionDataRaw = fs.readFileSync(sessionFilePath, 'utf8');
-    const sessionData = JSON.parse(sessionDataRaw);
+    const sessionData = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
+    const records = sessionData.data?.records || [];
+    const lastUpdateId = sessionData.lastUpdateId;
     
-    // The records are stored directly in the session data in the 'records' field
-    const records = sessionData.records || [];
-    
-    if (!records || records.length === 0) {
-      logErrorWithTimestamp('No records found in session data');
-      return NextResponse.json(
-        { error: 'No records found in session data' },
-        { status: 400 }
-      );
+    if (records.length === 0) {
+      return NextResponse.json({ error: 'No records found in session' }, { status: 400 });
     }
     
-    logWithTimestamp(`Found ${records.length} records in session data`);
+    if (!lastUpdateId) {
+      return NextResponse.json({ error: 'Last Update ID is required' }, { status: 400 });
+    }
     
-    // Update the session file with initial progress information
-    sessionData.importProgress = {
-      current: 0,
-      total: records.length,
-      percentage: 0,
-      stage: 'Starting import process'
-    };
-    sessionData.status = 'importing';
-    fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
-    logWithTimestamp(`Updated session file with initial progress information`);
+    // Log the last update ID
+    logWithTimestamp(`Using Last Update ID: ${lastUpdateId}`);
     
     // Start the import process asynchronously
     (async () => {
       try {
-        const results = await processImport(records, sessionData, sessionFilePath);
+        const results = await processImport(records, sessionData, sessionFilePath, lastUpdateId);
         
         // Update the session file with completion information
         sessionData.importProgress = {
@@ -185,7 +159,6 @@ export async function POST(request: NextRequest) {
       message: 'Import process started',
       sessionId: sessionId
     });
-    
   } catch (error) {
     logErrorWithTimestamp('Unexpected error during import setup:', error);
     return NextResponse.json(
@@ -199,10 +172,16 @@ export async function POST(request: NextRequest) {
 async function processImport(
   records: any[],
   sessionData: any,
-  sessionFilePath: string
+  sessionFilePath: string,
+  lastUpdateId: number
 ) {
-  logWithTimestamp(`Starting import process for ${records.length} records to SQLite...`);
+  logWithTimestamp(`Processing import with Last Update ID: ${lastUpdateId}`);
   
+  if (!lastUpdateId) {
+    logErrorWithTimestamp('ERROR: lastUpdateId is missing');
+    throw new Error('Last Update ID is required for import');
+  }
+
   // Track processed entities to avoid duplicates
   const processedEntities = {
     ranges: new Map<string, number>(),
@@ -214,7 +193,7 @@ async function processImport(
     subRegions: new Map<string, number>(),
     categories: new Map<string, number>(),
     businessUnits: new Map<string, number>(),
-    lastUpdates: new Map<string, number>(),  // Add LastUpdate (financial cycle) tracking
+    lastUpdates: new Map<string, number>(),
     gamePlans: new Set<string>()
   };
   
@@ -230,9 +209,9 @@ async function processImport(
     subRegionsCount: 0,
     categoriesCount: 0,
     businessUnitsCount: 0,
-    lastUpdatesCount: 0,  // Add LastUpdate (financial cycle) count
-    successfulRows: [] as number[],  // Track successfully imported row indexes
-    failedRows: [] as number[]       // Track failed row indexes
+    lastUpdatesCount: 0,
+    successfulRows: [] as number[],
+    failedRows: [] as number[]
   };
   
   // Track errors
@@ -271,10 +250,74 @@ async function processImport(
     logWithTimestamp(JSON.stringify(financialCycleColumns));
   }
   
-  // First pass: collect all entities
+  // First identify all countries in the data to handle data replacement
+  const countriesInData = new Set<string>();
+  for (const record of records) {
+    if (record.Country) {
+      countriesInData.add(record.Country);
+    }
+  }
+  
+  // Delete existing game plans for the countries and last update before importing
+  if (countriesInData.size > 0 && lastUpdateId) {
+    try {
+      logWithTimestamp(`Deleting existing game plans for ${countriesInData.size} countries and last update ID ${lastUpdateId}`);
+      logWithTimestamp(`Countries in data: ${Array.from(countriesInData).join(', ')}`);
+      
+      // Get country IDs for the countries in the data
+      const countryNames = Array.from(countriesInData);
+      const countries = await prisma.country.findMany({
+        where: {
+          name: {
+            in: countryNames
+          }
+        },
+        select: {
+          id: true,
+          name: true
+        }
+      });
+      
+      logWithTimestamp(`Found ${countries.length} matching countries in database: ${countries.map(c => `${c.name} (ID: ${c.id})`).join(', ')}`);
+      
+      const countryIds = countries.map(c => c.id);
+      
+      if (countryIds.length > 0) {
+        // First check how many game plans exist for these countries and last update
+        const existingCount = await prisma.gamePlan.count({
+          where: {
+            countryId: {
+              in: countryIds
+            },
+            last_update_id: lastUpdateId
+          }
+        });
+        
+        logWithTimestamp(`Found ${existingCount} existing game plans to delete`);
+        
+        // Delete existing game plans for these countries and last update
+        const deleteResult = await prisma.gamePlan.deleteMany({
+          where: {
+            countryId: {
+              in: countryIds
+            },
+            last_update_id: lastUpdateId
+          }
+        });
+        
+        logWithTimestamp(`Deleted ${deleteResult.count} existing game plans for countries: ${countries.map(c => c.name).join(', ')} and last update ID ${lastUpdateId}`);
+      } else {
+        logWithTimestamp('No matching countries found in database for deletion');
+      }
+    } catch (error) {
+      logErrorWithTimestamp('Error deleting existing game plans:', error);
+      // Continue with import even if deletion fails
+    }
+  }
+  
+  // First pass: collect and create all necessary entities
   logWithTimestamp('First pass: collecting entities...');
   
-  // Process ranges
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
     
@@ -813,36 +856,9 @@ async function processImport(
                 logWithTimestamp(`Using business unit ID ${businessUnitId} for ${businessUnitValue}`);
               }
               
-              // Get LastUpdate (financial cycle) ID if available with flexible column name handling
-              let lastUpdateId = null;
-              const lastUpdateValue = record.FinancialCycle || record['Financial Cycle'] || record['Cycle'] || 
-                                     record['Period'] || record['Last Update'] || record.LastUpdate || 
-                                     record['Financial Period'] || record['Fiscal Period'] || record['Fiscal Cycle'];
-              
-              if (lastUpdateValue && processedEntities.lastUpdates.has(lastUpdateValue)) {
-                lastUpdateId = processedEntities.lastUpdates.get(lastUpdateValue);
-                logWithTimestamp(`Using LastUpdate (financial cycle) ID ${lastUpdateId} for ${lastUpdateValue}`);
-              } else if (lastUpdateValue) {
-                logWithTimestamp(`LastUpdate value '${lastUpdateValue}' found but not processed yet. Checking database directly...`);
-                
-                try {
-                  // Try to find it directly in the database
-                  const existingLastUpdate = await prisma.lastUpdate.findFirst({
-                    where: { name: lastUpdateValue }
-                  });
-                  
-                  if (existingLastUpdate) {
-                    lastUpdateId = existingLastUpdate.id;
-                    // Add to processed entities for future use
-                    processedEntities.lastUpdates.set(lastUpdateValue, lastUpdateId);
-                    logWithTimestamp(`Found LastUpdate (financial cycle) ID ${lastUpdateId} for ${lastUpdateValue} directly from database`);
-                  }
-                } catch (error) {
-                  logErrorWithTimestamp(`Error finding LastUpdate in database: ${error}`);
-                }
-              } else {
-                logWithTimestamp('No LastUpdate (financial cycle) value found in record for game plan');
-              }
+              // Use the lastUpdateId from user selection (passed as parameter)
+              // No need to derive from CSV data since user selected it during upload
+              logWithTimestamp(`Using LastUpdate (financial cycle) ID from user selection: ${lastUpdateId}`);
               
               // Get range ID if available (should already be set from campaign processing)
               let rangeId = null;
@@ -921,7 +937,7 @@ async function processImport(
                       business_unit_id = ${businessUnitId !== null && businessUnitId !== undefined ? businessUnitId : 'NULL'},
                       range_id = ${rangeId !== null && rangeId !== undefined ? rangeId : 'NULL'},
                       category_id = ${categoryId !== null && categoryId !== undefined ? categoryId : 'NULL'},
-                      last_update_id = ${lastUpdateId !== null && lastUpdateId !== undefined ? lastUpdateId : 'NULL'},
+                      last_update_id = ${lastUpdateId},
                       updated_at = '${dateNow}'
                     WHERE id = ${existingGamePlan.id || existingGamePlan.ID};
                   `;
@@ -946,6 +962,15 @@ async function processImport(
                   logWithTimestamp(`q1Budget: ${q1Budget}, q2Budget: ${q2Budget}, q3Budget: ${q3Budget}, q4Budget: ${q4Budget}`);
                   logWithTimestamp(`countryId: ${countryId}, regionId: ${regionId}, subRegionId: ${subRegionId}, businessUnitId: ${businessUnitId}`);
                   logWithTimestamp(`categoryId: ${categoryId}`);
+                  logWithTimestamp(`lastUpdateId: ${lastUpdateId} (from session data)`);
+                  
+                  // CRITICAL: Validate lastUpdateId before insertion
+                  if (!lastUpdateId || lastUpdateId === null || lastUpdateId === undefined) {
+                    logErrorWithTimestamp(`CRITICAL ERROR: lastUpdateId is invalid: ${lastUpdateId}`);
+                    throw new Error(`lastUpdateId is required but got: ${lastUpdateId}`);
+                  }
+                  
+                  logWithTimestamp(`✅ Validated lastUpdateId: ${lastUpdateId} (type: ${typeof lastUpdateId})`);
                   
                   // First create the game plan with raw SQL to ensure dates are stored as strings
                   // Use better null handling for all fields
@@ -972,10 +997,13 @@ async function processImport(
                       ${businessUnitId !== null && businessUnitId !== undefined ? businessUnitId : 'NULL'}, 
                       ${rangeId !== null && rangeId !== undefined ? rangeId : 'NULL'}, 
                       ${categoryId !== null && categoryId !== undefined ? categoryId : 'NULL'}, 
-                      ${lastUpdateId !== null && lastUpdateId !== undefined ? lastUpdateId : 'NULL'}, 
+                      ${lastUpdateId}, 
                       '${dateNow}', '${dateNow}'
                     ) RETURNING id;
                   `;
+                  
+                  // Log the complete SQL query for debugging
+                  logWithTimestamp(`🔍 About to execute SQL query: ${rawQuery}`);
                   
                   // Execute the raw query
                   const result: any[] = await prisma.$queryRawUnsafe(rawQuery);

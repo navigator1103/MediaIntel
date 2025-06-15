@@ -10,10 +10,18 @@ export async function POST(request: NextRequest) {
     // Check if the request is multipart/form-data
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const lastUpdateId = formData.get('lastUpdateId') as string;
     
     if (!file) {
       return NextResponse.json(
         { error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+    
+    if (!lastUpdateId) {
+      return NextResponse.json(
+        { error: 'Last Update selection is required' },
         { status: 400 }
       );
     }
@@ -97,6 +105,7 @@ export async function POST(request: NextRequest) {
       fileSize: file.size,
       recordCount: records.length,
       status: 'uploaded',
+      lastUpdateId: parseInt(lastUpdateId, 10), // Store the selected lastUpdateId
       data: {
         records,
         masterData
