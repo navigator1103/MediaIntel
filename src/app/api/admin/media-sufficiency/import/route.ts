@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
-import { Pool } from 'pg';
 
 // Function to log with timestamp
 function logWithTimestamp(message: string, data?: any) {
