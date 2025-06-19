@@ -56,10 +56,23 @@ export async function POST(request: NextRequest) {
     const sessionData = JSON.parse(sessionDataRaw);
     
     // Update the records in the session data
-    sessionData.records = records;
+    // Check the structure of sessionData and update accordingly
+    if (sessionData.data && sessionData.data.records) {
+      // Maintain the existing structure
+      sessionData.data.records = records;
+      logWithTimestamp(`Updating session data using data.records structure`);
+    } else if (sessionData.records) {
+      // Direct records property
+      sessionData.records = records;
+      logWithTimestamp(`Updating session data using direct records property`);
+    } else {
+      // Create the structure if it doesn't exist
+      sessionData.data = { records };
+      logWithTimestamp(`Creating new data.records structure`);
+    }
     
     // Write the updated session data back to the file
-    fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
+    fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
     logWithTimestamp(`Updated session file with ${records.length} records`);
     
     return NextResponse.json({

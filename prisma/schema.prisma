@@ -55,7 +55,6 @@ model Brand {
   @@map("brands")
 }
 
-
 model SubRegion {
   id        Int       @id @default(autoincrement())
   name      String    @unique(map: "sqlite_autoindex_sub_regions_1")
@@ -67,10 +66,10 @@ model SubRegion {
 }
 
 model Cluster {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique(map: "sqlite_autoindex_clusters_1")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  id        Int        @id @default(autoincrement())
+  name      String     @unique(map: "sqlite_autoindex_clusters_1")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
   countries Country[]
 
   @@map("clusters")
@@ -211,6 +210,7 @@ model GamePlan {
   category_id      Int?
   range_id         Int?
   last_update_id   Int?
+  playbook_id      String?
   campaign         Campaign     @relation(fields: [campaignId], references: [id])
   mediaSubType     MediaSubType @relation(fields: [mediaSubTypeId], references: [id])
   pmType           PMType?      @relation(fields: [pmTypeId], references: [id])

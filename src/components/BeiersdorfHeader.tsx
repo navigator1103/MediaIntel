@@ -77,40 +77,28 @@ const BeiersdorfHeader = () => {
                     fill="none" 
                     xmlns="http://www.w3.org/2000/svg"
                   >
+                    {/* Analytics chart bars */}
+                    <rect x="3" y="14" width="3" height="7" fill="currentColor" rx="1"/>
+                    <rect x="7" y="10" width="3" height="11" fill="currentColor" rx="1"/>
+                    <rect x="11" y="6" width="3" height="15" fill="currentColor" rx="1"/>
+                    <rect x="15" y="8" width="3" height="13" fill="currentColor" rx="1"/>
+                    <rect x="19" y="12" width="3" height="9" fill="currentColor" rx="1"/>
+                    {/* Trend line overlay */}
                     <path 
-                      d="M3 13C6.6 5 17.4 5 21 13" 
+                      d="M3 17L7 13L11 9L15 11L21 7" 
                       stroke="currentColor" 
                       strokeWidth="2" 
                       strokeLinecap="round" 
                       strokeLinejoin="round"
-                    />
-                    <path 
-                      d="M12 17H12.01" 
-                      stroke="currentColor" 
-                      strokeWidth="3" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    />
-                    <path 
-                      d="M8 21L16 3" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round"
-                    />
-                    <path 
-                      d="M16 21L8 3" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round"
-                    />
-                    <circle 
-                      cx="12" 
-                      cy="12" 
-                      r="3" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
                       fill="none"
+                      opacity="0.8"
                     />
+                    {/* Data points */}
+                    <circle cx="4.5" cy="17" r="1.5" fill="currentColor"/>
+                    <circle cx="8.5" cy="13" r="1.5" fill="currentColor"/>
+                    <circle cx="12.5" cy="9" r="1.5" fill="currentColor"/>
+                    <circle cx="16.5" cy="11" r="1.5" fill="currentColor"/>
+                    <circle cx="20.5" cy="7" r="1.5" fill="currentColor"/>
                   </svg>
                 </div>
                 <div className="flex flex-col">

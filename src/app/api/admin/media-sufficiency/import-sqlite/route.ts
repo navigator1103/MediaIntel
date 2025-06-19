@@ -28,7 +28,7 @@ function logErrorWithTimestamp(message: string, error?: any) {
 export { parseDate, formatDateForStorage, areDatesEqual } from '@/lib/utils/dateUtils';
 
 // Helper function to parse numeric values from strings with enhanced debugging
-function parseNumeric(value: string | undefined | null): number | null {
+function parseNumeric(value: string | undefined | null, isReachValue: boolean = false): number | null {
   if (!value) {
     // logWithTimestamp(`parseNumeric: Null or undefined value`);
     return null;
@@ -44,11 +44,25 @@ function parseNumeric(value: string | undefined | null): number | null {
     // If it's already a number, just return it
     if (typeof value === 'number') {
       logWithTimestamp(`parseNumeric: Already a number: ${value}`);
+      // For reach values, ensure it's below 100%
+      if (isReachValue && value > 1) {
+        // If value is greater than 1 but less than or equal to 100, assume it's a percentage and convert to decimal
+        if (value <= 100) {
+          logWithTimestamp(`parseNumeric: Converting percentage ${value}% to decimal ${value/100}`);
+          return value / 100;
+        } else {
+          logWithTimestamp(`parseNumeric: Reach value ${value} exceeds 100%, capping at 1.0`);
+          return 1.0;
+        }
+      }
       return value;
     }
     
     // If it's a string that contains a number
     if (typeof value === 'string') {
+      // Check if it's a percentage string
+      const isPercentage = value.includes('%');
+      
       // Remove currency symbols, commas, spaces, and other non-numeric characters except decimal point
       cleanValue = value.replace(/[^0-9.\-]/g, '');
       logWithTimestamp(`parseNumeric: Cleaned value: '${cleanValue}'`);
@@ -59,14 +73,31 @@ function parseNumeric(value: string | undefined | null): number | null {
         return null;
       }
       
-      const parsed = parseFloat(cleanValue);
+      let parsed = parseFloat(cleanValue);
       logWithTimestamp(`parseNumeric: Parsed value: ${parsed} (isNaN: ${isNaN(parsed)})`);
+      
+      // Handle percentage values
+      if (!isNaN(parsed)) {
+        if (isReachValue || isPercentage) {
+          // If it's a reach value and greater than 1, assume it's a percentage and convert to decimal
+          if (parsed > 1) {
+            if (parsed <= 100) {
+              logWithTimestamp(`parseNumeric: Converting percentage ${parsed}% to decimal ${parsed/100}`);
+              parsed = parsed / 100;
+            } else {
+              logWithTimestamp(`parseNumeric: Reach value ${parsed} exceeds 100%, capping at 1.0`);
+              parsed = 1.0;
+            }
+          }
+        }
+      }
+      
       return isNaN(parsed) ? null : parsed;
     }
     
     // If it's some other type, try to convert to string first
     logWithTimestamp(`parseNumeric: Unexpected type, trying to convert to string`);
-    return parseNumeric(String(value));
+    return parseNumeric(String(value), isReachValue);
   } catch (error) {
     logErrorWithTimestamp(`parseNumeric: Error parsing value '${value}'`, error);
     return null;
@@ -129,8 +160,14 @@ export async function POST(request: NextRequest) {
         // Update the session file with completion information
         sessionData.status = 'imported';
         
-        sessionData.importErrors = results.errors;
-        sessionData.importResults = results.results;
+        // Ensure results is defined before accessing its properties
+        if (results) {
+          sessionData.importErrors = results.errors || [];
+          sessionData.importResults = results.results || [];
+        } else {
+          sessionData.importErrors = [];
+          sessionData.importResults = [];
+        }
         
         // Write the updated session data back to the file
         fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
@@ -480,7 +517,7 @@ async function processImport(
       }
       
       // Process sub-region with flexible column name handling
-      const subRegionValue = record.SubRegion || record['Sub Region'] || record['Sub-Region'] || record.SUBREGION || record['Sub_Region'];
+      const subRegionValue = record['Sub Region'] || record['Sub-Region'] || record.SUBREGION || record['Sub_Region'];
       if (subRegionValue && !processedEntities.subRegions.has(subRegionValue)) {
         try {
           const existingSubRegion = await prisma.subRegion.findFirst({
@@ -507,6 +544,8 @@ async function processImport(
           // Continue processing even if sub-region lookup fails
         }
       }
+      
+      // Cluster processing has been removed as it's no longer needed
       
       // Process business unit with flexible column name handling
       const businessUnitValue = record.BusinessUnit || record['Business Unit'] || record.BU || record['BU'] || record.BUSINESSUNIT;
@@ -779,20 +818,34 @@ async function processImport(
               logWithTimestamp(`Parsed budget values for ${record.Campaign} - ${record['Media Subtype']}:`);
               logWithTimestamp(`Total: ${totalBudget}, Q1: ${q1Budget}, Q2: ${q2Budget}, Q3: ${q3Budget}, Q4: ${q4Budget}`);
               
-              // Parse reach values
-              const targetReach = parseNumeric(record['Target Reach']);
-              const currentReach = parseNumeric(record['Current Reach']);
+              // Parse reach values with validation to ensure they're below 100%
+              const rawTargetReach = record['Target Reach'] || record['Target_Reach'] || record['TargetReach'] || record['TARGETREACH'];
+              const rawCurrentReach = record['Current Reach'] || record['Current_Reach'] || record['CurrentReach'] || record['CURRENTREACH'];
+              
+              logWithTimestamp(`Processing reach values - Raw Target Reach: ${rawTargetReach}, Raw Current Reach: ${rawCurrentReach}`);
+              
+              const targetReach = parseNumeric(rawTargetReach, true);
+              const currentReach = parseNumeric(rawCurrentReach, true);
+              
+              logWithTimestamp(`Processed reach values - Target Reach: ${targetReach}, Current Reach: ${currentReach}`);
+              if (rawTargetReach && targetReach !== null && parseFloat(String(rawTargetReach).replace(/[^0-9.\-]/g, '')) > 1) {
+                logWithTimestamp(`✅ Target Reach value normalized from ${rawTargetReach} to ${targetReach}`);
+              }
+              if (rawCurrentReach && currentReach !== null && parseFloat(String(rawCurrentReach).replace(/[^0-9.\-]/g, '')) > 1) {
+                logWithTimestamp(`✅ Current Reach value normalized from ${rawCurrentReach} to ${currentReach}`);
+              }
               
               // Get country ID if available
               let countryId = null;
+              let regionId = null;
+              let subRegionId = null;
+              
               if (record.Country && processedEntities.countries.has(record.Country)) {
                 countryId = processedEntities.countries.get(record.Country);
                 logWithTimestamp(`Using country ID ${countryId} for ${record.Country}`);
               }
               
               // Get region ID if available with enhanced flexible column name handling
-              let regionId = null;
-              
               // Try to find region value with more variations - same logic as in the first pass
               const regionValue = record.Region || record['Region'] || record.REGION || record['RegionName'] || 
                                 record.region || record['region'] || record['region_name'] || record['Region Name'] || 
@@ -841,8 +894,7 @@ async function processImport(
               }
               
               // Get sub-region ID if available with flexible column name handling
-              let subRegionId = null;
-              const subRegionValue = record.SubRegion || record['Sub Region'] || record['Sub-Region'] || record.SUBREGION || record['Sub_Region'];
+              const subRegionValue = record['Sub Region'] || record['Sub-Region'] || record.SUBREGION || record['Sub_Region'];
               if (subRegionValue && processedEntities.subRegions.has(subRegionValue)) {
                 subRegionId = processedEntities.subRegions.get(subRegionValue);
                 logWithTimestamp(`Using sub-region ID ${subRegionId} for ${subRegionValue}`);
@@ -854,6 +906,14 @@ async function processImport(
               if (businessUnitValue && processedEntities.businessUnits.has(businessUnitValue)) {
                 businessUnitId = processedEntities.businessUnits.get(businessUnitValue);
                 logWithTimestamp(`Using business unit ID ${businessUnitId} for ${businessUnitValue}`);
+              }
+              
+              // Get Playbook ID if available with flexible column name handling
+              let playbookId = null;
+              const playbookIdValue = record.PlaybookID || record['Playbook ID'] || record['Playbook Id'] || record.PLAYBOOKID || record['Playbook_ID'];
+              if (playbookIdValue) {
+                playbookId = playbookIdValue.toString();
+                logWithTimestamp(`Using Playbook ID: ${playbookId}`);
               }
               
               // Use the lastUpdateId from user selection (passed as parameter)
@@ -917,10 +977,13 @@ async function processImport(
                   logWithTimestamp(`q1Budget: ${q1Budget}, q2Budget: ${q2Budget}, q3Budget: ${q3Budget}, q4Budget: ${q4Budget}`);
                   logWithTimestamp(`countryId: ${countryId}, regionId: ${regionId}, subRegionId: ${subRegionId}, businessUnitId: ${businessUnitId}`);
                   logWithTimestamp(`categoryId: ${categoryId}`);
+                  logWithTimestamp(`playbookId: ${playbookId}`);
                   
-                  // Use direct SQL to update the game plan with better null handling
+                  // Update the existing game plan with raw SQL to ensure dates are stored as strings
                   const updateQuery = `
                     UPDATE game_plans SET
+                      campaign_id = ${campaignId},
+                      media_sub_type_id = ${mediaSubtypeId},
                       pm_type_id = ${pmTypeId !== null && pmTypeId !== undefined ? pmTypeId : 'NULL'},
                       start_date = '${startDateIso}',
                       end_date = '${endDateIso}',
@@ -937,7 +1000,8 @@ async function processImport(
                       business_unit_id = ${businessUnitId !== null && businessUnitId !== undefined ? businessUnitId : 'NULL'},
                       range_id = ${rangeId !== null && rangeId !== undefined ? rangeId : 'NULL'},
                       category_id = ${categoryId !== null && categoryId !== undefined ? categoryId : 'NULL'},
-                      last_update_id = ${lastUpdateId},
+                      last_update_id = ${lastUpdateId}, 
+                      playbook_id = ${playbookId !== null && playbookId !== undefined ? `'${playbookId}'` : 'NULL'},
                       updated_at = '${dateNow}'
                     WHERE id = ${existingGamePlan.id || existingGamePlan.ID};
                   `;
@@ -962,6 +1026,7 @@ async function processImport(
                   logWithTimestamp(`q1Budget: ${q1Budget}, q2Budget: ${q2Budget}, q3Budget: ${q3Budget}, q4Budget: ${q4Budget}`);
                   logWithTimestamp(`countryId: ${countryId}, regionId: ${regionId}, subRegionId: ${subRegionId}, businessUnitId: ${businessUnitId}`);
                   logWithTimestamp(`categoryId: ${categoryId}`);
+                  logWithTimestamp(`playbookId: ${playbookId}`);
                   logWithTimestamp(`lastUpdateId: ${lastUpdateId} (from session data)`);
                   
                   // CRITICAL: Validate lastUpdateId before insertion
@@ -980,7 +1045,7 @@ async function processImport(
                       start_date, end_date, 
                       total_budget, q1_budget, q2_budget, q3_budget, q4_budget,
                       reach_1_plus, reach_3_plus, country_id, region_id, sub_region_id,
-                      business_unit_id, range_id, category_id, last_update_id, created_at, updated_at
+                      business_unit_id, range_id, category_id, last_update_id, playbook_id, created_at, updated_at
                     ) VALUES (
                       ${campaignId}, ${mediaSubtypeId}, ${pmTypeId !== null && pmTypeId !== undefined ? pmTypeId : 'NULL'}, 
                       '${startDateIso}', '${endDateIso}', 
@@ -998,6 +1063,7 @@ async function processImport(
                       ${rangeId !== null && rangeId !== undefined ? rangeId : 'NULL'}, 
                       ${categoryId !== null && categoryId !== undefined ? categoryId : 'NULL'}, 
                       ${lastUpdateId}, 
+                      ${playbookId !== null && playbookId !== undefined ? `'${playbookId}'` : 'NULL'},
                       '${dateNow}', '${dateNow}'
                     ) RETURNING id;
                   `;
@@ -1032,6 +1098,7 @@ async function processImport(
                     subRegionId: subRegionId || null,
                     businessUnitId: businessUnitId || null,
                     rangeId: rangeId || null,
+                    playbookId: playbookId || null,
                     lastUpdateId: lastUpdateId || null,
                     createdAt: dateNow,
                     updatedAt: dateNow

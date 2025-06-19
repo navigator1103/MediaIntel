@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUpload, FiFile, FiAlertCircle } from 'react-icons/fi';
+import { FiUpload, FiFile, FiAlertCircle, FiDownload, FiCheckCircle, FiArrowLeft, FiBarChart2, FiTarget, FiTrendingUp, FiLayers } from 'react-icons/fi';
 import Link from 'next/link';
 
 interface LastUpdate {
@@ -138,7 +138,7 @@ export default function EnhancedUpload() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('lastUpdateId', selectedLastUpdateId);
-      formData.append('preprocessValidation', 'true'); // Tell the API to validate during upload
+      formData.append('preprocessValidation', 'true');
       
       // Simulate progress updates for upload
       const progressInterval = setInterval(() => {
@@ -150,7 +150,7 @@ export default function EnhancedUpload() {
       
       // Send the file to the simple upload endpoint first with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
       let response: Response;
       try {
@@ -206,211 +206,268 @@ export default function EnhancedUpload() {
       fileInputRef.current.click();
     }
   };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
   
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Import Media Sufficiency Data</h1>
-        <Link
-          href="/admin"
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-        >
-          Back to Dashboard
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-white/20 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/admin"
+                className="flex items-center space-x-2 text-slate-600 hover:text-slate-800 transition-colors duration-200"
+              >
+                <FiArrowLeft className="w-5 h-5" />
+                <span className="text-sm font-medium">Back</span>
+              </Link>
+              <div className="h-6 w-px bg-slate-300"></div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                Media Sufficiency Import
+              </h1>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-slate-500">
+              <FiBarChart2 className="w-4 h-4" />
+              <span>Enhanced Upload</span>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">Enhanced Data Import</h2>
-        <p className="text-gray-600 mb-6">
-          Upload your CSV file containing media sufficiency data. Our enhanced import process will:
-        </p>
-        
-        <ul className="list-disc pl-6 text-gray-600 mb-6 space-y-2">
-          <li>Automatically map your CSV columns to the expected fields</li>
-          <li>Validate your data with smart suggestions for corrections</li>
-          <li>Allow you to preview and edit data before importing</li>
-          <li>Provide batch resolution tools for common issues</li>
-        </ul>
-        
-        <div className="mb-6">
-          <label htmlFor="lastUpdate" className="block mb-2 font-medium text-gray-700">
-            Select Financial Cycle
-          </label>
-          <select
-            id="lastUpdate"
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedLastUpdateId}
-            onChange={handleLastUpdateChange}
-            disabled={isLoadingLastUpdates}
-          >
-            <option value="">Select a Last Update</option>
-            {lastUpdates.map((update) => (
-              <option key={update.id} value={update.id.toString()}>
-                {update.name}
-              </option>
-            ))}
-          </select>
-          {isLoadingLastUpdates && (
-            <p className="text-sm text-gray-500 mt-2">Loading options...</p>
-          )}
-          {lastUpdates.length === 0 && !isLoadingLastUpdates && (
-            <p className="text-sm text-amber-600 mt-2">
-              No Last Update options available. Please create one first.
-            </p>
-          )}
-        </div>
-        
-        {uploadStatus === 'idle' && (
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center mb-6 transition-colors ${
-              isDragging
-                ? 'border-indigo-500 bg-indigo-50'
-                : file
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-300 hover:border-indigo-400 hover:bg-gray-50'
-            }`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".csv"
-              className="hidden"
-            />
-            
-            {file ? (
-              <div className="flex flex-col items-center">
-                <FiFile className="h-12 w-12 text-green-500 mb-4" />
-                <p className="text-lg font-medium text-gray-700">{file.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(file.size / 1024).toFixed(2)} KB • CSV
-                </p>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center cursor-pointer w-full h-full">
-                <FiUpload className="h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-gray-700">
-                  {isDragging ? 'Drop your file here' : 'Drag & drop your CSV file here'}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">or click to browse</p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-        )}
-        
-        {error && (
-          <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-start">
-            <FiAlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
-      </div>
-      
-      {/* Upload Progress UI */}
-      {uploadStatus === 'uploading' && (
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-blue-700 font-medium">Uploading...</span>
-            <span className="text-blue-700">{uploadProgress}%</span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2.5">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full" 
-              style={{ width: `${uploadProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-      
-      {/* File Selection Button */}
-      {!file && (
-        <div className="flex justify-center mb-8">
-          <label className="px-6 py-3 bg-[#115f9a] text-white rounded-md hover:bg-[#1984c5] transition-colors flex items-center gap-2 cursor-pointer">
-            <FiFile className="text-lg" />
-            Select CSV File
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </label>
-        </div>
-      )}
 
-      {/* Upload Button */}
-      {file && uploadStatus !== 'uploading' && (
-        <div className="flex justify-center mb-8">
-          <button
-            onClick={handleUpload}
-            className="px-6 py-3 bg-[#115f9a] text-white rounded-md hover:bg-[#1984c5] transition-colors flex items-center gap-2"
-            disabled={uploadStatus !== 'idle'}
-          >
-            <FiUpload className="text-lg" />
-            Upload CSV File
-          </button>
-        </div>
-      )}
-      
-      {/* CSV Template Guidelines */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-blue-800 mb-3">CSV Template Guidelines</h3>
-        <p className="text-blue-700 mb-4">
-          Your CSV file should include the following fields for optimal import:
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h4 className="font-medium text-blue-800 mb-2">Required Fields:</h4>
-            <ul className="list-disc pl-6 text-blue-700 space-y-1">
-              <li>Year</li>
-              <li>Country</li>
-              <li>Category</li>
-              <li>Range</li>
-              <li>Campaign</li>
-              <li>Media</li>
-              <li>Media Subtype</li>
-              <li>Start Date</li>
-              <li>End Date</li>
-              <li>Budget</li>
-            </ul>
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <FiTrendingUp className="w-4 h-4" />
+            <span>Smart Data Import</span>
           </div>
-          
-          <div>
-            <h4 className="font-medium text-blue-800 mb-2">Optional Fields:</h4>
-            <ul className="list-disc pl-6 text-blue-700 space-y-1">
-              <li>Sub Region</li>
-              <li>Q1 Budget</li>
-              <li>Q2 Budget</li>
-              <li>Q3 Budget</li>
-              <li>Q4 Budget</li>
-              <li>Target Reach</li>
-              <li>Current Reach</li>
-              <li>Business Unit</li>
-              <li>PM Type</li>
-            </ul>
-          </div>
+          <h2 className="text-4xl font-bold text-slate-800 mb-4">
+            Import Your Media Data
+          </h2>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            Upload CSV files with intelligent validation, automatic mapping, and real-time error detection
+          </p>
         </div>
-        
-        <div className="mt-4">
-          <a
-            href="/templates/media-sufficiency-template.csv"
-            download
-            className="text-blue-600 hover:text-blue-800 font-medium flex items-center"
-          >
-            <FiFile className="mr-2" />
-            Download CSV Template
-          </a>
+
+        {/* Features Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+          {[
+            { icon: FiTarget, title: "Smart Mapping", desc: "Auto-detect CSV columns" },
+            { icon: FiCheckCircle, title: "Validation", desc: "Real-time data validation" },
+            { icon: FiLayers, title: "Preview", desc: "Edit before importing" },
+            { icon: FiBarChart2, title: "Analytics", desc: "Data insights & reporting" }
+          ].map((feature, index) => (
+            <div key={index} className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-white/20 hover:bg-white/80 transition-all duration-300">
+              <feature.icon className="w-8 h-8 text-blue-600 mb-3" />
+              <h3 className="font-semibold text-slate-800 mb-2">{feature.title}</h3>
+              <p className="text-sm text-slate-600">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Upload Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+              <div className="p-8">
+                {/* Financial Cycle Selection */}
+                <div className="mb-8">
+                  <label className="block text-lg font-semibold text-slate-800 mb-3">
+                    Financial Cycle
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedLastUpdateId}
+                      onChange={handleLastUpdateChange}
+                      disabled={isLoadingLastUpdates}
+                      className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                    >
+                      <option value="">Choose a financial cycle...</option>
+                      {lastUpdates.map((update) => (
+                        <option key={update.id} value={update.id.toString()}>
+                          {update.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {isLoadingLastUpdates && (
+                    <div className="text-sm text-slate-500 mt-2 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      Loading options...
+                    </div>
+                  )}
+                </div>
+
+                {/* File Upload Area */}
+                <div className="mb-8">
+                  <label className="block text-lg font-semibold text-slate-800 mb-3">
+                    Upload CSV File
+                  </label>
+                  
+                  {uploadStatus === 'idle' && (
+                    <div
+                      className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
+                        isDragging
+                          ? 'border-blue-400 bg-blue-50/50 scale-105'
+                          : file
+                          ? 'border-green-400 bg-green-50/50'
+                          : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/50'
+                      }`}
+                      onDragEnter={handleDragEnter}
+                      onDragLeave={handleDragLeave}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept=".csv"
+                        className="hidden"
+                      />
+                      
+                      {file ? (
+                        <div className="space-y-4">
+                          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                            <FiCheckCircle className="w-8 h-8 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold text-slate-800">{file.name}</p>
+                            <p className="text-slate-600">{formatFileSize(file.size)} • CSV File</p>
+                          </div>
+                          <button
+                            onClick={triggerFileInput}
+                            className="text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
+                          >
+                            Choose different file
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4" onClick={triggerFileInput}>
+                          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center cursor-pointer">
+                            <FiUpload className={`w-8 h-8 text-blue-600 transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`} />
+                          </div>
+                          <div className="cursor-pointer">
+                            <p className="text-lg font-semibold text-slate-800">
+                              {isDragging ? 'Drop your file here' : 'Drag & drop your CSV file'}
+                            </p>
+                            <p className="text-slate-600 mt-2">or click to browse files</p>
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            Supports CSV files up to 10MB
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Upload Progress */}
+                  {uploadStatus === 'uploading' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                          <span className="text-lg font-semibold text-blue-800">Uploading your file...</span>
+                        </div>
+                        <span className="text-blue-700 font-bold">{Math.round(uploadProgress)}%</span>
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out" 
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Display */}
+                {error && (
+                  <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-start space-x-3">
+                      <FiAlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-red-800">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                {file && selectedLastUpdateId && uploadStatus !== 'uploading' && (
+                  <button
+                    onClick={handleUpload}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    disabled={uploadStatus !== 'idle'}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <FiUpload className="w-5 h-5" />
+                      <span>Start Import Process</span>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar - Template & Guidelines */}
+          <div className="space-y-6">
+            {/* CSV Template */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                <FiDownload className="w-5 h-5 mr-2 text-blue-600" />
+                CSV Template
+              </h3>
+              <p className="text-slate-600 mb-4">
+                Download our template to ensure your data is formatted correctly.
+              </p>
+              <a
+                href="/templates/media-sufficiency-template.csv"
+                download
+                className="inline-flex items-center space-x-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors duration-200 text-sm font-medium"
+              >
+                <FiDownload className="w-4 h-4" />
+                <span>Download Template</span>
+              </a>
+            </div>
+
+            {/* Required Fields */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Required Fields</h3>
+              <div className="space-y-2">
+                {['Year', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 'Start Date', 'End Date', 'Budget'].map((field) => (
+                  <div key={field} className="flex items-center space-x-2 text-sm">
+                    <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                    <span className="text-slate-700">{field}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Optional Fields */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">Optional Fields</h3>
+              <div className="space-y-2">
+                {['Sub Region', 'Q1-Q4 Budget', 'Target Reach', 'Current Reach', 'Business Unit', 'PM Type'].map((field) => (
+                  <div key={field} className="flex items-center space-x-2 text-sm">
+                    <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                    <span className="text-slate-600">{field}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
