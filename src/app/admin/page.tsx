@@ -2,22 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import LogoutButton from '@/components/LogoutButton';
-import { FiUsers, FiDatabase, FiMap, FiTag, FiBarChart2, FiUploadCloud, FiFileText, FiAlertCircle, FiCalendar, FiPieChart, FiUpload, FiDollarSign } from 'react-icons/fi';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement
-);
+import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -26,54 +11,6 @@ export default function AdminDashboard() {
     totalCampaigns: 0,
     totalBudget: 0,
     lastUpdated: '',
-    monthlyData: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [
-        {
-          label: 'Game Plans Created',
-          data: [12, 19, 8, 15, 22, 27],
-          borderColor: 'rgb(79, 70, 229)',
-          backgroundColor: 'rgba(79, 70, 229, 0.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 2,
-          pointBackgroundColor: 'rgb(79, 70, 229)',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-        {
-          label: 'Budget Allocated (k)',
-          data: [800, 1500, 1200, 900, 1700, 2200],
-          borderColor: 'rgb(245, 158, 11)',
-          backgroundColor: 'rgba(245, 158, 11, 0.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 2,
-          pointBackgroundColor: 'rgb(245, 158, 11)',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        }
-      ]
-    },
-    distributionData: {
-      labels: ['Game Plans', 'Campaigns', 'Users', 'Media Types'],
-      datasets: [{
-        data: [80, 50, 10, 15],
-        backgroundColor: [
-          'rgba(79, 70, 229, 0.85)',
-          'rgba(59, 130, 246, 0.85)',
-          'rgba(139, 92, 246, 0.85)',
-          'rgba(16, 185, 129, 0.85)'
-        ],
-        borderColor: '#ffffff',
-        borderWidth: 2,
-        hoverOffset: 10,
-      }]
-    }
   });
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -96,35 +33,19 @@ export default function AdminDashboard() {
 
         // Count unique campaigns from game plans
         const uniqueCampaigns = new Set();
-        const uniqueMediaTypes = new Set();
         if (Array.isArray(gamePlans)) {
           gamePlans.forEach(plan => {
             if (plan.campaign?.name) uniqueCampaigns.add(plan.campaign.name);
-            if (plan.mediaSubType?.mediaType?.name) uniqueMediaTypes.add(plan.mediaSubType.mediaType.name);
           });
         }
 
-        // Preserve the chart data when updating stats
-        setStats(prevStats => ({
+        setStats({
           totalGamePlans: Array.isArray(gamePlans) ? gamePlans.length : 0,
           totalUsers: Array.isArray(users) ? users.length : 0,
           totalCampaigns: uniqueCampaigns.size,
           totalBudget: dashboardData.summary?.totalBudget || 0,
           lastUpdated: new Date().toLocaleString(),
-          monthlyData: prevStats.monthlyData,
-          distributionData: {
-            ...prevStats.distributionData,
-            datasets: [{
-              ...prevStats.distributionData.datasets[0],
-              data: [
-                Array.isArray(gamePlans) ? gamePlans.length : 0,
-                uniqueCampaigns.size,
-                Array.isArray(users) ? users.length : 0,
-                uniqueMediaTypes.size
-              ]
-            }]
-          }
-        }));
+        });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
       } finally {
@@ -132,34 +53,8 @@ export default function AdminDashboard() {
       }
     };
 
-    const checkAdminAndFetchStats = async () => {
-      try {
-        // Check if user is logged in and has admin role
-        const userStr = localStorage.getItem('user');
-        if (!userStr) {
-          console.log('No user found, redirecting to login');
-          router.push('/login');
-          return;
-        }
-
-        const user = JSON.parse(userStr);
-        console.log('User role:', user.role);
-        
-        if (user.role !== 'admin') {
-          console.log('User is not admin, redirecting to user dashboard');
-          router.push('/');
-          return;
-        }
-        
-        // User is admin, fetch stats
-        await fetchStats();
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        router.push('/login');
-      }
-    };
-
-    checkAdminAndFetchStats();
+    // Auth check is handled by layout, just fetch stats
+    fetchStats();
   }, [router]);
 
   const handleNavigate = (path: string) => {
@@ -175,8 +70,7 @@ export default function AdminDashboard() {
     if (implementedPages.includes(path)) {
       router.push(path);
     } else {
-      // Show an alert for pages that are not yet implemented
-      alert(`This page is not yet implemented.`);
+      alert(`This feature is coming soon.`);
     }
   };
 
@@ -185,316 +79,161 @@ export default function AdminDashboard() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-lg font-quicksand">Loading dashboard data...</p>
+          <p className="mt-4 text-lg font-quicksand">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
+    <div className="min-h-screen bg-gray-50 pt-6">
       <div className="max-w-6xl mx-auto p-6">
-        {/* Key Stats Overview - Simplified */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+          <p className="text-gray-600">Manage your Media Sufficiency Platform</p>
+        </div>
+
+        {/* Key Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all cursor-pointer border border-gray-100"
             onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
           >
-            <div className="flex items-center mb-1">
-              <FiCalendar className="h-4 w-4 text-indigo-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Game Plans</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Game Plans</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalGamePlans}</p>
+              </div>
+              <div className="p-3 bg-indigo-100 rounded-lg">
+                <FiCalendar className="h-6 w-6 text-indigo-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.totalGamePlans}</p>
           </div>
           
           <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
+            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all cursor-pointer border border-gray-100"
+            onClick={() => handleNavigate('/admin/media-sufficiency')}
           >
-            <div className="flex items-center mb-1">
-              <FiUpload className="h-4 w-4 text-indigo-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Campaigns</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Campaigns</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalCampaigns}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiTrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.totalCampaigns}</p>
           </div>
           
           <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-all cursor-pointer border border-gray-100"
             onClick={() => handleNavigate('/admin/users')}
           >
-            <div className="flex items-center mb-1">
-              <FiUsers className="h-4 w-4 text-indigo-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Users</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Users</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <FiUsers className="h-6 w-6 text-green-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">{stats.totalUsers}</p>
           </div>
 
-          <div 
-            className="bg-white rounded-lg shadow-sm p-4 cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center mb-1">
-              <FiDollarSign className="h-4 w-4 text-green-500 mr-2" />
-              <h2 className="text-sm font-medium text-gray-500">Total Budget</h2>
-            </div>
-            <p className="text-2xl font-bold text-gray-800">${(stats.totalBudget / 1000).toFixed(0)}k</p>
-          </div>
-        </div>
-        
-        {/* Analytics Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm p-5 overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-700 flex items-center">
-                <FiBarChart2 className="mr-2 text-indigo-500" /> Activity Trends
-              </h2>
-              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                Last 6 months
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Budget</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  ${(stats.totalBudget / 1000000).toFixed(1)}M
+                </p>
               </div>
-            </div>
-            <div className="h-72 p-2">
-              <Line 
-                data={stats.monthlyData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'top' as const,
-                      labels: {
-                        usePointStyle: true,
-                        boxWidth: 6,
-                        padding: 20,
-                        font: {
-                          size: 12
-                        }
-                      }
-                    },
-                    tooltip: {
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      titleColor: '#6B7280',
-                      bodyColor: '#374151',
-                      borderColor: '#E5E7EB',
-                      borderWidth: 1,
-                      padding: 12,
-                      boxPadding: 6,
-                      usePointStyle: true,
-                      titleFont: {
-                        size: 14,
-                        weight: 'bold'
-                      },
-                      bodyFont: {
-                        size: 13
-                      },
-                      callbacks: {
-                        label: function(context) {
-                          return ` ${context.dataset.label}: ${context.parsed.y}`;
-                        }
-                      }
-                    }
-                  },
-                  scales: {
-                    x: {
-                      grid: {
-                        display: false
-                      },
-                      ticks: {
-                        font: {
-                          size: 11
-                        }
-                      }
-                    },
-                    y: {
-                      beginAtZero: true,
-                      grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                      },
-                      ticks: {
-                        font: {
-                          size: 11
-                        }
-                      }
-                    }
-                  },
-                  elements: {
-                    line: {
-                      tension: 0.4
-                    }
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-5 overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-700 flex items-center">
-                <FiPieChart className="mr-2 text-indigo-500" /> Data Distribution
-              </h2>
-              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                Current data
-              </div>
-            </div>
-            <div className="h-72 flex items-center justify-center p-2">
-              <div className="w-4/5 h-full">
-                <Doughnut 
-                  data={stats.distributionData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
-                    plugins: {
-                      legend: {
-                        position: 'right' as const,
-                        labels: {
-                          usePointStyle: true,
-                          boxWidth: 8,
-                          padding: 15,
-                          font: {
-                            size: 12
-                          }
-                        }
-                      },
-                      tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#6B7280',
-                        bodyColor: '#374151',
-                        borderColor: '#E5E7EB',
-                        borderWidth: 1,
-                        padding: 12,
-                        boxPadding: 6,
-                        usePointStyle: true,
-                        callbacks: {
-                          label: function(context) {
-                            const total = context.dataset.data.reduce((sum: any, value: any) => sum + value, 0);
-                            const value = context.raw as number;
-                            const percentage = Math.round((value / total) * 100);
-                            return ` ${context.label}: ${value} (${percentage}%)`;
-                          }
-                        }
-                      }
-                    },
-                    animation: {
-                      animateScale: true,
-                      animateRotate: true
-                    }
-                  }}
-                />
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <FiBarChart2 className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Simplified */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Quick Actions */}
-          <div>
-            <div className="bg-white rounded-lg shadow-sm p-5 mb-6">
-              <h2 className="text-lg font-medium mb-4 text-gray-700">Quick Actions</h2>
-              <div className="space-y-2">
-                <button 
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-quicksand flex items-center justify-center"
-                  onClick={() => handleNavigate('/admin/change-requests')}
-                >
-                  <FiAlertCircle className="mr-2" /> Review Change Requests
-                </button>
-                <button 
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-quicksand flex items-center justify-center"
-                  onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
-                >
-                  <FiUploadCloud className="mr-2" /> Upload Media Data
-                </button>
-                <button 
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-quicksand flex items-center justify-center"
-                  onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
-                >
-                  <FiCalendar className="mr-2" /> Manage Game Plans
-                </button>
-              </div>
-            </div>
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiUploadCloud className="mr-2 text-indigo-600" />
+              Media Data
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">Upload and manage media sufficiency data</p>
+            <button 
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
+            >
+              Upload Data
+            </button>
           </div>
 
-          {/* Admin Modules - Simplified */}
-          <div className="md:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-5">
-              <h2 className="text-lg font-medium mb-4 text-gray-700">Admin Modules</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/rules')}
-                >
-                  <FiDatabase className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Rules</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/countries')}
-                >
-                  <FiMap className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Countries</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/brands')}
-                >
-                  <FiTag className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Brands</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/users')}
-                >
-                  <FiUsers className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Users</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/taxonomy')}
-                >
-                  <FiBarChart2 className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Taxonomy</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/media-sufficiency')}
-                >
-                  <FiBarChart2 className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Media Sufficiency</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
-                >
-                  <FiCalendar className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Game Plans</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
-                >
-                  <FiUploadCloud className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Media Data</span>
-                </div>
-                
-                <div 
-                  className="p-3 border border-gray-200 rounded-md hover:border-indigo-500 hover:shadow-sm transition-all cursor-pointer flex items-center"
-                  onClick={() => handleNavigate('/admin/change-requests')}
-                >
-                  <FiAlertCircle className="h-5 w-5 text-indigo-500 mr-2" />
-                  <span className="font-medium text-sm">Change Requests</span>
-                </div>
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiCalendar className="mr-2 text-blue-600" />
+              Game Plans
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">Manage campaign planning and budgets</p>
+            <button 
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
+            >
+              Manage Plans
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiUsers className="mr-2 text-green-600" />
+              User Management
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">Manage user accounts and permissions</p>
+            <button 
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => handleNavigate('/admin/users')}
+            >
+              Manage Users
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <FiActivity className="mr-2 text-indigo-600" />
+              System Status
+            </h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
+                <p className="text-sm font-medium text-gray-700">Database</p>
+                <p className="text-xs text-gray-500">Online</p>
+              </div>
+              <div className="text-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
+                <p className="text-sm font-medium text-gray-700">File Upload</p>
+                <p className="text-xs text-gray-500">Available</p>
+              </div>
+              <div className="text-center">
+                <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
+                <p className="text-sm font-medium text-gray-700">API Services</p>
+                <p className="text-xs text-gray-500">Running</p>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div className="text-center text-xs text-gray-500 mt-4 pb-4">
-        Last updated: {stats.lastUpdated}
+
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-500 mt-8 pb-4">
+          Last updated: {stats.lastUpdated}
+        </div>
       </div>
     </div>
   );

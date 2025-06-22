@@ -133,6 +133,21 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    // Load campaign compatibility mappings from static file
+    let campaignCompatibilityMap = {};
+    let rangeCompatibleCampaigns = {};
+    
+    try {
+      const staticMasterDataPath = path.resolve('./src/lib/validation/masterData.json');
+      if (fs.existsSync(staticMasterDataPath)) {
+        const staticData = JSON.parse(fs.readFileSync(staticMasterDataPath, 'utf-8'));
+        campaignCompatibilityMap = staticData.campaignCompatibilityMap || {};
+        rangeCompatibleCampaigns = staticData.rangeCompatibleCampaigns || {};
+      }
+    } catch (error) {
+      console.warn('Could not load campaign compatibility mappings from static file:', error);
+    }
+
     // Create the complete master data object
     const masterData = {
       // Country and region data
@@ -151,6 +166,10 @@ export async function GET(request: NextRequest) {
       campaigns: campaigns.map(c => c.name),
       campaignToRangeMap,
       rangeToCampaignsMap,
+      
+      // Campaign compatibility for multi-range support
+      campaignCompatibilityMap,
+      rangeCompatibleCampaigns,
       
       // Media data
       mediaTypes: mediaTypes.map(mt => mt.name),

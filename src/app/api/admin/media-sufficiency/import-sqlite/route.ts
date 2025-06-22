@@ -916,6 +916,22 @@ async function processImport(
                 logWithTimestamp(`Using Playbook ID: ${playbookId}`);
               }
               
+              // Get Total WOA if available with flexible column name handling
+              let totalWoa = null;
+              const totalWoaValue = record['Total WOA'] || record['TotalWOA'] || record['TOTAL_WOA'] || record.TotalWOA || record['Total_WOA'];
+              if (totalWoaValue) {
+                totalWoa = parseNumeric(totalWoaValue);
+                logWithTimestamp(`Using Total WOA: ${totalWoa}`);
+              }
+              
+              // Get Weeks Off Air if available with flexible column name handling
+              let weeksOffAir = null;
+              const weeksOffAirValue = record['Weeks Off Air'] || record['WeeksOffAir'] || record['WEEKS_OFF_AIR'] || record.WeeksOffAir || record['Weeks_Off_Air'];
+              if (weeksOffAirValue) {
+                weeksOffAir = parseNumeric(weeksOffAirValue);
+                logWithTimestamp(`Using Weeks Off Air: ${weeksOffAir}`);
+              }
+              
               // Use the lastUpdateId from user selection (passed as parameter)
               // No need to derive from CSV data since user selected it during upload
               logWithTimestamp(`Using LastUpdate (financial cycle) ID from user selection: ${lastUpdateId}`);
@@ -994,6 +1010,8 @@ async function processImport(
                       q4_budget = ${q4Budget !== null && q4Budget !== undefined ? q4Budget : 'NULL'},
                       reach_1_plus = ${targetReach !== null && targetReach !== undefined ? targetReach : 'NULL'},
                       reach_3_plus = ${currentReach !== null && currentReach !== undefined ? currentReach : 'NULL'},
+                      total_woa = ${totalWoa !== null && totalWoa !== undefined ? totalWoa : 'NULL'},
+                      weeks_off_air = ${weeksOffAir !== null && weeksOffAir !== undefined ? weeksOffAir : 'NULL'},
                       country_id = ${countryId !== null && countryId !== undefined ? countryId : 'NULL'},
                       region_id = ${regionId !== null && regionId !== undefined ? regionId : 'NULL'},
                       sub_region_id = ${subRegionId !== null && subRegionId !== undefined ? subRegionId : 'NULL'},
@@ -1044,7 +1062,7 @@ async function processImport(
                       campaign_id, media_sub_type_id, pm_type_id, 
                       start_date, end_date, 
                       total_budget, q1_budget, q2_budget, q3_budget, q4_budget,
-                      reach_1_plus, reach_3_plus, country_id, region_id, sub_region_id,
+                      reach_1_plus, reach_3_plus, total_woa, weeks_off_air, country_id, region_id, sub_region_id,
                       business_unit_id, range_id, category_id, last_update_id, playbook_id, created_at, updated_at
                     ) VALUES (
                       ${campaignId}, ${mediaSubtypeId}, ${pmTypeId !== null && pmTypeId !== undefined ? pmTypeId : 'NULL'}, 
@@ -1056,6 +1074,8 @@ async function processImport(
                       ${q4Budget !== null && q4Budget !== undefined ? q4Budget : 'NULL'},
                       ${targetReach !== null && targetReach !== undefined ? targetReach : 'NULL'}, 
                       ${currentReach !== null && currentReach !== undefined ? currentReach : 'NULL'}, 
+                      ${totalWoa !== null && totalWoa !== undefined ? totalWoa : 'NULL'},
+                      ${weeksOffAir !== null && weeksOffAir !== undefined ? weeksOffAir : 'NULL'},
                       ${countryId !== null && countryId !== undefined ? countryId : 'NULL'}, 
                       ${regionId !== null && regionId !== undefined ? regionId : 'NULL'}, 
                       ${subRegionId !== null && subRegionId !== undefined ? subRegionId : 'NULL'},
@@ -1093,6 +1113,8 @@ async function processImport(
                     q4Budget: q4Budget || null,
                     reach1Plus: targetReach || null,
                     reach3Plus: currentReach || null,
+                    totalWoa: totalWoa || null,
+                    weeksOffAir: weeksOffAir || null,
                     countryId: countryId || null,
                     regionId: regionId || null,
                     subRegionId: subRegionId || null,

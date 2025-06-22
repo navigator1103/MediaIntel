@@ -28,7 +28,7 @@ export default function AdminLayout({
         
         if (userData.role !== 'admin') {
           console.log('User is not admin, redirecting to user dashboard');
-          router.push('/');
+          router.push('/dashboard/media-sufficiency');  // Direct redirect, don't go back to root
           return false;
         }
         return true;

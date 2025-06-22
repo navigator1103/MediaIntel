@@ -200,6 +200,8 @@ model GamePlan {
   trps             Float?
   reach1Plus       Float?       @map("reach_1_plus")
   reach3Plus       Float?       @map("reach_3_plus")
+  totalWoa         Float?       @map("total_woa")
+  weeksOffAir      Float?       @map("weeks_off_air")
   createdAt        String       @default("CURRENT_TIMESTAMP") @map("created_at")
   updatedAt        String       @default("CURRENT_TIMESTAMP") @map("updated_at")
   year             Int?

@@ -1,35 +1,46 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is logged in
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      router.push('/login');
-      return;
-    }
+    // Prevent multiple redirects
+    if (isRedirecting) return;
 
-    try {
-      const user = JSON.parse(userStr);
-      // Redirect based on role
-      if (user.role === 'admin') {
-        router.push('/admin');
-      } else {
-        // For regular users, redirect to the media sufficiency dashboard
-        router.push('/dashboard/media-sufficiency');
+    const checkAuth = () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          setIsRedirecting(true);
+          router.push('/login');
+          return;
+        }
+
+        const user = JSON.parse(userStr);
+        setIsRedirecting(true);
+        
+        // Single redirect based on role - no duplicate auth checks
+        if (user.role === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard/media-sufficiency');
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setIsRedirecting(true);
+        router.push('/login');
       }
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      router.push('/login');
-    }
-  }, [router]);
+    };
 
-  // Show loading while redirecting
+    // Small delay to prevent hydration issues
+    const timer = setTimeout(checkAuth, 100);
+    return () => clearTimeout(timer);
+  }, [router, isRedirecting]);
+
   return (
     <div className="flex h-screen items-center justify-center">
       <div className="text-center">

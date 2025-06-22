@@ -337,6 +337,26 @@ export class MediaSufficiencyValidator {
       }
     });
 
+    // Campaign validation
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Campaign must be a valid campaign name',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        
+        // Check if campaign exists in master data
+        const campaignInput = value.toString().trim();
+        const campaigns = masterData?.campaigns || [];
+        
+        // Case-insensitive search - campaigns array contains strings directly
+        return campaigns.some((campaign: string) => {
+          return campaign.toLowerCase() === campaignInput.toLowerCase();
+        });
+      }
+    });
+
     // Category-Range relationship validation
     this.rules.push({
       field: 'Range',
@@ -351,14 +371,6 @@ export class MediaSufficiencyValidator {
         
         // If we have category-to-ranges mapping, use it
         if (masterData?.categoryToRanges) {
-          // Handle self-referential mappings (e.g., "Sun" - "Sun", "Acne" - "Acne")
-          if (category.toLowerCase() === range.toLowerCase()) {
-            // Check if the category exists in master data
-            return masterData.categories?.some(c => 
-              typeof c === 'string' && c.toLowerCase() === category.toLowerCase()
-            ) || false;
-          }
-          
           // Find the category in a case-insensitive way
           const categoryKey = Object.keys(masterData.categoryToRanges).find(
             key => key.toLowerCase() === category.toLowerCase()
@@ -367,8 +379,7 @@ export class MediaSufficiencyValidator {
           // Get valid ranges for this category
           const validRanges = categoryKey ? masterData.categoryToRanges[categoryKey] || [] : [];
           
-          // Simplified validation - only check if range is valid for category
-          // This is more performant than bidirectional validation
+          // Check if range is valid for category (works for both self-referential and normal cases)
           return validRanges.some((m: string) => 
             m.toLowerCase() === range.toLowerCase()
           );
@@ -379,7 +390,7 @@ export class MediaSufficiencyValidator {
       }
     });
     
-    // Campaign-Range relationship validation
+    // Campaign-Range relationship validation with compatibility support
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
@@ -395,6 +406,7 @@ export class MediaSufficiencyValidator {
         // Get the mappings from master data
         const campaignToRangeMap = masterData?.campaignToRangeMap || {};
         const rangeToCampaignsMap = masterData?.rangeToCampaignsMap || {};
+        const campaignCompatibilityMap = masterData?.campaignCompatibilityMap || {};
         
         // If we don't have any mapping data, skip validation
         if (Object.keys(campaignToRangeMap).length === 0) {
@@ -406,11 +418,29 @@ export class MediaSufficiencyValidator {
           key => key.toLowerCase() === campaignInput.toLowerCase()
         );
         
-        // If we found the campaign in our mappings
+        // Check primary mapping first
         if (campaignKey) {
           const mappedRange = campaignToRangeMap[campaignKey];
-          // Check if the specified range matches what's in our mapping
-          return mappedRange.toLowerCase() === rangeInput.toLowerCase();
+          // Check if the specified range matches the primary mapping
+          if (mappedRange.toLowerCase() === rangeInput.toLowerCase()) {
+            return true;
+          }
+        }
+        
+        // Check campaign compatibility mapping for multi-range support
+        const compatibleCampaignKey = Object.keys(campaignCompatibilityMap).find(
+          key => key.toLowerCase() === campaignInput.toLowerCase()
+        );
+        
+        if (compatibleCampaignKey) {
+          const compatibleRanges = campaignCompatibilityMap[compatibleCampaignKey] || [];
+          // Check if the specified range is in the compatible ranges (case-insensitive)
+          const isCompatible = compatibleRanges.some((range: string) => 
+            range.toLowerCase() === rangeInput.toLowerCase()
+          );
+          if (isCompatible) {
+            return true;
+          }
         }
         
         // If campaign isn't in our mappings, check if the range exists
