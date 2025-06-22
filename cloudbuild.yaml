@@ -25,7 +25,7 @@ steps:
     - 'managed'
     - '--allow-unauthenticated'
     - '--set-env-vars'
-    - 'DATABASE_URL=file:/workspace/prisma/dev.db'
+    - 'DATABASE_URL=file:./golden_rules.db'
 
 # Store images in Artifact Registry
 images:

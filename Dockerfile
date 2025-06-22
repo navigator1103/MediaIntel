@@ -8,8 +8,11 @@ COPY package.json package-lock.json ./
 # Install dependencies
 RUN npm ci
 
-# Copy application code (excluding the SQLite database initially)
+# Copy application code including the SQLite database
 COPY . .
+
+# Ensure the SQLite database is copied to the root directory for production
+RUN cp /app/prisma/golden_rules.db /app/golden_rules.db || cp /app/golden_rules.db /app/golden_rules.db || echo "Database file copied or already exists"
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -21,10 +24,10 @@ RUN npm run build
 ENV NODE_ENV=production
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
-ENV DATABASE_URL=file:./prisma/golden_rules.db
+ENV DATABASE_URL=file:./golden_rules.db
 
-# Create a directory for the database if it doesn't exist
-RUN mkdir -p /app/prisma
+# Ensure database file permissions
+RUN chmod 666 /app/golden_rules.db || echo "Database permissions set"
 
 # Expose the port
 EXPOSE 8080

@@ -19,9 +19,19 @@ out
 .env.test.local
 .env.production.local
 
+# Scripts and temporary files
+scripts/
+temp-*.js
+*.log
+
 # Misc
 .DS_Store
 README.md
 .vscode
 tmp
-*.log
+coverage
+.nyc_output
+
+# Keep the SQLite database files
+!golden_rules.db
+!prisma/golden_rules.db
