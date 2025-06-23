@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
 import BatchCorrectionsPanel, { BatchCorrection } from '@/components/media-sufficiency/BatchCorrectionsPanel';
-import DataPreviewGrid, { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
-import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
+import DataPreviewGrid from '@/components/media-sufficiency/DataPreviewGrid';
+import { ValidationIssue, MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
 
 export default function EnhancedValidate() {
   const router = useRouter();

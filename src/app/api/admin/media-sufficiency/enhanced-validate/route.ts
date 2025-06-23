@@ -346,6 +346,53 @@ export async function POST(request: NextRequest) {
       
       console.log('Media to subtypes mapping for validation:', mediaToSubtypes);
       
+      // Create category to ranges mapping for validation
+      const categoryToRanges: Record<string, string[]> = {};
+      
+      // Fetch category-range relationships from database
+      try {
+        const categoryRangeRelations = await prisma.categoryToRange.findMany({
+          include: {
+            category: true,
+            range: true
+          }
+        });
+        
+        // Build the mapping
+        categoryRangeRelations.forEach((relation: any) => {
+          if (relation.category && relation.range) {
+            const categoryName = relation.category.name;
+            const rangeName = relation.range.name;
+            
+            if (!categoryToRanges[categoryName]) {
+              categoryToRanges[categoryName] = [];
+            }
+            
+            if (!categoryToRanges[categoryName].includes(rangeName)) {
+              categoryToRanges[categoryName].push(rangeName);
+            }
+          }
+        });
+        
+        // Add the mapping to masterData
+        masterData.categoryToRanges = categoryToRanges;
+        
+        console.log('Category to ranges mapping for validation:', categoryToRanges);
+        
+      } catch (error) {
+        console.error('Error creating category to ranges mapping:', error);
+        // Fallback to static master data if available
+        try {
+          const staticMasterData = require('@/lib/validation/masterData.json');
+          if (staticMasterData.categoryToRanges) {
+            masterData.categoryToRanges = staticMasterData.categoryToRanges;
+            console.log('Using static category to ranges mapping as fallback');
+          }
+        } catch (fallbackError) {
+          console.error('Error loading static master data fallback:', fallbackError);
+        }
+      }
+      
     } catch (error) {
       console.error('Error fetching master data:', error);
     }

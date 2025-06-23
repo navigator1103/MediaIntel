@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiAlertCircle, FiAlertTriangle, FiInfo, FiCheckCircle, FiEdit2, FiFilter, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { ValidationIssue } from '@/lib/validation/mediaSufficiencyValidator';
 
 interface DataPreviewGridProps {
   data: any[];
@@ -19,15 +20,6 @@ interface DataPreviewGridProps {
   importErrors?: Array<{ message: string }>;
   onImport?: () => void;
   canImport?: boolean;
-}
-
-export interface ValidationIssue {
-  rowIndex: number;
-  columnName: string;
-  severity: 'critical' | 'warning' | 'suggestion';
-  message: string;
-  currentValue?: any;
-  suggestedValue?: any;
 }
 
 const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({ 
@@ -201,10 +193,34 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
   };
 
   // Get cell validation status
-  const getCellValidation = (rowIndex: number, columnName: string) => {
+  const getCellValidation = (originalRowIndex: number, columnName: string) => {
     return validationIssues.find(
-      issue => issue.rowIndex === rowIndex && issue.columnName === columnName
+      issue => issue.rowIndex === originalRowIndex && issue.columnName === columnName
     );
+  };
+  
+  // Helper function to map display row index to original row index
+  const getOriginalRowIndex = (displayRowIndex: number): number => {
+    // If no filtering is applied, display index = original index
+    if (!showOnlyIssues && !searchTerm && !sortConfig) {
+      return displayRowIndex;
+    }
+    
+    // For filtered data, we need to find the original row index
+    const currentRowInPagination = displayRowIndex - ((currentPage - 1) * rowsPerPage);
+    
+    if (currentRowInPagination >= 0 && currentRowInPagination < filteredData.length) {
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const actualFilteredIndex = startIndex + currentRowInPagination;
+      
+      if (actualFilteredIndex < filteredData.length) {
+        const filteredRow = filteredData[actualFilteredIndex];
+        // Find this row in the original gridData
+        return gridData.findIndex(row => row === filteredRow);
+      }
+    }
+    
+    return displayRowIndex; // Fallback
   };
 
   // Get cell background color based on validation status
@@ -366,17 +382,17 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
       </div>
       
       {/* Data Grid */}
-      <div className="overflow-x-auto max-w-full bg-gray-50" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div className="overflow-auto max-w-full bg-gray-50 max-h-[600px]" style={{ overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <table className="w-auto divide-y divide-gray-300" style={{ tableLayout: 'fixed' }}>
-          <thead className="bg-gradient-to-r from-gray-100 to-gray-200">
+          <thead className="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-30">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-16 bg-gray-200">
+              <th className="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider w-16 bg-gray-200 sticky top-0 z-30 shadow-sm">
                 #
               </th>
               {columns.map((column) => (
                 <th
                   key={column}
-                  className="px-6 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-300 transition-all duration-300 hover:shadow-lg"
+                  className="px-6 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-300 transition-all duration-300 hover:shadow-lg sticky top-0 z-30 bg-gradient-to-r from-gray-100 to-gray-200 shadow-sm"
                   style={{ minWidth: '150px', maxWidth: '300px' }}
                   onClick={() => requestSort(column)}
                 >
@@ -394,8 +410,12 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {getPaginatedData().map((row, actualRowIndex) => {
-              // Calculate the actual row index in the full dataset
-              const rowIndex = ((currentPage - 1) * rowsPerPage) + actualRowIndex;
+              // Calculate the actual row index in the filtered dataset
+              const filteredRowIndex = ((currentPage - 1) * rowsPerPage) + actualRowIndex;
+              // Map to original dataset index for validation lookup
+              const originalRowIndex = getOriginalRowIndex(filteredRowIndex);
+              // Use filtered index for display purposes
+              const rowIndex = filteredRowIndex;
               return (
                 <tr key={rowIndex} className="hover:bg-gradient-to-r hover:from-[#7eb0d5]/10 hover:via-[#1984c5]/10 hover:to-blue-50 transition-all duration-300 hover:shadow-lg hover:scale-[1.01] border-l-4 border-l-transparent hover:border-l-[#1984c5]">
                   <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-700 bg-gray-100">
@@ -403,14 +423,14 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
                   </td>
                   {columns.map((column) => {
                     const isHighlighted = highlightedCell && 
-                      highlightedCell.rowIndex === rowIndex && 
+                      highlightedCell.rowIndex === originalRowIndex && 
                       highlightedCell.columnName === column;
                     
                     return (
                     <td
                       key={`${rowIndex}-${column}`}
                       ref={isHighlighted ? highlightedCellRef : null}
-                      className={`px-6 py-2 text-sm cursor-pointer relative group ${getCellBackground(rowIndex, column)} ${isHighlighted ? 'ring-4 ring-cyan-400 ring-offset-2 animate-pulse shadow-lg' : ''} ${getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-800 font-bold' : 'text-gray-800'} hover:shadow-md transition-all duration-300`}
+                      className={`px-6 py-2 text-sm cursor-pointer relative group ${getCellBackground(originalRowIndex, column)} ${isHighlighted ? 'ring-4 ring-cyan-400 ring-offset-2 animate-pulse shadow-lg' : ''} ${getCellValidation(originalRowIndex, column)?.severity === 'critical' ? 'text-red-800 font-bold' : 'text-gray-800'} hover:shadow-md transition-all duration-300`}
                       style={{ 
                         minWidth: '150px', 
                         maxWidth: '300px', 
@@ -418,10 +438,10 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
                         textOverflow: 'ellipsis',
                         transition: 'all 0.3s ease'
                       }}
-                      onClick={() => handleCellClick(rowIndex, column)}
-                      title={getCellValidation(rowIndex, column) ? `${getCellValidation(rowIndex, column)?.severity.toUpperCase()}: ${getCellValidation(rowIndex, column)?.message}` : ''}
+                      onClick={() => handleCellClick(originalRowIndex, column)}
+                      title={getCellValidation(originalRowIndex, column) ? `${getCellValidation(originalRowIndex, column)?.severity.toUpperCase()}: ${getCellValidation(originalRowIndex, column)?.message}` : ''}
                     >
-                      {editingCell && editingCell.rowIndex === rowIndex && editingCell.columnName === column ? (
+                      {editingCell && editingCell.rowIndex === originalRowIndex && editingCell.columnName === column ? (
                         <input
                           type="text"
                           value={editValue}
@@ -434,35 +454,35 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
                       ) : (
                         <div className="flex items-center">
                           <span className="flex-grow font-semibold">{row[column]}</span>
-                          {getCellIcon(rowIndex, column) && (
+                          {getCellIcon(originalRowIndex, column) && (
                             <div className="ml-3 relative group">
                               <div className="p-2 rounded-full hover:bg-indigo-100 transition-all duration-300 transform hover:scale-110">
-                                {getCellIcon(rowIndex, column)}
+                                {getCellIcon(originalRowIndex, column)}
                               </div>
                               <div className="hidden group-hover:block absolute z-30 w-80 p-5 bg-white border-2 border-gray-300 rounded-2xl shadow-2xl -left-40 top-10">
                                 <div className={`text-sm font-bold mb-3 ${
-                                  getCellValidation(rowIndex, column)?.severity === 'critical' ? 'text-red-600' :
-                                  getCellValidation(rowIndex, column)?.severity === 'warning' ? 'text-amber-600' :
+                                  getCellValidation(originalRowIndex, column)?.severity === 'critical' ? 'text-red-600' :
+                                  getCellValidation(originalRowIndex, column)?.severity === 'warning' ? 'text-amber-600' :
                                   'text-blue-600'
                                 }`}>
-                                  {getCellValidation(rowIndex, column)?.severity === 'critical' ? '🚨 CRITICAL ERROR' :
-                                   getCellValidation(rowIndex, column)?.severity === 'warning' ? '⚠️ WARNING' :
+                                  {getCellValidation(originalRowIndex, column)?.severity === 'critical' ? '🚨 CRITICAL ERROR' :
+                                   getCellValidation(originalRowIndex, column)?.severity === 'warning' ? '⚠️ WARNING' :
                                    '💡 SUGGESTION'}
                                 </div>
                                 <div className="text-sm mb-4 text-gray-700 leading-relaxed font-medium">
-                                  {getCellValidation(rowIndex, column)?.message}
+                                  {getCellValidation(originalRowIndex, column)?.message}
                                 </div>
-                                {getCellValidation(rowIndex, column)?.suggestedValue && (
+                                {getCellValidation(originalRowIndex, column)?.suggestedValue && (
                                   <div className="text-xs mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
                                     <span className="font-semibold text-green-700">Suggested fix:</span>
-                                    <span className="text-green-600 ml-1">{getCellValidation(rowIndex, column)?.suggestedValue}</span>
+                                    <span className="text-green-600 ml-1">{getCellValidation(originalRowIndex, column)?.suggestedValue}</span>
                                   </div>
                                 )}
                                 <button
                                   className="text-sm bg-gradient-to-r from-[#1984c5] to-[#115f9a] text-white px-4 py-2 rounded-xl hover:from-[#7eb0d5] hover:to-[#1984c5] transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 font-bold"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const issue = getCellValidation(rowIndex, column);
+                                    const issue = getCellValidation(originalRowIndex, column);
                                     if (issue && issue.suggestedValue !== undefined) {
                                       applyFixToAll(column, row[column], issue.suggestedValue);
                                     }
@@ -476,11 +496,11 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
                         </div>
                       )}
                       {/* Cell hover tooltip */}
-                      {getCellValidation(rowIndex, column) && (
+                      {getCellValidation(originalRowIndex, column) && (
                         <div className="hidden group-hover:block absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap">
                           <div className="font-semibold">
-                            {getCellValidation(rowIndex, column)?.severity === 'critical' ? '🚨 Critical' :
-                             getCellValidation(rowIndex, column)?.severity === 'warning' ? '⚠️ Warning' : '💡 Tip'}
+                            {getCellValidation(originalRowIndex, column)?.severity === 'critical' ? '🚨 Critical' :
+                             getCellValidation(originalRowIndex, column)?.severity === 'warning' ? '⚠️ Warning' : '💡 Tip'}
                           </div>
                           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                         </div>

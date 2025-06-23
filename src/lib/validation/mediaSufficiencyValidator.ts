@@ -1,4 +1,12 @@
-import { ValidationIssue } from '@/components/media-sufficiency/DataPreviewGrid';
+// Define validation issue interface
+export interface ValidationIssue {
+  rowIndex: number;
+  columnName: string;
+  severity: 'critical' | 'warning' | 'suggestion';
+  message: string;
+  currentValue?: any;
+  suggestedValue?: any;
+}
 
 // Define master data interface for better type safety
 interface MasterData {
@@ -163,6 +171,68 @@ export class MediaSufficiencyValidator {
       }
     });
 
+    // Year field consistency validation against financial cycle
+    this.rules.push({
+      field: 'Year',
+      type: 'consistency',
+      severity: 'critical',
+      message: 'Year field must match the year in Start Date and End Date',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return true; // Skip if Year is missing (will be caught by required validation)
+        
+        // Extract year from the Year field value
+        const yearValue = value.toString().trim();
+        let yearFieldYear: number;
+        
+        // Handle different year formats in the Year field
+        if (yearValue.includes(' ')) {
+          // Format like "ABP 2025" - extract the year
+          const yearMatch = yearValue.match(/\b(\d{4})\b/);
+          if (!yearMatch) return true; // Can't extract year
+          yearFieldYear = parseInt(yearMatch[1]);
+        } else {
+          // Direct year format like "2025"
+          yearFieldYear = parseInt(yearValue);
+          if (isNaN(yearFieldYear)) return true; // Invalid year format
+        }
+        
+        // Validate Year field against dates in the same record only
+        // This avoids false positives when there are mixed datasets
+        if (record['Start Date'] || record['End Date']) {
+          const startDate = record['Start Date'] ? this.parseDate(record['Start Date']) : null;
+          const endDate = record['End Date'] ? this.parseDate(record['End Date']) : null;
+          
+          if (startDate) {
+            const startYear = startDate.getFullYear();
+            if (yearFieldYear !== startYear) {
+              console.log(`Year field validation failed against Start Date:`, {
+                yearFieldYear,
+                startYear,
+                yearValue,
+                startDate: record['Start Date']
+              });
+              return false;
+            }
+          }
+          
+          if (endDate) {
+            const endYear = endDate.getFullYear();
+            if (yearFieldYear !== endYear) {
+              console.log(`Year field validation failed against End Date:`, {
+                yearFieldYear,
+                endYear,
+                yearValue,
+                endDate: record['End Date']
+              });
+              return false;
+            }
+          }
+        }
+        
+        return true; // If we can't determine inconsistency, assume it's valid
+      }
+    });
+
     // Date format validation
     const dateFields = ['Start Date', 'End Date'];
     dateFields.forEach(field => {
@@ -177,6 +247,58 @@ export class MediaSufficiencyValidator {
           // Try parsing different date formats
           const date = this.parseDate(value);
           return date !== null;
+        }
+      });
+    });
+
+    // Financial cycle year validation for dates
+    const dateFields2 = ['Start Date', 'End Date'];
+    dateFields2.forEach(field => {
+      this.rules.push({
+        field,
+        type: 'consistency',
+        severity: 'critical',
+        message: `${field} year must match the financial cycle year`,
+        validate: (value, record) => {
+          if (!value || !record.Year) return true; // Skip if either is missing
+          
+          // Parse the date
+          const date = this.parseDate(value);
+          if (!date) return true; // Skip if date is invalid (will be caught by format validation)
+          
+          // Get the year from the date
+          const dateYear = date.getFullYear();
+          
+          // Get the financial cycle year
+          const yearValue = record.Year.toString().trim();
+          let financialCycleYear: number;
+          
+          // Handle different year formats
+          if (yearValue.includes(' ')) {
+            // Format like "ABP 2025" - extract the year
+            const yearMatch = yearValue.match(/\b(\d{4})\b/);
+            if (!yearMatch) return true; // Can't extract year
+            financialCycleYear = parseInt(yearMatch[1]);
+          } else {
+            // Direct year format like "2025"
+            financialCycleYear = parseInt(yearValue);
+            if (isNaN(financialCycleYear)) return true; // Invalid year format
+          }
+          
+          // Check if date year matches financial cycle year
+          const isValid = dateYear === financialCycleYear;
+          
+          // Log for debugging when validation fails
+          if (!isValid) {
+            console.log(`Financial cycle year validation failed for ${field}:`, {
+              dateYear,
+              financialCycleYear,
+              yearValue,
+              dateValue: value
+            });
+          }
+          
+          return isValid;
         }
       });
     });
@@ -669,6 +791,79 @@ export class MediaSufficiencyValidator {
         if (!startDate || !endDate) return true; // Can't validate
         
         return endDate >= startDate;
+      }
+    });
+
+    // Campaign uniqueness validation within the same country
+    this.rules.push({
+      field: 'Campaign',
+      type: 'uniqueness',
+      severity: 'critical',
+      message: 'Duplicate campaign found: same Campaign, Country, Category, Range, and Media SubType combination already exists',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return true; // Skip if Campaign is missing
+        
+        const currentRecord = {
+          campaign: value.toString().trim(),
+          country: record.Country ? record.Country.toString().trim() : '',
+          category: record.Category ? record.Category.toString().trim() : '',
+          range: record.Range ? record.Range.toString().trim() : '',
+          mediaSubType: record['Media Subtype'] ? record['Media Subtype'].toString().trim() : '',
+          pmType: record['PM Type'] ? record['PM Type'].toString().trim() : '',
+          businessUnit: record['Business Unit'] ? record['Business Unit'].toString().trim() : ''
+        };
+        
+        // Count how many records have the same key combination
+        let duplicateCount = 0;
+        const duplicateIndices: number[] = [];
+        
+        allRecords.forEach((otherRecord, index) => {
+          // Skip empty records
+          if (this.isRecordEmpty(otherRecord)) return;
+          
+          const otherRecordData = {
+            campaign: otherRecord.Campaign ? otherRecord.Campaign.toString().trim() : '',
+            country: otherRecord.Country ? otherRecord.Country.toString().trim() : '',
+            category: otherRecord.Category ? otherRecord.Category.toString().trim() : '',
+            range: otherRecord.Range ? otherRecord.Range.toString().trim() : '',
+            mediaSubType: otherRecord['Media Subtype'] ? otherRecord['Media Subtype'].toString().trim() : '',
+            pmType: otherRecord['PM Type'] ? otherRecord['PM Type'].toString().trim() : '',
+            businessUnit: otherRecord['Business Unit'] ? otherRecord['Business Unit'].toString().trim() : ''
+          };
+          
+          // Check if this record matches our uniqueness criteria (case-insensitive)
+          const isMatch = 
+            currentRecord.campaign.toLowerCase() === otherRecordData.campaign.toLowerCase() &&
+            currentRecord.country.toLowerCase() === otherRecordData.country.toLowerCase() &&
+            currentRecord.category.toLowerCase() === otherRecordData.category.toLowerCase() &&
+            currentRecord.range.toLowerCase() === otherRecordData.range.toLowerCase() &&
+            currentRecord.mediaSubType.toLowerCase() === otherRecordData.mediaSubType.toLowerCase() &&
+            currentRecord.pmType.toLowerCase() === otherRecordData.pmType.toLowerCase() &&
+            currentRecord.businessUnit.toLowerCase() === otherRecordData.businessUnit.toLowerCase();
+          
+          if (isMatch) {
+            duplicateCount++;
+            duplicateIndices.push(index);
+          }
+        });
+        
+        // If we found more than 1 match (including current record), it's a duplicate
+        if (duplicateCount > 1) {
+          console.log(`Duplicate campaign detected:`, {
+            campaign: currentRecord.campaign,
+            country: currentRecord.country,
+            category: currentRecord.category,
+            range: currentRecord.range,
+            mediaSubType: currentRecord.mediaSubType,
+            pmType: currentRecord.pmType,
+            businessUnit: currentRecord.businessUnit,
+            duplicateCount,
+            duplicateIndices
+          });
+          return false;
+        }
+        
+        return true;
       }
     });
   }
