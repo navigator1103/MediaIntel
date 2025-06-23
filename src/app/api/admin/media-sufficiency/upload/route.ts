@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const lastUpdateId = formData.get('lastUpdateId') as string;
+    const country = formData.get('country') as string;
     
     if (!file) {
       return NextResponse.json(
@@ -22,6 +23,13 @@ export async function POST(request: NextRequest) {
     if (!lastUpdateId) {
       return NextResponse.json(
         { error: 'Last Update selection is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!country) {
+      return NextResponse.json(
+        { error: 'Country selection is required' },
         { status: 400 }
       );
     }
@@ -106,6 +114,7 @@ export async function POST(request: NextRequest) {
       recordCount: records.length,
       status: 'uploaded',
       lastUpdateId: parseInt(lastUpdateId, 10), // Store the selected lastUpdateId
+      country: country, // Store the selected country
       data: {
         records,
         masterData

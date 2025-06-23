@@ -222,3 +222,44 @@ model GamePlan {
 
   @@map("game_plans")
 }
+
+model MediaSufficiency {
+  id                              Int      @id @default(autoincrement())
+  lastUpdate                      String?  @map("last_update")
+  subRegion                       String?  @map("sub_region")
+  country                         String?
+  bu                              String?
+  category                        String?
+  range                           String?
+  campaign                        String?
+  franchiseNs                     String?  @map("franchise_ns")
+  campaignSocioDemoTarget         String?  @map("campaign_socio_demo_target")
+  totalCountryPopulationOnTarget  String?  @map("total_country_population_on_target")
+  tvCopyLength                    String?  @map("tv_copy_length")
+  tvTargetSize                    String?  @map("tv_target_size")
+  woaOpenTv                       Float?   @map("woa_open_tv")
+  woaPaidTv                       Float?   @map("woa_paid_tv")
+  totalTrps                       Float?   @map("total_trps")
+  tvR1Plus                        String?  @map("tv_r1_plus")
+  tvR3Plus                        String?  @map("tv_r3_plus")
+  tvIdealReach                    String?  @map("tv_ideal_reach")
+  cpp2024                         Float?   @map("cpp_2024")
+  cpp2025                         Float?   @map("cpp_2025")
+  digitalTarget                   String?  @map("digital_target")
+  digitalTargetSize               String?  @map("digital_target_size")
+  woaPmFf                         Float?   @map("woa_pm_ff")
+  woaInfluencersAmplification     Float?   @map("woa_influencers_amplification")
+  digitalR1Plus                   String?  @map("digital_r1_plus")
+  digitalIdealReach               String?  @map("digital_ideal_reach")
+  plannedCombinedReach            String?  @map("planned_combined_reach")
+  combinedIdealReach              String?  @map("combined_ideal_reach")
+  digitalReachLevelCheck          String?  @map("digital_reach_level_check")
+  tvReachLevelCheck               String?  @map("tv_reach_level_check")
+  combinedReachLevelCheck         String?  @map("combined_reach_level_check")
+  uploadedBy                      String?  @map("uploaded_by")
+  uploadSession                   String?  @map("upload_session")
+  createdAt                       DateTime @default(now()) @map("created_at")
+  updatedAt                       DateTime @updatedAt @map("updated_at")
+
+  @@map("media_sufficiency")
+}

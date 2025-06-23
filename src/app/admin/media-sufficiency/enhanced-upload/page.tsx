@@ -25,6 +25,9 @@ export default function EnhancedUpload() {
   const [lastUpdates, setLastUpdates] = useState<LastUpdate[]>([]);
   const [selectedLastUpdateId, setSelectedLastUpdateId] = useState<string>('');
   const [isLoadingLastUpdates, setIsLoadingLastUpdates] = useState(false);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [isLoadingCountries, setIsLoadingCountries] = useState(false);
   
   // Fetch last updates when component mounts
   useEffect(() => {
@@ -46,6 +49,28 @@ export default function EnhancedUpload() {
     };
 
     fetchLastUpdates();
+  }, []);
+
+  // Fetch countries when component mounts
+  useEffect(() => {
+    const fetchCountries = async () => {
+      setIsLoadingCountries(true);
+      try {
+        const response = await fetch('/api/admin/media-sufficiency/master-data');
+        if (!response.ok) {
+          throw new Error('Failed to fetch countries');
+        }
+        const data = await response.json();
+        setCountries(data.countries || []);
+      } catch (err) {
+        console.error('Error fetching countries:', err);
+        setError('Failed to load countries. Please try refreshing the page.');
+      } finally {
+        setIsLoadingCountries(false);
+      }
+    };
+
+    fetchCountries();
   }, []);
 
   // Handle file selection
@@ -97,6 +122,11 @@ export default function EnhancedUpload() {
     setSelectedLastUpdateId(e.target.value);
   };
 
+  // Handle country selection change
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedCountry(e.target.value);
+  };
+
   // Validate file type and size
   const validateAndSetFile = (file: File) => {
     // Reset previous errors
@@ -130,6 +160,11 @@ export default function EnhancedUpload() {
       return;
     }
     
+    if (!selectedCountry) {
+      setError('Please select a Country');
+      return;
+    }
+    
     try {
       setUploadStatus('uploading');
       setError(null);
@@ -138,6 +173,7 @@ export default function EnhancedUpload() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('lastUpdateId', selectedLastUpdateId);
+      formData.append('country', selectedCountry);
       formData.append('preprocessValidation', 'true');
       
       // Simulate progress updates for upload
@@ -311,6 +347,39 @@ export default function EnhancedUpload() {
                   )}
                 </div>
 
+                {/* Country Selection */}
+                <div className="mb-8">
+                  <label className="block text-lg font-semibold text-slate-800 mb-3">
+                    Country
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedCountry}
+                      onChange={handleCountryChange}
+                      disabled={isLoadingCountries}
+                      className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                    >
+                      <option value="">Choose a country...</option>
+                      {countries.map((country) => (
+                        <option key={country} value={country}>
+                          {country}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                      <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {isLoadingCountries && (
+                    <div className="text-sm text-slate-500 mt-2 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                      Loading countries...
+                    </div>
+                  )}
+                </div>
+
                 {/* File Upload Area */}
                 <div className="mb-8">
                   <label className="block text-lg font-semibold text-slate-800 mb-3">
@@ -405,7 +474,7 @@ export default function EnhancedUpload() {
                 )}
 
                 {/* Upload Button */}
-                {file && selectedLastUpdateId && uploadStatus !== 'uploading' && (
+                {file && selectedLastUpdateId && selectedCountry && uploadStatus !== 'uploading' && (
                   <button
                     onClick={handleUpload}
                     className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"
