@@ -25,6 +25,7 @@ const expectedFields = [
   'Media', 'Media Subtype', 'Start Date', 'End Date', 'Budget',
   'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
   'Target Reach', 'Current Reach', 'Business Unit', 'PM Type',
+  'TRPs', 'Reach 1+', 'Reach 3+', 'Total WOA', 'Weeks Off Air', 'Playbook ID',
   'Campaign Status', 'Campaign Type', 'Campaign Priority', 'Last Update', 'Last Modified By'
 ];
 
@@ -49,6 +50,12 @@ const fieldVariations: Record<string, string[]> = {
   'Current Reach': ['current reach', 'actual reach', 'reach', 'achieved reach'],
   'Business Unit': ['business unit', 'bu', 'division', 'department'],
   'PM Type': ['pm type', 'pm', 'project manager type'],
+  'TRPs': ['trps', 'trp', 'target rating points', 'rating points'],
+  'Reach 1+': ['reach 1+', 'reach 1 plus', 'reach1+', 'reach1plus', 'reach1', 'one plus reach'],
+  'Reach 3+': ['reach 3+', 'reach 3 plus', 'reach3+', 'reach3plus', 'reach3', 'three plus reach'],
+  'Total WOA': ['total woa', 'woa', 'weeks on air', 'total weeks on air'],
+  'Weeks Off Air': ['weeks off air', 'off air weeks', 'weeks off', 'offline weeks'],
+  'Playbook ID': ['playbook id', 'playbook', 'pb id', 'pb', 'playbook identifier'],
   'Campaign Status': ['campaign status', 'status', 'state', 'campaign state'],
   'Campaign Type': ['campaign type', 'type', 'campaign classification'],
   'Campaign Priority': ['campaign priority', 'priority', 'importance'],

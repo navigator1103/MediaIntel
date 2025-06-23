@@ -1,1 +1,2 @@
-Year,Sub Region,Country,Cluster,Category,Range,Campaign,BU,Media,Media Subtype,PM Type,Start Date,End Date,Budget,Q1 Budget,Q2 Budget,Q3 Budget,Q4 Budget,Target Reach,Current Reach,TRPs,Reach 1+,Reach 3+
+Year,Sub Region,Country,Category,Range,Campaign,Media,Media Subtype,Start Date,End Date,Budget,Q1 Budget,Q2 Budget,Q3 Budget,Q4 Budget,Target Reach,Current Reach,Business Unit,PM Type,TRPs,Reach 1+,Reach 3+,Total WOA,Weeks Off Air,Playbook ID
+2025,EMEA,Germany,Face Care,Q10,Q10 Guardian,Digital,Social Media,2025-01-01,2025-03-31,250000,250000,0,0,0,85.5,82.3,Marketing,Agency,180,85.5,72.8,13,0,PB-2025-001

@@ -39,6 +39,12 @@ export interface MediaSufficiencyRecord {
   'Q3 Budget'?: string | number;
   'Q4 Budget'?: string | number;
   'PM Type'?: string;
+  TRPs?: string | number;
+  'Reach 1+'?: string | number; // Percentage
+  'Reach 3+'?: string | number; // Percentage  
+  'Total WOA'?: string | number;
+  'Weeks Off Air'?: string | number;
+  'Playbook ID'?: string;
   'Objectives Values'?: string;
 }
 
