@@ -1,0 +1,38 @@
+steps:
+  # Build the container image using Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/golden-rules-repo/golden-rules-app:latest', '.']
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/golden-rules-repo/golden-rules-app:latest']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+    - 'run'
+    - 'deploy'
+    - 'golden-rules-app'
+    - '--image'
+    - 'us-central1-docker.pkg.dev/$PROJECT_ID/golden-rules-repo/golden-rules-app:latest'
+    - '--region'
+    - 'us-central1'
+    - '--platform'
+    - 'managed'
+    - '--allow-unauthenticated'
+    - '--port'
+    - '8080'
+    - '--memory'
+    - '1Gi'
+    - '--cpu'
+    - '1'
+    - '--set-env-vars'
+    - 'DATABASE_URL=file:./golden_rules.db,NODE_ENV=production'
+
+# Store images in Artifact Registry
+images:
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/golden-rules-repo/golden-rules-app:latest'
+
+# Set timeout to 20 minutes
+timeout: '1200s'

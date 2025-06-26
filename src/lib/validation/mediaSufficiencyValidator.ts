@@ -805,7 +805,7 @@ export class MediaSufficiencyValidator {
       field: 'Campaign',
       type: 'uniqueness',
       severity: 'critical',
-      message: 'Duplicate campaign found: same Campaign, Country, Category, Range, and Media SubType combination already exists',
+      message: 'Duplicate campaign found: same Campaign, Country, Category, Range, Media, Media SubType, and dates combination already exists',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return true; // Skip if Campaign is missing
         
@@ -814,9 +814,12 @@ export class MediaSufficiencyValidator {
           country: record.Country ? record.Country.toString().trim() : '',
           category: record.Category ? record.Category.toString().trim() : '',
           range: record.Range ? record.Range.toString().trim() : '',
+          media: record.Media ? record.Media.toString().trim() : '',
           mediaSubType: record['Media Subtype'] ? record['Media Subtype'].toString().trim() : '',
           pmType: record['PM Type'] ? record['PM Type'].toString().trim() : '',
-          businessUnit: record['Business Unit'] ? record['Business Unit'].toString().trim() : ''
+          businessUnit: record['Business Unit'] ? record['Business Unit'].toString().trim() : '',
+          startDate: record['Start Date'] ? this.formatDate(this.parseDate(record['Start Date'])) : '',
+          endDate: record['End Date'] ? this.formatDate(this.parseDate(record['End Date'])) : ''
         };
         
         // Count how many records have the same key combination
@@ -832,9 +835,12 @@ export class MediaSufficiencyValidator {
             country: otherRecord.Country ? otherRecord.Country.toString().trim() : '',
             category: otherRecord.Category ? otherRecord.Category.toString().trim() : '',
             range: otherRecord.Range ? otherRecord.Range.toString().trim() : '',
+            media: otherRecord.Media ? otherRecord.Media.toString().trim() : '',
             mediaSubType: otherRecord['Media Subtype'] ? otherRecord['Media Subtype'].toString().trim() : '',
             pmType: otherRecord['PM Type'] ? otherRecord['PM Type'].toString().trim() : '',
-            businessUnit: otherRecord['Business Unit'] ? otherRecord['Business Unit'].toString().trim() : ''
+            businessUnit: otherRecord['Business Unit'] ? otherRecord['Business Unit'].toString().trim() : '',
+            startDate: otherRecord['Start Date'] ? this.formatDate(this.parseDate(otherRecord['Start Date'])) : '',
+            endDate: otherRecord['End Date'] ? this.formatDate(this.parseDate(otherRecord['End Date'])) : ''
           };
           
           // Check if this record matches our uniqueness criteria (case-insensitive)
@@ -843,9 +849,12 @@ export class MediaSufficiencyValidator {
             currentRecord.country.toLowerCase() === otherRecordData.country.toLowerCase() &&
             currentRecord.category.toLowerCase() === otherRecordData.category.toLowerCase() &&
             currentRecord.range.toLowerCase() === otherRecordData.range.toLowerCase() &&
+            currentRecord.media.toLowerCase() === otherRecordData.media.toLowerCase() &&
             currentRecord.mediaSubType.toLowerCase() === otherRecordData.mediaSubType.toLowerCase() &&
             currentRecord.pmType.toLowerCase() === otherRecordData.pmType.toLowerCase() &&
-            currentRecord.businessUnit.toLowerCase() === otherRecordData.businessUnit.toLowerCase();
+            currentRecord.businessUnit.toLowerCase() === otherRecordData.businessUnit.toLowerCase() &&
+            currentRecord.startDate === otherRecordData.startDate &&
+            currentRecord.endDate === otherRecordData.endDate;
           
           if (isMatch) {
             duplicateCount++;
@@ -860,9 +869,12 @@ export class MediaSufficiencyValidator {
             country: currentRecord.country,
             category: currentRecord.category,
             range: currentRecord.range,
+            media: currentRecord.media,
             mediaSubType: currentRecord.mediaSubType,
             pmType: currentRecord.pmType,
             businessUnit: currentRecord.businessUnit,
+            startDate: currentRecord.startDate,
+            endDate: currentRecord.endDate,
             duplicateCount,
             duplicateIndices
           });

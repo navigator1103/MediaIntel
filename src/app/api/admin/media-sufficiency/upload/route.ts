@@ -6,18 +6,155 @@ import path from 'path';
 // We'll use temporary file storage for upload sessions
 
 export async function POST(request: NextRequest) {
+  console.log('POST request received at /api/admin/media-sufficiency/upload');
+  const startTime = Date.now();
   try {
-    // Check if the request is multipart/form-data
+    // Check if the request is multipart/form-data or JSON with direct file path
+    const contentType = request.headers.get('content-type') || '';
+    console.log('Request content type:', contentType);
+    
+    // Handle direct file path upload (alternative to file dialog)
+    if (contentType.includes('application/json')) {
+      console.log('Processing JSON request with direct file path');
+      const jsonData = await request.json();
+      
+      // Validate required fields
+      const { filePath, lastUpdateId, country } = jsonData;
+      
+      if (!filePath) {
+        console.error('No file path provided in JSON request');
+        return NextResponse.json({ error: 'No file path provided' }, { status: 400 });
+      }
+      
+      if (!lastUpdateId) {
+        console.error('No lastUpdateId provided in JSON request');
+        return NextResponse.json({ error: 'Last update ID is required' }, { status: 400 });
+      }
+      
+      if (!country) {
+        console.error('No country provided in JSON request');
+        return NextResponse.json({ error: 'Country is required' }, { status: 400 });
+      }
+      
+      console.log(`Attempting to read file from server path: ${filePath}`);
+      
+      // Check if file exists
+      if (!fs.existsSync(filePath)) {
+        console.error(`File not found at path: ${filePath}`);
+        return NextResponse.json({ error: `File not found at path: ${filePath}` }, { status: 404 });
+      }
+      
+      // Read file content
+      console.log('Reading file from disk...');
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      console.log(`File read successfully, size: ${fileContent.length} bytes`);
+      
+      // Extract filename from path
+      const fileName = filePath.split('/').pop() || 'upload.csv';
+      
+      // Parse CSV data
+      console.log('Parsing CSV data...');
+      let records;
+      try {
+        records = parse(fileContent, {
+          columns: true,
+          skip_empty_lines: true
+        });
+        console.log(`Parsed ${records.length} records from CSV file`);
+      } catch (parseError) {
+        console.error('Error parsing CSV:', parseError);
+        return NextResponse.json(
+          { error: `Failed to parse CSV: ${parseError instanceof Error ? parseError.message : 'Unknown error'}` },
+          { status: 400 }
+        );
+      }
+      
+      // Generate session ID
+      console.log('Generating session ID...');
+      const sessionId = generateSessionId();
+      console.log(`Session ID generated: ${sessionId}`);
+      
+      // Extract master data
+      const masterData = extractMasterData(records);
+      
+      // Create sessions directory if needed
+      console.log('Checking sessions directory...');
+      const dataDir = path.join(process.cwd(), 'data', 'sessions');
+      if (!fs.existsSync(dataDir)) {
+        console.log('Sessions directory does not exist, creating it...');
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log('Sessions directory created successfully');
+      }
+      
+      // Create session data
+      const sessionData = {
+        id: sessionId,
+        originalFilename: fileName,
+        fileSize: fileContent.length,
+        recordCount: records.length,
+        lastUpdateId,
+        country,
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+        data: {
+          masterData,
+          records
+        }
+      };
+      
+      // Write session data to file
+      console.log(`Writing session file to: ${path.join(dataDir, `${sessionId}.json`)}`);
+      console.log(`Session data size: approximately ${(JSON.stringify(sessionData).length / (1024 * 1024)).toFixed(2)} MB`);
+      
+      try {
+        fs.writeFileSync(
+          path.join(dataDir, `${sessionId}.json`),
+          JSON.stringify(sessionData, null, 2),
+          'utf8'
+        );
+        console.log('Session file written successfully');
+      } catch (writeError) {
+        console.error('Error writing session file:', writeError);
+        throw writeError;
+      }
+      
+      // Create marker file
+      fs.writeFileSync(
+        path.join(dataDir, `${sessionId}.marker`),
+        JSON.stringify({
+          id: sessionId,
+          originalFilename: fileName,
+          recordCount: records.length,
+          lastUpdateId,
+          country,
+          createdAt: new Date().toISOString(),
+          status: 'pending'
+        }),
+        'utf8'
+      );
+      
+      const endTime = Date.now();
+      console.log(`Direct path upload completed successfully in ${(endTime - startTime) / 1000} seconds`);
+      
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        recordCount: records.length,
+        message: 'File uploaded successfully from server path'
+      });
+    }
+    
+    // Standard multipart form handling
+    console.log('Attempting to parse form data...');
     const formData = await request.formData();
+    console.log('Form data parsed successfully');
     const file = formData.get('file') as File;
     const lastUpdateId = formData.get('lastUpdateId') as string;
     const country = formData.get('country') as string;
     
     if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      console.error('No file found in form data');
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
     
     if (!lastUpdateId) {
@@ -42,11 +179,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Read file content
+    // Get the CSV content as text
+    console.log(`Reading file content: ${file.name}, size: ${file.size} bytes`);
     const fileBuffer = await file.arrayBuffer();
     const fileContent = new TextDecoder().decode(fileBuffer);
+    console.log(`File content read successfully, length: ${fileContent.length} characters`);
     
     // Parse CSV data using proper CSV parser to handle quotes and commas correctly
+    // Parse the CSV content
+    console.log('Starting CSV parsing...');
     let records;
     try {
       records = parse(fileContent, {
@@ -94,16 +235,23 @@ export async function POST(request: NextRequest) {
     console.log(`Parsed ${records.length} records from CSV file`);
     
     // Generate a session ID for this upload
+    console.log('Generating session ID...');
     const sessionId = generateSessionId();
+    console.log(`Session ID generated: ${sessionId}`);
     
     // Extract master data for validation
     const masterData = extractMasterData(records);
     
     // Create a persistent data directory if it doesn't exist
     // Using a directory that persists across server restarts
+    console.log('Checking sessions directory...');
     const dataDir = path.join(process.cwd(), 'data', 'sessions');
     if (!fs.existsSync(dataDir)) {
+      console.log('Sessions directory does not exist, creating it...');
       fs.mkdirSync(dataDir, { recursive: true });
+      console.log('Sessions directory created successfully');
+    } else {
+      console.log('Sessions directory already exists');
     }
     
     // Store the session data in a temporary file
@@ -123,11 +271,19 @@ export async function POST(request: NextRequest) {
     };
     
     // Write session data to file in the persistent directory
-    fs.writeFileSync(
-      path.join(dataDir, `${sessionId}.json`),
-      JSON.stringify(sessionData, null, 2),
-      'utf8'
-    );
+    console.log(`Writing session file to: ${path.join(dataDir, `${sessionId}.json`)}`);
+    console.log(`Session data size: approximately ${(JSON.stringify(sessionData).length / (1024 * 1024)).toFixed(2)} MB`);
+    try {
+      fs.writeFileSync(
+        path.join(dataDir, `${sessionId}.json`),
+        JSON.stringify(sessionData, null, 2),
+        'utf8'
+      );
+      console.log('Session file written successfully');
+    } catch (writeError) {
+      console.error('Error writing session file:', writeError);
+      throw writeError;
+    }
     
     // Also create a marker file to help with session lookup
     fs.writeFileSync(
@@ -137,6 +293,9 @@ export async function POST(request: NextRequest) {
     );
     
     // Return the session ID to the client
+    const endTime = Date.now();
+    console.log(`Upload process completed successfully in ${(endTime - startTime) / 1000} seconds`);
+    
     return NextResponse.json({
       success: true,
       sessionId,
@@ -256,6 +415,8 @@ function generateSessionId(): string {
 
 // GET endpoint to retrieve session data
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  console.log('GET request received at /api/admin/media-sufficiency/upload');
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get('sessionId');
   
@@ -282,6 +443,9 @@ export async function GET(request: NextRequest) {
     const sessionDataStr = fs.readFileSync(sessionFilePath, 'utf8');
     const session = JSON.parse(sessionDataStr);
     
+    const endTime = Date.now();
+    console.log(`GET request processed successfully in ${(endTime - startTime) / 1000} seconds`);
+    
     // Return session metadata without the full records
     return NextResponse.json({
       sessionId,
@@ -293,9 +457,20 @@ export async function GET(request: NextRequest) {
       masterData: summarizeMasterData(session.data.masterData)
     });
   } catch (error) {
-    console.error('Error retrieving session data:', error);
+    const endTime = Date.now();
+    console.error(`Error retrieving session data after ${(endTime - startTime) / 1000} seconds:`, error);
+    
+    // Log detailed error information
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    } else {
+      console.error('Unknown error type:', typeof error);
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to retrieve session data' },
+      { error: error instanceof Error ? error.message : 'Failed to retrieve session data' },
       { status: 500 }
     );
   }

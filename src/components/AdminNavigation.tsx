@@ -54,6 +54,15 @@ const AdminNavigation = () => {
       )
     },
     {
+      name: 'Reach Planning Import',
+      href: '/admin/reach-planning',
+      icon: (active) => (
+        <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      )
+    },
+    {
       name: 'User Management',
       href: '/admin/users',
       icon: (active) => (
@@ -94,7 +103,8 @@ const AdminNavigation = () => {
               '/admin',
               '/admin/users',
               '/admin/media-sufficiency/game-plans',
-              '/admin/media-sufficiency/enhanced-upload'
+              '/admin/media-sufficiency/enhanced-upload',
+              '/admin/reach-planning'
             ].includes(item.href);
             
             return (

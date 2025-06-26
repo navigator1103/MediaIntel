@@ -19,6 +19,7 @@ export default function EnhancedUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'error' | 'success'>('idle');
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export default function EnhancedUpload() {
   
   // Fetch last updates when component mounts
   useEffect(() => {
+    // Fetch last update cycles and countries on component mount
     const fetchLastUpdates = async () => {
       setIsLoadingLastUpdates(true);
       try {
@@ -72,152 +74,268 @@ export default function EnhancedUpload() {
 
     fetchCountries();
   }, []);
+  
+  // Diagnose browser environment for file dialog issues
+  useEffect(() => {
+    console.log('=== BROWSER ENVIRONMENT DIAGNOSTICS ===');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Platform:', navigator.platform);
+    console.log('Vendor:', navigator.vendor);
+    console.log('Max touch points:', navigator.maxTouchPoints);
+    console.log('Cookies enabled:', navigator.cookieEnabled);
+    console.log('Online status:', navigator.onLine);
+    
+    // Check for permissions API support
+    if (navigator.permissions) {
+      console.log('Permissions API supported');
+      try {
+        navigator.permissions.query({ name: 'camera' as PermissionName })
+          .then(result => {
+            console.log('Camera permission status:', result.state);
+          })
+          .catch(err => {
+            console.log('Error checking camera permission:', err);
+          });
+      } catch (err) {
+        console.log('Error using permissions API:', err);
+      }
+    } else {
+      console.log('Permissions API not supported');
+    }
+    
+    // Check for file input support
+    try {
+      const isFileInputSupported = (() => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        return input.type === 'file';
+      })();
+      console.log('File input supported:', isFileInputSupported);
+    } catch (err) {
+      console.log('Error checking file input support:', err);
+    }
+    
+    // Check for FileReader API support
+    console.log('FileReader supported:', typeof FileReader !== 'undefined');
+    
+    // Check if running in a secure context (needed for some APIs)
+    console.log('Secure context:', window.isSecureContext);
+    
+    // Check for session storage issues
+    try {
+      const testKey = '_test_storage_' + Date.now();
+      sessionStorage.setItem(testKey, 'test');
+      const testValue = sessionStorage.getItem(testKey);
+      sessionStorage.removeItem(testKey);
+      console.log('Session storage working:', testValue === 'test');
+    } catch (err) {
+      console.log('Session storage error:', err);
+    }
+    
+    // Check for available disk space (if Quota API is supported)
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(estimate => {
+        console.log('Storage quota:', estimate.quota, 'bytes');
+        console.log('Storage usage:', estimate.usage, 'bytes');
+        console.log('Storage available:', estimate.quota && estimate.usage ? 
+          ((estimate.quota - estimate.usage) / (1024 * 1024)).toFixed(2) + ' MB' : 'unknown');
+      }).catch(err => {
+        console.log('Error checking storage quota:', err);
+      });
+    } else {
+      console.log('Storage API not supported');
+    }
+    
+    console.log('=== END DIAGNOSTICS ===');
+  }, []);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      validateAndSetFile(selectedFile);
+    console.log('handleFileChange called', { hasFiles: !!e.target.files, filesLength: e.target.files?.length });
+    try {
+      const selectedFile = e.target.files?.[0];
+      console.log('Selected file:', selectedFile ? { name: selectedFile.name, size: selectedFile.size, type: selectedFile.type } : 'No file selected');
+      
+      if (selectedFile) {
+        validateAndSetFile(selectedFile);
+      } else {
+        console.warn('No file selected in change event');
+      }
+      
+      // Reset the input value to allow selecting the same file again
+      e.target.value = '';
+      console.log('File input value reset');
+    } catch (error) {
+      console.error('Error in handleFileChange:', error);
+      setError(`Error selecting file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    
-    // Reset the input value to allow selecting the same file again
-    e.target.value = '';
   };
   
   // Handle drag events
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
+    console.log('handleDragEnter called');
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+    } catch (error) {
+      console.error('Error in handleDragEnter:', error);
+    }
   };
   
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+    console.log('handleDragLeave called');
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+    } catch (error) {
+      console.error('Error in handleDragLeave:', error);
+    }
   };
   
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
+    // Don't log this one as it fires continuously
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+    } catch (error) {
+      console.error('Error in handleDragOver:', error);
+    }
   };
   
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.name.endsWith('.csv')) {
-      setFile(droppedFile);
-      setError(null);
-    } else {
-      setError('Please upload a CSV file');
+    console.log('handleDrop called');
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      
+      console.log('Files dropped:', { filesCount: e.dataTransfer.files.length });
+      const droppedFile = e.dataTransfer.files[0];
+      
+      if (droppedFile) {
+        console.log('Dropped file:', { name: droppedFile.name, size: droppedFile.size, type: droppedFile.type });
+        if (droppedFile.name.endsWith('.csv')) {
+          validateAndSetFile(droppedFile);
+        } else {
+          console.warn('Invalid file type dropped:', droppedFile.type);
+          setError('Please upload a CSV file');
+        }
+      } else {
+        console.warn('No file found in drop event');
+        setError('No file detected in drop. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error in handleDrop:', error);
+      setError(`Error processing dropped file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
   
   // Handle last update selection change
   const handleLastUpdateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Last update dropdown changed:', e.target.value);
     setSelectedLastUpdateId(e.target.value);
   };
 
   // Handle country selection change
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Country dropdown changed:', e.target.value);
     setSelectedCountry(e.target.value);
   };
 
   // Validate file type and size
   const validateAndSetFile = (file: File) => {
-    // Reset previous errors
-    setError(null);
-    
-    // Check file type
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a CSV file');
-      return;
+    console.log('validateAndSetFile called', { fileName: file.name, fileSize: file.size, fileType: file.type });
+    try {
+      // Reset previous errors
+      setError(null);
+      
+      // Check file type
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        console.warn('Invalid file type:', file.type);
+        setError('Please upload a CSV file');
+        return;
+      }
+      
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        console.warn('File size too large:', file.size);
+        setError('File size exceeds 10MB limit');
+        return;
+      }
+      
+      console.log('File validation passed, setting file');
+      // Set the file
+      setFile(file);
+    } catch (error) {
+      console.error('Error in validateAndSetFile:', error);
+      setError(`Error validating file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size exceeds 10MB limit');
-      return;
-    }
-    
-    // Set the file
-    setFile(file);
   };
   
   // Handle file upload
   const handleUpload = async () => {
-    if (!file) {
-      setError('Please select a file to upload');
+    console.log('handleUpload called', { file: !!file, selectedLastUpdateId, selectedCountry });
+    if (!file || !selectedLastUpdateId || !selectedCountry) {
+      console.error('Missing required fields for upload', { file: !!file, selectedLastUpdateId, selectedCountry });
       return;
     }
     
-    if (!selectedLastUpdateId) {
-      setError('Please select a Financial Cycle');
-      return;
-    }
+    setUploadStatus('uploading');
+    setUploadProgress(0);
+    setError('');
     
-    if (!selectedCountry) {
-      setError('Please select a Country');
-      return;
-    }
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('lastUpdateId', selectedLastUpdateId.toString());
+    formData.append('country', selectedCountry);
+    console.log('Form data created', { fileName: file.name, fileSize: file.size, lastUpdateId: selectedLastUpdateId, country: selectedCountry });
     
     try {
-      setUploadStatus('uploading');
-      setError(null);
-      setUploadProgress(0);
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('lastUpdateId', selectedLastUpdateId);
-      formData.append('country', selectedCountry);
-      formData.append('preprocessValidation', 'true');
-      
-      // Simulate progress updates for upload
+      // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
-          const newProgress = prev + Math.random() * 20;
-          return newProgress > 90 ? 90 : newProgress;
+          const newProgress = prev + (Math.random() * 5);
+          return newProgress >= 90 ? 90 : newProgress;
         });
       }, 300);
       
-      // Send the file to the simple upload endpoint first with timeout
+      // Set timeout for request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => {
+        console.warn('Upload request timed out after 30 seconds');
+        controller.abort();
+      }, 30000); // 30 seconds timeout
       
-      let response: Response;
-      try {
-        response = await fetch('/api/admin/media-sufficiency/upload', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        clearInterval(progressInterval);
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('Upload timed out after 30 seconds. Please try with a smaller file.');
-        }
-        throw fetchError;
-      }
+      console.log('Sending upload request to /api/admin/media-sufficiency/upload');
+      // Send request
+      const response = await fetch('/api/admin/media-sufficiency/upload', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal
+      });
       
-      // Clear progress interval
       clearInterval(progressInterval);
+      clearTimeout(timeoutId);
+      
+      console.log('Upload response received', { status: response.status, ok: response.ok });
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Upload failed with error', errorData);
         throw new Error(errorData.error || 'Failed to upload file');
       }
       
-      // Set upload progress to 100%
-      setUploadProgress(100);
-      
-      // Process the response data
       const data = await response.json();
+      console.log('Upload successful', data);
+      setUploadProgress(100);
       
       // Check if upload was successful
       if (!data.success || !data.sessionId) {
@@ -238,9 +356,160 @@ export default function EnhancedUpload() {
   
   // Trigger file input click
   const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+    console.log('=== FILE DIALOG TRIGGER DIAGNOSTICS ===');
+    console.log('triggerFileInput called', { fileInputRef: !!fileInputRef.current });
+    
+    // Check if any dropdown might be open
+    const selectElements = document.querySelectorAll('select');
+    const activeElement = document.activeElement;
+    console.log('Active element when triggering file input:', activeElement?.tagName, activeElement?.id);
+    
+    // Check if any select element has focus
+    const hasSelectFocus = Array.from(selectElements).some(select => select === activeElement);
+    console.log('Select element has focus:', hasSelectFocus);
+    
+    // Force blur on any focused elements to ensure they don't interfere
+    if (activeElement && activeElement !== document.body) {
+      try {
+        (activeElement as HTMLElement).blur();
+        console.log('Forced blur on active element');
+      } catch (blurError) {
+        console.error('Error blurring active element:', blurError);
+      }
     }
+    
+    // Log memory usage to check for potential resource issues
+    try {
+      // Chrome-specific memory API
+      if (window.performance && (window.performance as any).memory) {
+        const memory = (window.performance as any).memory;
+        console.log('Memory usage:', {
+          jsHeapSizeLimit: (memory.jsHeapSizeLimit / (1024 * 1024)).toFixed(2) + ' MB',
+          totalJSHeapSize: (memory.totalJSHeapSize / (1024 * 1024)).toFixed(2) + ' MB',
+          usedJSHeapSize: (memory.usedJSHeapSize / (1024 * 1024)).toFixed(2) + ' MB'
+        });
+      } else {
+        console.log('Memory API not available in this browser');
+      }
+    } catch (memoryError) {
+      console.log('Error accessing memory metrics:', memoryError);
+    }
+    
+    // Check for iframe embedding which might affect file dialog
+    try {
+      const isInIframe = window !== window.parent;
+      console.log('Running in iframe:', isInIframe);
+      if (isInIframe) {
+        console.warn('File dialogs may be blocked in iframes in some browsers');
+      }
+    } catch (frameError) {
+      console.log('Error checking iframe status:', frameError);
+    }
+    
+    // Create a test file input to check if click works outside our component
+    try {
+      const testInput = document.createElement('input');
+      testInput.type = 'file';
+      testInput.style.display = 'none';
+      document.body.appendChild(testInput);
+      
+      console.log('Test file input created');
+      
+      // Set up event listeners to detect if the dialog opens
+      const focusListener = () => console.log('Test input received focus event');
+      const blurListener = () => console.log('Test input received blur event');
+      const clickListener = () => console.log('Test input received click event');
+      
+      testInput.addEventListener('focus', focusListener);
+      testInput.addEventListener('blur', blurListener);
+      testInput.addEventListener('click', clickListener);
+      
+      // Try to trigger the test input first
+      try {
+        console.log('Attempting to click test file input');
+        setTimeout(() => {
+          try {
+            document.body.removeChild(testInput);
+            console.log('Test input removed');
+          } catch (cleanupError) {
+            console.error('Error removing test input:', cleanupError);
+          }
+        }, 1000); // Clean up after 1 second
+      } catch (testError) {
+        console.error('Error with test file input:', testError);
+      }
+    } catch (testSetupError) {
+      console.error('Error setting up test file input:', testSetupError);
+    }
+    
+    // Now try the actual file input
+    try {
+      if (fileInputRef.current) {
+        console.log('Attempting to click actual file input');
+        console.log('File input attributes:', {
+          id: fileInputRef.current.id,
+          name: fileInputRef.current.name,
+          accept: fileInputRef.current.accept,
+          multiple: fileInputRef.current.multiple,
+          disabled: fileInputRef.current.disabled,
+          parentElement: fileInputRef.current.parentElement ? fileInputRef.current.parentElement.tagName : 'none'
+        });
+        
+        // Try to focus before clicking
+        try {
+          fileInputRef.current.focus();
+          console.log('Focus called on file input');
+        } catch (focusError) {
+          console.error('Error focusing file input:', focusError);
+        }
+        
+        // Attempt the click with a small delay
+        setTimeout(() => {
+          try {
+            fileInputRef.current?.click();
+            console.log('File input click called with delay');
+            
+            // Check if the click had any effect after a short delay
+            setTimeout(() => {
+              console.log('Post-click check: file input value:', fileInputRef.current?.value || 'empty');
+            }, 500);
+          } catch (delayedClickError) {
+            console.error('Error in delayed click:', delayedClickError);
+          }
+        }, 100);
+      } else {
+        console.error('File input reference is null');
+        
+        // Try to create a new file input as fallback
+        console.log('Attempting to create fallback file input');
+        const fallbackInput = document.createElement('input');
+        fallbackInput.type = 'file';
+        fallbackInput.accept = '.csv';
+        fallbackInput.style.display = 'none';
+        fallbackInput.onchange = (e) => {
+          console.log('Fallback input change event triggered');
+          const files = (e.target as HTMLInputElement).files;
+          if (files && files.length > 0) {
+            validateAndSetFile(files[0]);
+          }
+          document.body.removeChild(fallbackInput);
+        };
+        
+        document.body.appendChild(fallbackInput);
+        try {
+          fallbackInput.click();
+          console.log('Fallback input click called');
+        } catch (fallbackError) {
+          console.error('Error with fallback input:', fallbackError);
+          document.body.removeChild(fallbackInput);
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering file input:', error);
+      setError(`Failed to open file dialog: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    
+    console.log('=== END FILE DIALOG DIAGNOSTICS ===');
   };
 
   const formatFileSize = (bytes: number) => {
@@ -324,6 +593,10 @@ export default function EnhancedUpload() {
                       value={selectedLastUpdateId}
                       onChange={handleLastUpdateChange}
                       disabled={isLoadingLastUpdates}
+                      onClick={(e) => {
+                        console.log('Financial cycle dropdown clicked');
+                        e.stopPropagation(); // Prevent event bubbling
+                      }}
                       className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
                     >
                       <option value="">Choose a financial cycle...</option>
@@ -357,6 +630,10 @@ export default function EnhancedUpload() {
                       value={selectedCountry}
                       onChange={handleCountryChange}
                       disabled={isLoadingCountries}
+                      onClick={(e) => {
+                        console.log('Country dropdown clicked');
+                        e.stopPropagation(); // Prevent event bubbling
+                      }}
                       className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
                     >
                       <option value="">Choose a country...</option>
@@ -406,6 +683,8 @@ export default function EnhancedUpload() {
                         onChange={handleFileChange}
                         accept=".csv"
                         className="hidden"
+                        onClick={(e) => console.log('File input clicked', e)}
+                        onError={(e) => console.error('File input error', e)}
                       />
                       
                       {file ? (
@@ -425,9 +704,111 @@ export default function EnhancedUpload() {
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-4" onClick={triggerFileInput}>
-                          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center cursor-pointer">
+                        <div className="space-y-4">
+                          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center cursor-pointer" onClick={triggerFileInput}>
                             <FiUpload className={`w-8 h-8 text-blue-600 transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`} />
+                          </div>
+                          
+                          {/* Direct file path input as workaround for file dialog issues */}
+                          <div className="mt-6 border-t border-gray-200 pt-6">
+                            <p className="text-sm text-gray-600 mb-3 text-center">Having trouble with file dialog?</p>
+                            <div className="flex flex-col space-y-2">
+                              <input 
+                                type="text" 
+                                placeholder="Enter file path (e.g., /path/to/file.csv)" 
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={(e) => {
+                                  const path = e.target.value;
+                                  console.log('Direct path input changed:', path);
+                                  if (path && !path.toLowerCase().endsWith('.csv')) {
+                                    setError('Please enter a path to a CSV file');
+                                  } else {
+                                    setError(null);
+                                  }
+                                }}
+                              />
+                              <button 
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors duration-300"
+                                onClick={async () => {
+                                  const filePathInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+                                  const filePath = filePathInput?.value;
+                                  console.log('Using direct file path:', filePath);
+                                  
+                                  if (!filePath) {
+                                    setError('Please enter a file path');
+                                    return;
+                                  }
+                                  
+                                  if (!filePath.toLowerCase().endsWith('.csv')) {
+                                    setError('Please enter a path to a CSV file');
+                                    return;
+                                  }
+                                  
+                                  if (!selectedLastUpdateId) {
+                                    setError('Please select a financial cycle');
+                                    return;
+                                  }
+                                  
+                                  if (!selectedCountry) {
+                                    setError('Please select a country');
+                                    return;
+                                  }
+                                  
+                                  try {
+                                    setIsUploading(true);
+                                    setUploadProgress(10);
+                                    
+                                    // Use the server-side file path upload API
+                                    console.log('Sending direct path upload request to API');
+                                    const response = await fetch('/api/admin/media-sufficiency/upload', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json'
+                                      },
+                                      body: JSON.stringify({
+                                        filePath,
+                                        lastUpdateId: selectedLastUpdateId,
+                                        country: selectedCountry
+                                      })
+                                    });
+                                    
+                                    setUploadProgress(70);
+                                    
+                                    if (!response.ok) {
+                                      const errorData = await response.json();
+                                      throw new Error(errorData.error || 'Failed to upload file');
+                                    }
+                                    
+                                    const data = await response.json();
+                                    console.log('Server-side file upload successful:', data);
+                                    
+                                    setUploadProgress(100);
+                                    setIsUploading(false);
+                                    
+                                    // Create a mock File object for UI display only
+                                    const mockFile = new File(
+                                      ['Server-side file access placeholder'],
+                                      filePath.split('/').pop() || 'upload.csv',
+                                      { type: 'text/csv' }
+                                    );
+                                    setFile(mockFile);
+                                    
+                                    // Redirect to validation page
+                                    router.push(`/admin/media-sufficiency/validation/${data.sessionId}`);
+                                  } catch (error) {
+                                    console.error('Error with server-side file upload:', error);
+                                    setError(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                    setIsUploading(false);
+                                    setUploadProgress(0);
+                                  }
+                                }}
+                              >
+                                Use This File
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2 text-center">
+                              Server-side implementation required for actual file access
+                            </p>
                           </div>
                           <div className="cursor-pointer">
                             <p className="text-lg font-semibold text-slate-800">
