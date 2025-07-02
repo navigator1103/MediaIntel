@@ -36,8 +36,8 @@ const AdminNavigation = () => {
       )
     },
     {
-      name: 'Media Sufficiency Upload',
-      href: '/admin/media-sufficiency/enhanced-upload',
+      name: 'Game Plans Upload',
+      href: '/admin/game-plans/upload',
       icon: (active) => (
         <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -54,11 +54,20 @@ const AdminNavigation = () => {
       )
     },
     {
-      name: 'Reach Planning Import',
+      name: 'Media Sufficiency Import',
       href: '/admin/reach-planning',
       icon: (active) => (
         <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      )
+    },
+    {
+      name: 'Backups',
+      href: '/admin/backups',
+      icon: (active) => (
+        <svg className={`${active ? 'text-indigo-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-6 w-6`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
         </svg>
       )
     },
@@ -103,8 +112,9 @@ const AdminNavigation = () => {
               '/admin',
               '/admin/users',
               '/admin/media-sufficiency/game-plans',
-              '/admin/media-sufficiency/enhanced-upload',
-              '/admin/reach-planning'
+              '/admin/game-plans/upload',
+              '/admin/reach-planning',
+              '/admin/backups'
             ].includes(item.href);
             
             return (

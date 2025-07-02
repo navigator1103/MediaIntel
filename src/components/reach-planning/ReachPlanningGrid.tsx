@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiSearch, FiFilter, FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiDownload } from 'react-icons/fi';
+import { FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiPlus } from 'react-icons/fi';
 
 interface ValidationIssue {
   rowIndex: number;
@@ -30,14 +30,22 @@ interface ReachPlanningGridProps {
   sessionId: string;
 }
 
+// Standard template columns
+const TEMPLATE_COLUMNS = [
+  'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
+  'Franchise NS', 'Campaign Socio-Demo Target', 'Total Country Population On Target',
+  'TV Copy Length', 'TV Target Size', 'WOA Open TV', 'WOA Paid TV', 'Total TRPs',
+  'TV R1+', 'TV R3+', 'TV Ideal Reach', 'CPP 2024', 'CPP 2025', 'Digital Target',
+  'Digital Target Size', 'WOA PM FF', 'WOA Influencers Amplification', 'Digital R1+',
+  'Digital R3+', 'Digital Ideal Reach', 'Planned Combined Reach', 'Combined Ideal Reach',
+  'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check',
+  'Media', 'Media Sub Type'
+];
+
 export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps) {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
 
@@ -95,23 +103,12 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
     );
   };
 
-  const filteredIssues = sessionData?.validationIssues?.filter(issue => {
-    const matchesSearch = !searchTerm || 
-      issue.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.columnName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.currentValue?.toString().toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesSeverity = severityFilter === 'all' || issue.severity === severityFilter;
-    
-    return matchesSearch && matchesSeverity;
-  }) || [];
+  const isTemplateColumn = (columnName: string): boolean => {
+    return TEMPLATE_COLUMNS.some(templateCol => 
+      templateCol.toLowerCase() === columnName.toLowerCase()
+    );
+  };
 
-  const paginatedIssues = filteredIssues.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredIssues.length / rowsPerPage);
 
   const handleImport = async () => {
     if (!sessionId) return;
@@ -145,30 +142,6 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
     }
   };
 
-  const downloadCSV = () => {
-    if (!sessionData?.validationIssues) return;
-    
-    const csvHeaders = ['Row', 'Column', 'Severity', 'Message', 'Current Value'];
-    const csvRows = sessionData.validationIssues.map(issue => [
-      issue.rowIndex + 1,
-      issue.columnName,
-      issue.severity,
-      issue.message,
-      issue.currentValue || ''
-    ]);
-    
-    const csvContent = [csvHeaders, ...csvRows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `validation-issues-${sessionId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   if (loading) {
     return (
@@ -300,110 +273,6 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
         </div>
       )}
 
-      {/* Validation Issues */}
-      {sessionData.validationIssues && sessionData.validationIssues.length > 0 && (
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Validation Issues</h3>
-              <button
-                onClick={downloadCSV}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <FiDownload className="h-4 w-4 mr-2" />
-                Export Issues
-              </button>
-            </div>
-          </div>
-          <div className="p-6">
-            {/* Filters */}
-            <div className="flex space-x-4 mb-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search issues..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-              <div className="w-48">
-                <select
-                  value={severityFilter}
-                  onChange={(e) => setSeverityFilter(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Severities</option>
-                  <option value="critical">Critical Only</option>
-                  <option value="warning">Warnings Only</option>
-                  <option value="suggestion">Suggestions Only</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Issues Table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Row</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Column</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedIssues.map((issue, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{issue.rowIndex + 1}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">{issue.columnName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{getSeverityBadge(issue.severity)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{issue.message}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                        {issue.currentValue || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-500">
-                  Showing {(currentPage - 1) * rowsPerPage + 1} to{' '}
-                  {Math.min(currentPage * rowsPerPage, filteredIssues.length)} of{' '}
-                  {filteredIssues.length} issues
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => prev - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(prev => prev + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Data Preview with Validation Issues */}
       <div className="bg-white rounded-lg shadow border border-gray-200">
@@ -414,31 +283,48 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
           </p>
         </div>
         <div className="p-6">
-          <div className="overflow-x-auto max-h-96 border border-gray-200 rounded-lg">
+          <div className="overflow-auto max-h-[600px] border border-gray-200 rounded-lg relative">
             <table className="min-w-full divide-y divide-gray-200" style={{ minWidth: 'max-content' }}>
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 border-r border-gray-200 min-w-16">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 border-r border-gray-200 min-w-16 z-20">
                     Row
                   </th>
-                  {sessionData.records && sessionData.records[0] && Object.keys(sessionData.records[0]).map((header) => (
-                    <th key={header} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap min-w-32">
-                      {header}
-                    </th>
-                  ))}
+                  {sessionData.records && sessionData.records[0] && Object.keys(sessionData.records[0]).map((header) => {
+                    const isCustomColumn = !isTemplateColumn(header);
+                    return (
+                      <th 
+                        key={header} 
+                        className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap min-w-32 ${
+                          isCustomColumn 
+                            ? 'bg-purple-100 text-purple-700 border-b-2 border-purple-300' 
+                            : 'bg-gray-50 text-gray-500'
+                        }`}
+                        title={isCustomColumn ? 'Custom column - not in standard template' : undefined}
+                      >
+                        <div className="flex items-center gap-1">
+                          {isCustomColumn && <FiPlus className="h-3 w-3" />}
+                          {header}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sessionData.records?.slice(0, 20).map((record, rowIndex) => {
-                  const rowIssues = sessionData.validationIssues?.filter(issue => issue.rowIndex === rowIndex) || [];
+                {sessionData.records?.slice(0, 20).map((record, displayIndex) => {
+                  // Use the actual original row index for validation issue matching
+                  const originalRowIndex = displayIndex; // For now, assuming no offset
+                  const rowIssues = sessionData.validationIssues?.filter(issue => issue.rowIndex === originalRowIndex) || [];
                   return (
-                    <tr key={rowIndex} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200 min-w-16">
-                        {rowIndex + 1}
+                    <tr key={displayIndex} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200 min-w-16 z-10">
+                        {originalRowIndex + 1}
                       </td>
                       {Object.keys(record).map((header) => {
                         const cellIssue = rowIssues.find(issue => issue.columnName === header);
                         const cellValue = record[header] || '-';
+                        const isCustomColumn = !isTemplateColumn(header);
                         
                         return (
                           <td 
@@ -450,6 +336,8 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
                                   : cellIssue.severity === 'warning'
                                   ? 'bg-yellow-100 text-yellow-900 border-l-4 border-yellow-500'
                                   : 'bg-blue-100 text-blue-900 border-l-4 border-blue-500'
+                                : isCustomColumn
+                                ? 'bg-purple-50 text-gray-900'
                                 : 'text-gray-900'
                             }`}
                             title={cellIssue ? `${cellIssue.severity.toUpperCase()}: ${cellIssue.message}` : cellValue.length > 20 ? cellValue : undefined}
@@ -473,13 +361,22 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
               </tbody>
             </table>
           </div>
-          <div className="mt-4 flex justify-between items-center text-sm text-gray-500">
-            <p>
-              Showing first {Math.min(20, sessionData.records?.length || 0)} of {sessionData.totalRecords} records
-            </p>
-            <p className="text-xs">
-              💡 Scroll horizontally to see all {sessionData.records && sessionData.records[0] ? Object.keys(sessionData.records[0]).length : 0} columns
-            </p>
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between items-center text-sm text-gray-500">
+              <p>
+                Showing first {Math.min(20, sessionData.records?.length || 0)} of {sessionData.totalRecords} records
+              </p>
+              <p className="text-xs">
+                💡 Scroll horizontally to see all {sessionData.records && sessionData.records[0] ? Object.keys(sessionData.records[0]).length : 0} columns
+              </p>
+            </div>
+            {sessionData.records && sessionData.records[0] && 
+             Object.keys(sessionData.records[0]).some(header => !isTemplateColumn(header)) && (
+              <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 px-3 py-2 rounded-md">
+                <FiPlus className="h-3 w-3" />
+                <span>Purple highlighted columns are custom fields not in the standard template</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

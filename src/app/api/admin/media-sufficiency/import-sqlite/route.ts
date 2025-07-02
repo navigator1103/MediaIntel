@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { parseDate, formatDateForStorage, areDatesEqual } from '@/lib/utils/dateUtils';
+import { createGamePlanBackup } from '@/lib/utils/backupUtils';
+import { preValidateImportData } from '@/lib/utils/importValidation';
 
 // Function to log with timestamp
 function logWithTimestamp(message: string, data?: any) {
@@ -132,6 +134,7 @@ export async function POST(request: NextRequest) {
     const sessionData = JSON.parse(fs.readFileSync(sessionFilePath, 'utf-8'));
     const records = sessionData.data?.records || [];
     const lastUpdateId = sessionData.lastUpdateId;
+    const selectedCountry = sessionData.country;
     
     if (records.length === 0) {
       return NextResponse.json({ error: 'No records found in session' }, { status: 400 });
@@ -141,13 +144,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Last Update ID is required' }, { status: 400 });
     }
     
-    // Log the last update ID
+    if (!selectedCountry) {
+      return NextResponse.json({ error: 'Selected country is required' }, { status: 400 });
+    }
+    
+    // Log the session details
     logWithTimestamp(`Using Last Update ID: ${lastUpdateId}`);
+    logWithTimestamp(`Using Selected Country: ${selectedCountry}`);
     
     // Start the import process asynchronously
     (async () => {
       try {
-        const results = await processImport(records, sessionData, sessionFilePath, lastUpdateId);
+        const results = await processImport(records, sessionData, sessionFilePath, lastUpdateId, selectedCountry);
         
         // Update the session file with completion information
         sessionData.importProgress = {
@@ -210,9 +218,11 @@ async function processImport(
   records: any[],
   sessionData: any,
   sessionFilePath: string,
-  lastUpdateId: number
+  lastUpdateId: number,
+  selectedCountry: string
 ) {
   logWithTimestamp(`Processing import with Last Update ID: ${lastUpdateId}`);
+  logWithTimestamp(`Processing import with Selected Country: ${selectedCountry}`);
   
   if (!lastUpdateId) {
     logErrorWithTimestamp('ERROR: lastUpdateId is missing');
@@ -287,27 +297,60 @@ async function processImport(
     logWithTimestamp(JSON.stringify(financialCycleColumns));
   }
   
-  // First identify all countries in the data to handle data replacement
-  const countriesInData = new Set<string>();
-  for (const record of records) {
-    if (record.Country) {
-      countriesInData.add(record.Country);
+  // STEP 1: PRE-VALIDATE DATA BEFORE ANY DELETION
+  logWithTimestamp('🔍 Step 1: Pre-validating import data...');
+  sessionData.importProgress = {
+    current: 0,
+    total: records.length,
+    percentage: 5,
+    stage: 'Validating import data...'
+  };
+  fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
+  
+  try {
+    const validationResult = await preValidateImportData(records, selectedCountry, lastUpdateId);
+    
+    if (!validationResult.isValid) {
+      logErrorWithTimestamp(`❌ Pre-validation failed with ${validationResult.errors.length} errors:`);
+      validationResult.errors.forEach(error => logErrorWithTimestamp(`   - ${error}`));
+      
+      // Update session with validation errors
+      sessionData.importProgress = {
+        current: 0,
+        total: records.length,
+        percentage: 0,
+        stage: 'Validation failed'
+      };
+      sessionData.validationErrors = validationResult.errors;
+      fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
+      
+      throw new Error(`Import validation failed: ${validationResult.errors.join('; ')}`);
     }
+    
+    logWithTimestamp(`✅ Pre-validation passed! ${records.length} records are valid for import.`);
+    
+  } catch (error) {
+    logErrorWithTimestamp('Pre-validation error:', error);
+    throw error;
   }
   
-  // Delete existing game plans for the countries and last update before importing
-  if (countriesInData.size > 0 && lastUpdateId) {
+  // STEP 2: CREATE BACKUP BEFORE DELETION
+  logWithTimestamp('💾 Step 2: Creating backup of existing game plans...');
+  sessionData.importProgress = {
+    current: 0,
+    total: records.length,
+    percentage: 10,
+    stage: 'Creating backup...'
+  };
+  fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
+  
+  let backupFile: string | null = null;
+  if (selectedCountry && lastUpdateId) {
     try {
-      logWithTimestamp(`Deleting existing game plans for ${countriesInData.size} countries and last update ID ${lastUpdateId}`);
-      logWithTimestamp(`Countries in data: ${Array.from(countriesInData).join(', ')}`);
-      
-      // Get country IDs for the countries in the data
-      const countryNames = Array.from(countriesInData);
-      const countries = await prisma.country.findMany({
+      // Get country ID for the selected country
+      const country = await prisma.country.findFirst({
         where: {
-          name: {
-            in: countryNames
-          }
+          name: selectedCountry
         },
         select: {
           id: true,
@@ -315,40 +358,105 @@ async function processImport(
         }
       });
       
-      logWithTimestamp(`Found ${countries.length} matching countries in database: ${countries.map(c => `${c.name} (ID: ${c.id})`).join(', ')}`);
-      
-      const countryIds = countries.map(c => c.id);
-      
-      if (countryIds.length > 0) {
-        // First check how many game plans exist for these countries and last update
+      if (country) {
+        logWithTimestamp(`Found matching country in database: ${country.name} (ID: ${country.id})`);
+        
+        // Check if there are existing game plans to backup
         const existingCount = await prisma.gamePlan.count({
           where: {
-            countryId: {
-              in: countryIds
-            },
+            countryId: country.id,
             last_update_id: lastUpdateId
           }
         });
         
-        logWithTimestamp(`Found ${existingCount} existing game plans to delete`);
+        if (existingCount > 0) {
+          backupFile = await createGamePlanBackup(country.id, lastUpdateId, 'pre-import-backup');
+          logWithTimestamp(`✅ Backup created: ${existingCount} game plans backed up to ${path.basename(backupFile)}`);
+        } else {
+          logWithTimestamp('ℹ️ No existing game plans to backup');
+        }
         
-        // Delete existing game plans for these countries and last update
+        // Store the country ID for later use
+        processedEntities.countries.set(selectedCountry, country.id);
+      } else {
+        logWithTimestamp(`Selected country '${selectedCountry}' not found in database`);
+        throw new Error(`Selected country '${selectedCountry}' not found in database`);
+      }
+    } catch (error) {
+      logErrorWithTimestamp('Error creating backup:', error);
+      throw error;
+    }
+  }
+  
+  // STEP 3: DELETE EXISTING DATA (SAFE NOW BECAUSE WE VALIDATED AND BACKED UP)
+  logWithTimestamp('🗑️ Step 3: Deleting existing game plans...');
+  sessionData.importProgress = {
+    current: 0,
+    total: records.length,
+    percentage: 15,
+    stage: 'Deleting existing data...'
+  };
+  fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
+  
+  if (selectedCountry && lastUpdateId) {
+    try {
+      const country = await prisma.country.findFirst({
+        where: {
+          name: selectedCountry
+        },
+        select: {
+          id: true,
+          name: true
+        }
+      });
+      
+      if (country) {
+        // Delete existing game plans for this country and last update
         const deleteResult = await prisma.gamePlan.deleteMany({
           where: {
-            countryId: {
-              in: countryIds
-            },
+            countryId: country.id,
             last_update_id: lastUpdateId
           }
         });
         
-        logWithTimestamp(`Deleted ${deleteResult.count} existing game plans for countries: ${countries.map(c => c.name).join(', ')} and last update ID ${lastUpdateId}`);
+        logWithTimestamp(`✅ Deleted ${deleteResult.count} existing game plans for country: ${country.name} and last update ID ${lastUpdateId}`);
+        
+        // Store backup info in session
+        sessionData.backupInfo = {
+          backupFile: backupFile ? path.basename(backupFile) : null,
+          deletedCount: deleteResult.count,
+          backupCreated: backupFile !== null
+        };
+        
+        // Store the country ID for later use
+        processedEntities.countries.set(selectedCountry, country.id);
       } else {
-        logWithTimestamp('No matching countries found in database for deletion');
+        logWithTimestamp(`Selected country '${selectedCountry}' not found in database`);
+        throw new Error(`Selected country '${selectedCountry}' not found in database`);
       }
     } catch (error) {
       logErrorWithTimestamp('Error deleting existing game plans:', error);
-      // Continue with import even if deletion fails
+      throw error;
+    }
+  }
+  
+  // Ensure the selected country is available for all game plans
+  if (!processedEntities.countries.has(selectedCountry)) {
+    try {
+      const country = await prisma.country.findFirst({
+        where: { name: selectedCountry }
+      });
+      
+      if (country) {
+        processedEntities.countries.set(selectedCountry, country.id);
+        logWithTimestamp(`Pre-loaded selected country: ${selectedCountry} (ID: ${country.id})`);
+      } else {
+        logErrorWithTimestamp(`Selected country '${selectedCountry}' not found in database`);
+        throw new Error(`Selected country '${selectedCountry}' not found in database`);
+      }
+    } catch (error) {
+      logErrorWithTimestamp('Error looking up selected country:', error);
+      throw error;
     }
   }
   
@@ -835,14 +943,18 @@ async function processImport(
                 logWithTimestamp(`✅ Current Reach value normalized from ${rawCurrentReach} to ${currentReach}`);
               }
               
-              // Get country ID if available
+              // Use the selected country for all game plans instead of CSV data
               let countryId = null;
               let regionId = null;
               let subRegionId = null;
               
-              if (record.Country && processedEntities.countries.has(record.Country)) {
-                countryId = processedEntities.countries.get(record.Country);
-                logWithTimestamp(`Using country ID ${countryId} for ${record.Country}`);
+              // Always use the selected country instead of CSV Country column
+              if (processedEntities.countries.has(selectedCountry)) {
+                countryId = processedEntities.countries.get(selectedCountry);
+                logWithTimestamp(`Using selected country ID ${countryId} for ${selectedCountry} (ignoring CSV Country column)`);
+              } else {
+                logErrorWithTimestamp(`Selected country '${selectedCountry}' not found in processed entities`);
+                throw new Error(`Selected country '${selectedCountry}' not available for game plan creation`);
               }
               
               // Get region ID if available with enhanced flexible column name handling

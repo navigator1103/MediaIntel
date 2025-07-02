@@ -35,8 +35,10 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
         let parsedValue = editValue;
         
         // Convert to appropriate type based on field
-        if (['totalBudget', 'q1Budget', 'q2Budget', 'q3Budget', 'q4Budget'].includes(field)) {
+        if (['totalBudget', 'q1Budget', 'q2Budget', 'q3Budget', 'q4Budget', 'trps', 'reach1Plus', 'reach3Plus', 'totalWoa', 'weeksOffAir'].includes(field)) {
           parsedValue = parseFloat(editValue) || 0 as any; // Cast to any to avoid type error
+        } else if (['year', 'burst'].includes(field)) {
+          parsedValue = parseInt(editValue) || 0 as any;
         }
         
         return { ...item, [field]: parsedValue };
@@ -237,11 +239,14 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Burst</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Sub Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PM Type</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Playbook ID</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Budget</th>
@@ -249,6 +254,11 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2 Budget</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3 Budget</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4 Budget</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TRPs</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach 1+</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach 3+</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total WOA</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weeks Off Air</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -267,11 +277,20 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.id}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.campaign?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'burst', row.burst, 'text')}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.mediaType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.pmType?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'year', row.year, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'playbook_id', row.playbook_id, 'text')}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'startDate', row.startDate, 'date')}
                 </td>
@@ -293,11 +312,26 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'q4Budget', row.q4Budget, 'currency')}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'trps', row.trps, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'reach1Plus', row.reach1Plus, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'reach3Plus', row.reach3Plus, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'totalWoa', row.totalWoa, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'weeksOffAir', row.weeksOffAir, 'text')}
+                </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={15} className="px-6 py-4 text-center text-sm text-gray-500">
+              <td colSpan={23} className="px-6 py-4 text-center text-sm text-gray-500">
                 No game plans found
               </td>
             </tr>

@@ -536,7 +536,7 @@ export default function EnhancedUpload() {
               </Link>
               <div className="h-6 w-px bg-slate-300"></div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                Media Sufficiency Import
+                Game Plans Upload
               </h1>
             </div>
             <div className="flex items-center space-x-2 text-sm text-slate-500">
@@ -555,7 +555,7 @@ export default function EnhancedUpload() {
             <span>Smart Data Import</span>
           </div>
           <h2 className="text-4xl font-bold text-slate-800 mb-4">
-            Import Your Media Data
+            Import Your Game Plans Data
           </h2>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
             Upload CSV files with intelligent validation, automatic mapping, and real-time error detection

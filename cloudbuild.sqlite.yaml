@@ -21,7 +21,8 @@ steps:
       - '--memory=512Mi'
       - '--cpu=1'
       - '--set-env-vars=DATABASE_URL=file:./prisma/golden_rules.db,NODE_ENV=production'
-      - '--set-volumes=name=db-volume,mount-path=/app/prisma,type=cloud-storage,bucket=goldenrulesnextjs-db'
+      - '--add-volume=name=db-volume,type=cloud-storage,bucket=goldenrulesnextjs-db'
+      - '--add-volume-mount=volume=db-volume,mount-path=/app/prisma'
 
 images:
   - 'gcr.io/$PROJECT_ID/golden-rules-app:latest'

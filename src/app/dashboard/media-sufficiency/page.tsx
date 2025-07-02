@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
+  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import axios from 'axios';
@@ -32,6 +32,70 @@ interface GamePlanData {
     gamePlanCount: number;
     lastUpdate?: string;
   };
+}
+
+// Interface for Media Sufficiency Reach data
+interface MediaSufficiencyReachData {
+  summary: {
+    totalRecords: number;
+    countries: number;
+    campaigns: number;
+    lastUpdated: string | null;
+    woaOpenTv: number;
+    woaPaidTv: number;
+    woaPmFf: number;
+    woaInfluencersAmplification: number;
+  };
+  tvReachData: Array<{
+    campaign: string;
+    country: string;
+    category: string;
+    currentReach: number;
+    idealReach: number;
+    gap: number;
+  }>;
+  digitalReachData: Array<{
+    campaign: string;
+    country: string;
+    category: string;
+    currentReach: number;
+    idealReach: number;
+    gap: number;
+  }>;
+  combinedReachData: Array<{
+    campaign: string;
+    country: string;
+    category: string;
+    currentReach: number;
+    idealReach: number;
+    gap: number;
+  }>;
+  countryReachAnalysis: Array<{
+    country: string;
+    campaigns: number;
+    avgTvReach: number;
+    avgTvIdeal: number;
+    avgDigitalReach: number;
+    avgDigitalIdeal: number;
+    avgCombinedReach: number;
+    avgCombinedIdeal: number;
+    tvGap: number;
+    digitalGap: number;
+    combinedGap: number;
+  }>;
+  categoryReachAnalysis: Array<{
+    category: string;
+    campaigns: number;
+    avgTvReach: number;
+    avgTvIdeal: number;
+    avgDigitalReach: number;
+    avgDigitalIdeal: number;
+    avgCombinedReach: number;
+    avgCombinedIdeal: number;
+    tvGap: number;
+    digitalGap: number;
+    combinedGap: number;
+  }>;
 }
 
 // Interface for Game Plan
@@ -84,7 +148,9 @@ export default function MediaSufficiencyDashboard() {
   // State for data
   const [gamePlanData, setGamePlanData] = useState<GamePlanData | null>(null);
   const [gamePlans, setGamePlans] = useState<GamePlan[]>([]);
+  const [mediaSufficiencyReachData, setMediaSufficiencyReachData] = useState<MediaSufficiencyReachData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingReach, setIsLoadingReach] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // State for active tab
@@ -93,7 +159,8 @@ export default function MediaSufficiencyDashboard() {
   // State for filters
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['India']);
+  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
   const [selectedPMTypes, setSelectedPMTypes] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLastUpdates, setSelectedLastUpdates] = useState<string[]>([]);
@@ -129,6 +196,19 @@ export default function MediaSufficiencyDashboard() {
   const campaignChartRef = useRef<HTMLDivElement>(null);
   const mediaTypeChartRef = useRef<HTMLDivElement>(null);
   const countryChartRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch Media Sufficiency Reach data
+  const fetchMediaSufficiencyReachData = async () => {
+    try {
+      setIsLoadingReach(true);
+      const response = await axios.get('/api/dashboard/media-sufficiency-reach');
+      setMediaSufficiencyReachData(response.data);
+    } catch (error) {
+      console.error('Error fetching media sufficiency reach data:', error);
+    } finally {
+      setIsLoadingReach(false);
+    }
+  };
   
   // Fetch Game Plan data
   useEffect(() => {
@@ -251,6 +331,13 @@ export default function MediaSufficiencyDashboard() {
     fetchGamePlanData();
   }, [selectedYear]);
   
+  // Fetch reach data when Sufficiency tab is activated
+  useEffect(() => {
+    if (activeTab === 'sufficiency' && !mediaSufficiencyReachData) {
+      fetchMediaSufficiencyReachData();
+    }
+  }, [activeTab]);
+  
   // Toggle sidebar expansion
   const toggleSidebar = () => {
     setSidebarExpanded(!sidebarExpanded);
@@ -271,6 +358,15 @@ export default function MediaSufficiencyDashboard() {
       prev.includes(country) 
         ? prev.filter(c => c !== country) 
         : [...prev, country]
+    );
+  };
+
+  // Handle sub region selection
+  const toggleSubRegion = (subRegion: string) => {
+    setSelectedSubRegions(prev => 
+      prev.includes(subRegion) 
+        ? prev.filter(sr => sr !== subRegion) 
+        : [...prev, subRegion]
     );
   };
   
@@ -448,7 +544,8 @@ export default function MediaSufficiencyDashboard() {
   // Clear all filters
   const clearAllFilters = () => {
     setSelectedMediaTypes([]);
-    setSelectedCountries([]);
+    setSelectedCountries(['India']); // Keep India selected by default
+    setSelectedSubRegions([]);
     setSelectedPMTypes([]);
     setSelectedCategories([]);
     setSelectedLastUpdates([]);
@@ -618,7 +715,7 @@ export default function MediaSufficiencyDashboard() {
     setFilteredData(filtered);
     
   // We need to include all filter dependencies from the beginning to avoid React errors
-  }, [gamePlanData, selectedMediaTypes, selectedCountries, selectedPMTypes, selectedCategories]);
+  }, [gamePlanData, selectedMediaTypes, selectedCountries, selectedSubRegions, selectedPMTypes, selectedCategories]);
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen">
@@ -700,6 +797,32 @@ export default function MediaSufficiencyDashboard() {
                         className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
                       >
                         {country}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Sub Region Filter */}
+            {mediaSufficiencyReachData && (
+              <div className="p-4">
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Sub Region</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {['ASEAN', 'India'].map(subRegion => (
+                    <div key={subRegion} className="flex items-center">
+                      <input
+                        id={`subregion-${subRegion}`}
+                        type="checkbox"
+                        checked={selectedSubRegions.includes(subRegion)}
+                        onChange={() => toggleSubRegion(subRegion)}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label 
+                        htmlFor={`subregion-${subRegion}`} 
+                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                      >
+                        {subRegion}
                       </label>
                     </div>
                   ))}
@@ -1562,79 +1685,6 @@ export default function MediaSufficiencyDashboard() {
                 </div>
               </div>
               
-              {/* Charts Row 2 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Top Countries by Budget */}
-                <div className="bg-white rounded-lg shadow p-4" ref={countryChartRef}>
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Top Countries by Budget</h2>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={Object.entries(filteredData?.budgetByCountry || {})
-                          .sort((a, b) => b[1] - a[1])
-                          .slice(0, 5)
-                          .map(([country, budget]) => ({ country, budget }))}
-                        layout="vertical"
-                        margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="country" type="category" width={80} />
-                        <Tooltip formatter={(value) => typeof value === 'number' ? `€${value.toLocaleString()}` : `€${value}`} />
-                        <Bar 
-                          dataKey="budget" 
-                          fill="#3E7DCD" 
-                          onClick={(data) => toggleCountry(data.country)}
-                        >
-                          {Object.entries(filteredData?.budgetByCountry || {})
-                            .sort((a, b) => b[1] - a[1])
-                            .slice(0, 5)
-                            .map(([country], index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={selectedCountries.includes(country) ? '#ff7300' : '#3E7DCD'} 
-                              />
-                            ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                
-                {/* Campaigns by PM Type */}
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Campaigns by PM Type</h2>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={Object.entries(filteredData?.campaignsByPMType || {}).map(([type, count]) => ({
-                          type,
-                          count
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="type" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar 
-                          dataKey="count" 
-                          name="Campaign Count" 
-                          fill="#5E9FE0" 
-                          onClick={(data) => togglePMType(data.type)}
-                        >
-                          {Object.entries(filteredData?.campaignsByPMType || {}).map(([type], index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={selectedPMTypes.includes(type) ? '#ff7300' : '#5E9FE0'} 
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
               
               {/* Budget Timeline Chart - New Addition */}
               <div className="bg-white rounded-lg shadow p-4 mb-6">
@@ -1709,109 +1759,139 @@ export default function MediaSufficiencyDashboard() {
                 {applyAllFilters(gamePlans).length > 0 ? (
                   <div className="bg-white rounded-lg shadow overflow-hidden">
                     {/* Table Header */}
-                    <div className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] bg-gray-50 border-b sticky top-0 z-10">
+                    <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] bg-gray-50 border-b sticky top-0 z-10">
                       <div className="py-2 px-3 font-semibold">Country</div>
                       <div className="py-2 px-3 font-semibold">Campaign</div>
-                      <div className="py-2 px-3 font-semibold">Category</div>
                       <div className="py-2 px-3 font-semibold">Budget</div>
                       <div className="py-2 px-3 font-semibold">Timeline</div>
                     </div>
-                    {/* Month markers */}
-                    <div className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] border-b">
-                      <div className="col-span-4"></div>
+                    {/* Month markers with week subdivisions */}
+                    <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b">
+                      <div className="col-span-3"></div>
                       <div className="py-1 px-3">
-                        <div className="flex justify-between text-xs text-gray-500 font-medium px-1">
-                          <span>Jan</span>
-                          <span>Feb</span>
-                          <span>Mar</span>
-                          <span>Apr</span>
-                          <span>May</span>
-                          <span>Jun</span>
-                          <span>Jul</span>
-                          <span>Aug</span>
-                          <span>Sep</span>
-                          <span>Oct</span>
-                          <span>Nov</span>
-                          <span>Dec</span>
+                        <div className="grid grid-cols-12 gap-0">
+                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month) => (
+                            <div key={month} className="border-r border-gray-200 last:border-r-0">
+                              <div className="text-xs text-gray-600 font-medium text-center py-1 bg-gray-50">{month}</div>
+                              <div className="grid grid-cols-4 gap-0">
+                                {['W1', 'W2', 'W3', 'W4'].map((week) => (
+                                  <div key={week} className="text-xs text-gray-400 text-center py-1 border-r border-gray-100 last:border-r-0">
+                                    {week}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
                     
-                    {/* Campaign Rows */}
-                    {applyAllFilters(gamePlans).map((plan: GamePlan) => {
-                      // Skip if no valid dates
-                      if (!plan.startDate || !plan.endDate) return null;
-                      
-                      const startDate = new Date(plan.startDate);
-                      const endDate = new Date(plan.endDate);
-                      
-                      // Skip if invalid dates
-                      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
-                      
-                      // Calculate more precise position based on full date (not just month)
-                      const yearStart = new Date(startDate.getFullYear(), 0, 1);
-                      const yearEnd = new Date(startDate.getFullYear(), 11, 31);
-                      const yearDuration = yearEnd.getTime() - yearStart.getTime();
-                      
-                      // Calculate position as percentage of year
-                      const startPosition = (startDate.getTime() - yearStart.getTime()) / yearDuration;
-                      const endPosition = (endDate.getTime() - yearStart.getTime()) / yearDuration;
-                      
-                      // Also keep month-based calculation for fallback
-                      const startMonth = startDate.getMonth();
-                      const endMonth = endDate.getMonth();
-                      
-                      // Get color based on media type
-                      const mediaTypeName = plan.mediaSubType?.mediaType?.name || '';
-                      let bgColor = 'bg-gray-200';
-                      
-                      if (['TV', 'Radio'].includes(mediaTypeName)) {
-                        bgColor = 'bg-blue-600';
-                      } else if (['Print', 'OOH'].includes(mediaTypeName)) {
-                        bgColor = 'bg-green-500';
-                      } else if (mediaTypeName.includes('Digital')) {
-                        bgColor = 'bg-purple-500';
-                      } else if (mediaTypeName.includes('Social')) {
-                        bgColor = 'bg-pink-500';
-                      }
-                      
-                      // Calculate total budget
-                      const totalBudget = plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget;
-                      
-                      return (
-                        <div key={plan.id} className="grid grid-cols-[0.5fr_0.8fr_0.5fr_0.5fr_5fr] border-b hover:bg-gray-50">
-                          <div className="py-2 px-3">{plan.country?.name || 'Unknown'}</div>
-                          <div className="py-2 px-3 font-medium">{plan.campaign?.name || 'Unnamed Campaign'}</div>
-                          <div className="py-2 px-3">{plan.category?.name || 'Uncategorized'}</div>
-                          <div className="py-2 px-3">€ {totalBudget.toLocaleString()}</div>
-                          
-                          {/* Single horizontal bar for campaign timeline */}
-                          <div className="py-2 px-3 relative" style={{ minHeight: '40px' }}>
-                            <div className="h-4 bg-gray-100 w-full rounded-md relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/12 - 1px), rgba(0,0,0,0.03) calc(100%/12 - 1px), rgba(0,0,0,0.03) calc(100%/12))' }}>
-                              <div 
-                                className={`absolute top-0 h-4 ${bgColor} rounded-md border border-white/30`}
-                                title={`${plan.campaign?.name || 'Campaign'}: ${new Date(plan.startDate).toLocaleDateString()} - ${new Date(plan.endDate).toLocaleDateString()}`}
-                                style={{
-                                  left: `${startPosition * 100}%`,
-                                  width: `${(endPosition - startPosition) * 100}%`
-                                }}
-                              ></div>
-                              
-                              {/* No month markers here anymore - they're in the header */}
-                              {/* Month dividers */}
-                              {Array.from({ length: 12 }).map((_, i) => (
-                                <div 
-                                  key={i} 
-                                  className="absolute top-0 h-6 border-l border-gray-300" 
-                                  style={{ left: `${(i / 12) * 100}%` }}
-                                >
-                                </div>
-                              ))}
+                    {/* Campaign Rows - Grouped by campaign */}
+                    {(() => {
+                      // Group campaigns by unique combination of campaign name and country only
+                      const groupedCampaigns = applyAllFilters(gamePlans).reduce((acc: { [key: string]: GamePlan[] }, plan) => {
+                        const key = `${plan.campaign?.name || 'Unknown'}-${plan.country?.name || 'Unknown'}`;
+                        if (!acc[key]) {
+                          acc[key] = [];
+                        }
+                        acc[key].push(plan);
+                        return acc;
+                      }, {});
+
+                      return Object.entries(groupedCampaigns).map(([key, plans]) => {
+                        // Use the first plan for display info (they should all have same campaign/country)
+                        const firstPlan = plans[0];
+                        
+                        // Calculate total budget for all bursts in this campaign
+                        const totalBudget = plans.reduce((sum, plan) => 
+                          sum + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0);
+                        
+                        // Get unique media types for this campaign
+                        const mediaTypes = [...new Set(plans.map(plan => plan.mediaSubType?.mediaType?.name).filter(Boolean))];
+                        const mediaTypeDisplay = mediaTypes.join(', ') || 'Unknown';
+                        
+                        // Function to get color based on media type
+                        const getColorForMediaType = (mediaTypeName: string) => {
+                          if (['TV', 'Radio'].includes(mediaTypeName)) {
+                            return 'bg-blue-600';
+                          } else if (['Print', 'OOH'].includes(mediaTypeName)) {
+                            return 'bg-green-500';
+                          } else if (mediaTypeName.includes('Digital')) {
+                            return 'bg-purple-500';
+                          } else if (mediaTypeName.includes('Social')) {
+                            return 'bg-pink-500';
+                          }
+                          return 'bg-gray-200';
+                        };
+                        
+                        return (
+                          <div key={key} className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b hover:bg-gray-50">
+                            <div className="py-2 px-3">{firstPlan.country?.name || 'Unknown'}</div>
+                            <div className="py-2 px-3 font-medium">{firstPlan.campaign?.name || 'Unnamed Campaign'}</div>
+                            <div className="py-2 px-3">€ {totalBudget.toLocaleString()}</div>
+                            
+                            {/* Multiple horizontal bars for campaign bursts */}
+                            <div className="py-2 px-3 relative" style={{ minHeight: '40px' }}>
+                              <div className="h-4 bg-gray-100 w-full rounded-md relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48))' }}>
+                                {/* Render a bar for each burst/plan */}
+                                {plans.map((plan, index) => {
+                                  // Skip if no valid dates
+                                  if (!plan.startDate || !plan.endDate) return null;
+                                  
+                                  const startDate = new Date(plan.startDate);
+                                  const endDate = new Date(plan.endDate);
+                                  
+                                  // Skip if invalid dates
+                                  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+                                  
+                                  // Calculate more precise position based on full date
+                                  const yearStart = new Date(startDate.getFullYear(), 0, 1);
+                                  const yearEnd = new Date(startDate.getFullYear(), 11, 31);
+                                  const yearDuration = yearEnd.getTime() - yearStart.getTime();
+                                  
+                                  // Calculate position as percentage of year
+                                  const startPosition = (startDate.getTime() - yearStart.getTime()) / yearDuration;
+                                  const endPosition = (endDate.getTime() - yearStart.getTime()) / yearDuration;
+                                  
+                                  // Calculate budget for this burst
+                                  const burstBudget = plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget;
+                                  
+                                  // Get color for this specific burst based on its media type
+                                  const burstMediaType = plan.mediaSubType?.mediaType?.name || '';
+                                  const burstColor = getColorForMediaType(burstMediaType);
+                                  
+                                  return (
+                                    <div 
+                                      key={plan.id}
+                                      className={`absolute top-0 h-4 ${burstColor} rounded-md border border-white/30`}
+                                      title={`${burstMediaType} - Burst ${plan.burst || index + 1}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} | Budget: €${burstBudget.toLocaleString()} | Media: ${burstMediaType}`}
+                                      style={{
+                                        left: `${startPosition * 100}%`,
+                                        width: `${(endPosition - startPosition) * 100}%`,
+                                        opacity: 0.8 + (index * 0.05) // Slight opacity variation for overlapping bursts
+                                      }}
+                                    ></div>
+                                  );
+                                })}
+                                
+                                {/* Week dividers - 48 weeks in a year (4 weeks × 12 months) */}
+                                {Array.from({ length: 48 }).map((_, i) => {
+                                  const isMonthBoundary = i % 4 === 0;
+                                  return (
+                                    <div 
+                                      key={i} 
+                                      className={`absolute top-0 h-6 border-l ${isMonthBoundary ? 'border-gray-400' : 'border-gray-200'}`} 
+                                      style={{ left: `${(i / 48) * 100}%` }}
+                                    >
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 ) : (
                   <div className="text-center text-gray-500 py-8 bg-white rounded-lg shadow">
@@ -1820,9 +1900,311 @@ export default function MediaSufficiencyDashboard() {
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold mb-4">Media Sufficiency Analysis</h2>
-                <p className="text-gray-500">Sufficiency tab content coming soon.</p>
+              // Sufficiency Tab Content
+              <div>
+                <h2 className="text-xl font-semibold mb-6">Media Sufficiency Analysis</h2>
+                
+                {isLoadingReach ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Spinner />
+                  </div>
+                ) : mediaSufficiencyReachData ? (
+                  <>
+                    {/* WOA Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-blue-50 rounded-lg shadow p-4">
+                        <div className="text-sm text-blue-600 mb-1">WOA(PM & FF)</div>
+                        <div className="text-2xl font-semibold text-blue-800">{mediaSufficiencyReachData.summary.woaPmFf || 0}</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg shadow p-4">
+                        <div className="text-sm text-green-600 mb-1">WOA(Influencers Amplification)</div>
+                        <div className="text-2xl font-semibold text-green-800">{mediaSufficiencyReachData.summary.woaInfluencersAmplification || 0}</div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg shadow p-4">
+                        <div className="text-sm text-purple-600 mb-1">WOA(Open TV)</div>
+                        <div className="text-2xl font-semibold text-purple-800">{mediaSufficiencyReachData.summary.woaOpenTv || 0}</div>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg shadow p-4">
+                        <div className="text-sm text-orange-600 mb-1">WOA(Paid TV)</div>
+                        <div className="text-2xl font-semibold text-orange-800">{mediaSufficiencyReachData.summary.woaPaidTv || 0}</div>
+                      </div>
+                    </div>
+
+                    {/* Main Layout - Left and Right Sections */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                      {/* Left Section - Reach Charts */}
+                      <div className="space-y-6">
+                        {/* Combined Reach Chart */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Combined Reach by Campaign</h3>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart
+                                data={mediaSufficiencyReachData.combinedReachData.slice(0, 8)}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                  dataKey="campaign" 
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={80}
+                                  fontSize={12}
+                                />
+                                <YAxis domain={[0, 100]} />
+                                <Tooltip 
+                                  formatter={(value, name) => [`${value}%`, name]}
+                                  labelFormatter={(label) => `Campaign: ${label}`}
+                                />
+                                <Legend />
+                                <Bar dataKey="currentReach" fill="#1F4388" name="Current Reach" />
+                                <Line 
+                                  type="monotone" 
+                                  dataKey="idealReach" 
+                                  stroke="#ff6b6b" 
+                                  strokeWidth={3}
+                                  name="Ideal Reach"
+                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
+                                  activeDot={{ r: 7 }}
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Digital Reach Chart */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Digital Reach by Campaign</h3>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart
+                                data={mediaSufficiencyReachData.digitalReachData.slice(0, 8)}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                  dataKey="campaign" 
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={80}
+                                  fontSize={12}
+                                />
+                                <YAxis domain={[0, 100]} />
+                                <Tooltip 
+                                  formatter={(value, name) => [`${value}%`, name]}
+                                  labelFormatter={(label) => `Campaign: ${label}`}
+                                />
+                                <Legend />
+                                <Bar dataKey="currentReach" fill="#5E9FE0" name="Current Reach" />
+                                <Line 
+                                  type="monotone" 
+                                  dataKey="idealReach" 
+                                  stroke="#ff6b6b" 
+                                  strokeWidth={3}
+                                  name="Ideal Reach"
+                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
+                                  activeDot={{ r: 7 }}
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* TV Reach Chart */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">TV Reach by Campaign</h3>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart
+                                data={mediaSufficiencyReachData.tvReachData.slice(0, 8)}
+                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis 
+                                  dataKey="campaign" 
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={80}
+                                  fontSize={12}
+                                />
+                                <YAxis domain={[0, 100]} />
+                                <Tooltip 
+                                  formatter={(value, name) => [`${value}%`, name]}
+                                  labelFormatter={(label) => `Campaign: ${label}`}
+                                />
+                                <Legend />
+                                <Bar dataKey="currentReach" fill="#3E7DCD" name="Current Reach" />
+                                <Line 
+                                  type="monotone" 
+                                  dataKey="idealReach" 
+                                  stroke="#ff6b6b" 
+                                  strokeWidth={3}
+                                  name="Ideal Reach"
+                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
+                                  activeDot={{ r: 7 }}
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Section - Data Tables */}
+                      <div className="space-y-6">
+                        {/* Combined Reach Table */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Combined Reach Analysis</h3>
+                          <div className="h-64 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {mediaSufficiencyReachData.combinedReachData.slice(0, 8).map((item, index) => {
+                                  const gap = item.idealReach - item.currentReach;
+                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
+                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
+                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
+                                                   'bg-yellow-100 text-yellow-800';
+                                  
+                                  return (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
+                                        {item.campaign}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
+                                          {checkStatus}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
+                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
+                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">
+                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Digital Reach Table */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Digital Reach Analysis</h3>
+                          <div className="h-64 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {mediaSufficiencyReachData.digitalReachData.slice(0, 8).map((item, index) => {
+                                  const gap = item.idealReach - item.currentReach;
+                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
+                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
+                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
+                                                   'bg-yellow-100 text-yellow-800';
+                                  
+                                  return (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
+                                        {item.campaign}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
+                                          {checkStatus}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
+                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
+                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">
+                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* TV Reach Table */}
+                        <div className="bg-white rounded-lg shadow p-4">
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">TV Reach Analysis</h3>
+                          <div className="h-64 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {mediaSufficiencyReachData.tvReachData.slice(0, 8).map((item, index) => {
+                                  const gap = item.idealReach - item.currentReach;
+                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
+                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
+                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
+                                                   'bg-yellow-100 text-yellow-800';
+                                  
+                                  return (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
+                                        {item.campaign}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
+                                          {checkStatus}
+                                        </span>
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
+                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
+                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
+                                      </td>
+                                      <td className="px-2 py-2 text-xs text-gray-500">
+                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+
+
+                  </>
+                ) : (
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="text-center text-gray-500">
+                      <p className="mb-2">No media sufficiency data available.</p>
+                      <p className="text-sm">Upload reach planning data to see reach analysis charts.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           ) : (

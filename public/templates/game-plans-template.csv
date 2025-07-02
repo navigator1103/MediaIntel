@@ -1,0 +1,4 @@
+Year,Country,Sub Region,Cluster,Category,Range,Campaign,Business Unit,Media Type,Media Sub Type,PM Type,Burst,Start Date,End Date,Total Budget,Q1 Budget,Q2 Budget,Q3 Budget,Q4 Budget,TRPs,Reach 1+,Reach 3+,Total WOA,Weeks Off Air,Playbook ID
+2025,India,South Asia,Cluster 1,Face Care,Black & White,Cellular Filler,Body,TV,PM & FF,Type 1,1,2025-01-01,2025-03-31,1000000,500000,300000,100000,100000,800,75,65,12,4,PB-2025-001
+2025,India,South Asia,Cluster 1,Face Care,Deep,Cellular Lift,Face,Digital,Display,Type 2,1,2025-02-01,2025-05-31,800000,200000,400000,200000,0,600,80,70,8,2,PB-2025-002
+2025,India,South Asia,Cluster 1,Hand Body,Derma Control,Genes,Body,Digital,Other Digital,Type 1,2,2025-04-01,2025-06-30,600000,0,300000,300000,0,400,70,60,6,1,PB-2025-003

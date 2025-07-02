@@ -373,6 +373,32 @@ export class MediaSufficiencyValidator {
       }
     });
     
+    // Selected Country validation - ensure country matches what was selected in dropdown
+    this.rules.push({
+      field: 'Country',
+      type: 'consistency',
+      severity: 'critical',
+      message: 'Country does not match the selected country for this upload',
+      validate: (value, record, allRecords, masterData) => {
+        // Skip if no selected country is specified
+        if (!masterData?.selectedCountry) return true;
+        
+        if (!value) return false;
+        
+        const countryInput = value.toString().trim();
+        const selectedCountry = masterData.selectedCountry.toString().trim();
+        
+        // Case-insensitive comparison
+        const matches = countryInput.toLowerCase() === selectedCountry.toLowerCase();
+        
+        if (!matches) {
+          console.log(`Country mismatch: Expected "${selectedCountry}" but found "${countryInput}"`);
+        }
+        
+        return matches;
+      }
+    });
+    
     // Sub Region to Country mapping validation
     this.rules.push({
       field: 'Country',

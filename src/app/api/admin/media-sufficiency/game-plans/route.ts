@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
           // @ts-ignore - Handle the case where category might not be in the type yet
           category: true
         })
+      },
+      orderBy: {
+        id: 'desc'
       }
     });
 
@@ -73,6 +76,7 @@ export async function PUT(request: NextRequest) {
       // Exclude nested objects and relations
       const {
         id,
+        burst,
         startDate,
         endDate,
         totalBudget,
@@ -80,6 +84,13 @@ export async function PUT(request: NextRequest) {
         q2Budget,
         q3Budget,
         q4Budget,
+        trps,
+        reach1Plus,
+        reach3Plus,
+        totalWoa,
+        weeksOffAir,
+        year,
+        playbook_id,
         // Add other editable fields here
       } = plan;
       
@@ -89,6 +100,7 @@ export async function PUT(request: NextRequest) {
         const updatedPlan = await prisma.gamePlan.update({
           where: { id },
           data: {
+            burst,
             startDate,
             endDate,
             totalBudget,
@@ -96,6 +108,13 @@ export async function PUT(request: NextRequest) {
             q2Budget,
             q3Budget,
             q4Budget,
+            trps,
+            reach1Plus,
+            reach3Plus,
+            totalWoa,
+            weeksOffAir,
+            year,
+            playbook_id,
             // Add other editable fields here
           },
         });

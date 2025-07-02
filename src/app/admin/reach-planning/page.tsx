@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FiBarChart, FiUpload, FiDatabase, FiFileText, FiArrowLeft, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiBarChart, FiUpload, FiDatabase, FiFileText, FiArrowLeft, FiCheckCircle, FiAlertCircle, FiDownload } from 'react-icons/fi';
 import ReachPlanningUpload from '@/components/reach-planning/ReachPlanningUpload';
 import ReachPlanningGrid from '@/components/reach-planning/ReachPlanningGrid';
 
@@ -17,10 +17,36 @@ interface SessionSummary {
   };
 }
 
+interface Country {
+  id: number;
+  name: string;
+  code: string;
+}
+
+interface LastUpdate {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function ReachPlanningPage() {
   const [currentSession, setCurrentSession] = useState<string | null>(null);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('export');
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [loadingCountries, setLoadingCountries] = useState(false);
+  const [lastUpdates, setLastUpdates] = useState<LastUpdate[]>([]);
+  const [selectedLastUpdateId, setSelectedLastUpdateId] = useState<string>('');
+  const [loadingLastUpdates, setLoadingLastUpdates] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // Load countries and last updates on component mount since default tab is 'export'
+  React.useEffect(() => {
+    loadCountries();
+    loadLastUpdates();
+  }, []);
 
   const handleUploadComplete = (sessionId: string) => {
     setCurrentSession(sessionId);
@@ -39,7 +65,113 @@ export default function ReachPlanningPage() {
   const resetSession = () => {
     setCurrentSession(null);
     setSessionSummary(null);
-    setActiveTab('upload');
+    setActiveTab('export');
+  };
+
+  const loadCountries = async () => {
+    if (countries.length > 0) return; // Already loaded
+    
+    try {
+      setLoadingCountries(true);
+      const response = await fetch('/api/admin/reach-planning/countries');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to fetch countries');
+      }
+      
+      const countriesData = await response.json();
+      setCountries(countriesData);
+    } catch (error) {
+      console.error('Error loading countries:', error);
+      alert(`Error loading countries: ${error.message}`);
+    } finally {
+      setLoadingCountries(false);
+    }
+  };
+
+  const loadLastUpdates = async () => {
+    if (lastUpdates.length > 0) return; // Already loaded
+    
+    try {
+      setLoadingLastUpdates(true);
+      const response = await fetch('/api/admin/media-sufficiency/last-updates');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch financial cycles');
+      }
+      
+      const lastUpdatesData = await response.json();
+      setLastUpdates(lastUpdatesData);
+    } catch (error) {
+      console.error('Error loading financial cycles:', error);
+      alert(`Error loading financial cycles: ${error.message}`);
+    } finally {
+      setLoadingLastUpdates(false);
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === 'export') {
+      loadCountries();
+      loadLastUpdates();
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedCountry) {
+      alert('Please select a country first');
+      return;
+    }
+    
+    if (!selectedLastUpdateId) {
+      alert('Please select a financial cycle first');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const response = await fetch('/api/admin/reach-planning/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          countryId: selectedCountry,
+          lastUpdateId: selectedLastUpdateId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Export failed');
+      }
+
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('content-disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : 'media-sufficiency-export.csv';
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(`Export failed: ${error.message}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -50,10 +182,10 @@ export default function ReachPlanningPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Reach Planning Import
+                Media Sufficiency Import
               </h1>
               <p className="text-gray-600">
-                Import and validate reach planning data for media sufficiency analysis
+                Import and validate media sufficiency data for campaign analysis
               </p>
             </div>
             
@@ -119,18 +251,35 @@ export default function ReachPlanningPage() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex">
               <button
-                onClick={() => setActiveTab('upload')}
+                onClick={() => handleTabChange('export')}
+                className={`flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm ${
+                  activeTab === 'export'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="inline-flex items-center">
+                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full mr-2">1</span>
+                  <FiDownload className="h-4 w-4 mr-2" />
+                  Export Template
+                </span>
+              </button>
+              <button
+                onClick={() => handleTabChange('upload')}
                 className={`flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm ${
                   activeTab === 'upload'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <FiUpload className="h-4 w-4 inline mr-2" />
-                Upload
+                <span className="inline-flex items-center">
+                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full mr-2">2</span>
+                  <FiUpload className="h-4 w-4 mr-2" />
+                  Upload Data
+                </span>
               </button>
               <button
-                onClick={() => setActiveTab('validation')}
+                onClick={() => handleTabChange('validation')}
                 disabled={!currentSession}
                 className={`flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm ${
                   activeTab === 'validation' && currentSession
@@ -138,11 +287,14 @@ export default function ReachPlanningPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } ${!currentSession ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <FiBarChart className="h-4 w-4 inline mr-2" />
-                Validation
+                <span className="inline-flex items-center">
+                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full mr-2">3</span>
+                  <FiBarChart className="h-4 w-4 mr-2" />
+                  Validate & Import
+                </span>
               </button>
               <button
-                onClick={() => setActiveTab('database')}
+                onClick={() => handleTabChange('database')}
                 className={`flex-1 py-4 px-6 text-center border-b-2 font-medium text-sm ${
                   activeTab === 'database'
                     ? 'border-blue-500 text-blue-600'
@@ -169,8 +321,8 @@ export default function ReachPlanningPage() {
                   <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h3 className="text-lg font-medium text-gray-900">Upload Instructions</h3>
                     <a
-                      href="/templates/reach-planning-template.csv"
-                      download="reach-planning-template.csv"
+                      href="/templates/media-sufficiency-import-template.csv"
+                      download="media-sufficiency-import-template.csv"
                       className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                     >
                       <FiFileText className="h-4 w-4 mr-2" />
@@ -217,14 +369,106 @@ export default function ReachPlanningPage() {
                       <ul className="text-sm text-blue-800 space-y-1">
                         <li>• <strong>Text fields:</strong> Must contain text, not just numbers</li>
                         <li>• <strong>Numeric fields:</strong> Must be valid numbers (commas allowed)</li>
-                        <li>• <strong>Percentage fields:</strong> 0-100% or 0-1 decimal format</li>
-                        <li>• <strong>Date fields:</strong> DD/MM/YYYY, DD-MM-YYYY, or YYYY-MM-DD formats</li>
-                        <li>• <strong>Reach Level:</strong> Must be Sufficient, Moderate, Low, or Insufficient</li>
+                        <li>• <strong>Percentage fields:</strong> 0-100% or 0-1 decimal format (includes Reach Level Check fields)</li>
+                        <li>• <strong>Reach Level Check fields:</strong> Should contain percentages (e.g., "1%", "6%", "3%")</li>
                         <li>• <strong>Media compatibility:</strong> Media Sub Type must match Media type</li>
-                        <li>• <strong>Date range:</strong> End Date must be after Start Date</li>
                         <li>• <strong>Database validation:</strong> Country, Category, Range, Campaign, and Media values must exist in database</li>
                         <li>• <strong>Relationship validation:</strong> Ranges must be compatible with Categories, Campaigns with Ranges, etc.</li>
                       </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export Tab */}
+            {activeTab === 'export' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                      <FiDownload className="h-5 w-5 mr-2" />
+                      Export Pre-filled Template
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                      <h4 className="font-medium mb-2 text-blue-900">How it works</h4>
+                      <p className="text-sm text-blue-800">
+                        Export a Media Sufficiency template pre-filled with campaign data from your Game Plans. 
+                        The template will include all campaign structures (Country, Category, Range, Campaign) 
+                        but you'll need to fill in the reach metrics manually.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Financial Cycle
+                        </label>
+                        {loadingLastUpdates ? (
+                          <div className="flex items-center px-3 py-2 border border-gray-300 rounded-md">
+                            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
+                            <span className="text-sm text-gray-500">Loading financial cycles...</span>
+                          </div>
+                        ) : (
+                          <select 
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            value={selectedLastUpdateId}
+                            onChange={(e) => setSelectedLastUpdateId(e.target.value)}
+                          >
+                            <option value="">Choose a financial cycle...</option>
+                            {lastUpdates.map((update) => (
+                              <option key={update.id} value={update.id.toString()}>
+                                {update.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Select Country
+                        </label>
+                        {loadingCountries ? (
+                          <div className="flex items-center px-3 py-2 border border-gray-300 rounded-md">
+                            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
+                            <span className="text-sm text-gray-500">Loading countries...</span>
+                          </div>
+                        ) : (
+                          <select 
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            value={selectedCountry}
+                            onChange={(e) => setSelectedCountry(e.target.value)}
+                          >
+                            <option value="">Choose a country...</option>
+                            {countries.map((country) => (
+                              <option key={country.id} value={country.id.toString()}>
+                                {country.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      
+                      <button 
+                        onClick={handleExport}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!selectedCountry || !selectedLastUpdateId || exporting}
+                      >
+                        {exporting ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <FiDownload className="h-4 w-4 mr-2" />
+                            Export Pre-filled Template
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -246,10 +490,10 @@ export default function ReachPlanningPage() {
                       Upload a CSV file to view validation results and data preview.
                     </p>
                     <button
-                      onClick={() => setActiveTab('upload')}
+                      onClick={() => handleTabChange('upload')}
                       className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                     >
-                      Go to Upload
+                      Go to Step 2 - Upload Data
                     </button>
                   </div>
                 )}
@@ -277,7 +521,7 @@ export default function ReachPlanningPage() {
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">31</div>
+                          <div className="text-2xl font-bold text-gray-900">34</div>
                           <div className="text-sm text-gray-500">Total Fields</div>
                         </div>
                         <div className="text-center">

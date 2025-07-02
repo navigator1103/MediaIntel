@@ -67,14 +67,27 @@ export async function POST(request: NextRequest) {
     let fileContent: string;
     let fileName: string;
     
+    let lastUpdateId: string | null = null;
+    let countryId: string | null = null;
+    
     // Handle file upload
     if (contentType.includes('multipart/form-data')) {
       console.log('Processing multipart form data upload');
       const formData = await request.formData();
       const file = formData.get('file') as File;
+      lastUpdateId = formData.get('lastUpdateId') as string;
+      countryId = formData.get('countryId') as string;
       
       if (!file) {
         return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+      }
+      
+      if (!lastUpdateId) {
+        return NextResponse.json({ error: 'Financial cycle is required' }, { status: 400 });
+      }
+      
+      if (!countryId) {
+        return NextResponse.json({ error: 'Country is required' }, { status: 400 });
       }
       
       fileName = file.name;
@@ -154,7 +167,9 @@ export async function POST(request: NextRequest) {
       expectedFields: EXPECTED_FIELDS,
       records: records.slice(0, 100), // Store first 100 records for preview
       status: 'uploaded',
-      fileSize: fileContent.length
+      fileSize: fileContent.length,
+      lastUpdateId: parseInt(lastUpdateId || '0'),
+      countryId: parseInt(countryId || '0')
     };
     
     // Save session data

@@ -2,8 +2,150 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import path from 'path';
+import { MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
+import { PrismaClient } from '@prisma/client';
 
 // We'll use temporary file storage for upload sessions
+
+// Function to fetch master data from database
+async function fetchMasterDataFromDatabase() {
+  const prisma = new PrismaClient();
+  try {
+    const [
+      countries,
+      subRegions,
+      categories,
+      ranges,
+      categoryToRangeRelations,
+      mediaTypes,
+      mediaSubTypes,
+      campaigns,
+      pmTypes
+    ] = await Promise.all([
+      prisma.country.findMany({
+        include: {
+          subRegion: true
+        }
+      }),
+      prisma.subRegion.findMany(),
+      prisma.category.findMany(),
+      prisma.range.findMany(),
+      prisma.categoryToRange.findMany({
+        include: {
+          category: true,
+          range: true
+        }
+      }),
+      prisma.mediaType.findMany(),
+      prisma.mediaSubType.findMany({
+        include: {
+          mediaType: true
+        }
+      }),
+      prisma.campaign.findMany({
+        include: {
+          range: true
+        }
+      }),
+      prisma.pMType.findMany()
+    ]);
+
+    // Build category-range mappings
+    const categoryToRanges: Record<string, string[]> = {};
+    const rangeToCategories: Record<string, string[]> = {};
+    
+    categoryToRangeRelations.forEach(relation => {
+      const categoryName = relation.category.name;
+      const rangeName = relation.range.name;
+      
+      if (!categoryToRanges[categoryName]) {
+        categoryToRanges[categoryName] = [];
+      }
+      if (!categoryToRanges[categoryName].includes(rangeName)) {
+        categoryToRanges[categoryName].push(rangeName);
+      }
+      
+      if (!rangeToCategories[rangeName]) {
+        rangeToCategories[rangeName] = [];
+      }
+      if (!rangeToCategories[rangeName].includes(categoryName)) {
+        rangeToCategories[rangeName].push(categoryName);
+      }
+    });
+
+    // Build campaign-range mappings
+    const campaignToRangeMap: Record<string, string> = {};
+    campaigns.forEach(campaign => {
+      if (campaign.range) {
+        campaignToRangeMap[campaign.name] = campaign.range.name;
+      }
+    });
+
+    // Build media type to subtypes mapping
+    const mediaToSubtypes: Record<string, string[]> = {};
+    
+    mediaSubTypes.forEach(subType => {
+      if (subType.mediaType) {
+        const mediaTypeName = subType.mediaType.name;
+        
+        if (!mediaToSubtypes[mediaTypeName]) {
+          mediaToSubtypes[mediaTypeName] = [];
+        }
+        if (!mediaToSubtypes[mediaTypeName].includes(subType.name)) {
+          mediaToSubtypes[mediaTypeName].push(subType.name);
+        }
+      }
+    });
+
+    // Build country to sub-region mappings
+    const countryToSubRegionMap: Record<string, string> = {};
+    const subRegionToCountriesMap: Record<string, string[]> = {};
+    
+    countries.forEach(country => {
+      if (country.subRegion) {
+        countryToSubRegionMap[country.name] = country.subRegion.name;
+        
+        if (!subRegionToCountriesMap[country.subRegion.name]) {
+          subRegionToCountriesMap[country.subRegion.name] = [];
+        }
+        subRegionToCountriesMap[country.subRegion.name].push(country.name);
+      }
+    });
+
+    // Create a combined list of countries and sub-regions for validation
+    // This allows ASEAN and AME to be valid values in the Country field
+    const countriesAndSubRegions = [
+      ...countries.map(c => c.name),
+      ...subRegions.map(sr => sr.name)
+    ];
+
+    const masterData = {
+      countries: countriesAndSubRegions, // Include both countries and sub-regions
+      subRegions: subRegions.map(sr => sr.name),
+      countryToSubRegionMap,
+      subRegionToCountriesMap,
+      categories: categories.map(c => c.name),
+      ranges: ranges.map(r => r.name),
+      categoryToRanges,
+      rangeToCategories,
+      campaigns: campaigns.map(c => c.name),
+      campaignToRangeMap,
+      mediaTypes: mediaTypes.map(mt => mt.name),
+      mediaSubTypes: mediaSubTypes.map(mst => mst.name),
+      mediaToSubtypes,
+      pmTypes: pmTypes.map(pt => pt.name),
+      records: []
+    };
+
+    return masterData;
+    
+  } catch (error) {
+    console.error('Error fetching master data from database:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
 
 export async function POST(request: NextRequest) {
   console.log('POST request received at /api/admin/media-sufficiency/upload');
@@ -98,7 +240,8 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         data: {
           masterData,
-          records
+          records,
+          processedRecords: records
         }
       };
       
@@ -265,7 +408,10 @@ export async function POST(request: NextRequest) {
       country: country, // Store the selected country
       data: {
         records,
-        masterData
+        processedRecords: records, // Keep original records for validation display
+        masterData,
+        validationIssues: [],
+        validationSummary: { total: 0, critical: 0, warning: 0, suggestion: 0 }
       },
       createdAt: new Date().toISOString()
     };
@@ -446,16 +592,69 @@ export async function GET(request: NextRequest) {
     const endTime = Date.now();
     console.log(`GET request processed successfully in ${(endTime - startTime) / 1000} seconds`);
     
-    // Return session metadata without the full records
-    return NextResponse.json({
-      sessionId,
-      fileName: session.fileName,
-      fileSize: session.fileSize,
-      recordCount: session.recordCount,
-      createdAt: session.createdAt,
-      status: session.status,
-      masterData: summarizeMasterData(session.data.masterData)
-    });
+    // Check if full data is requested
+    const includeRecords = searchParams.get('includeRecords') === 'true';
+    
+    if (includeRecords) {
+      // Run validation if not already done
+      let validationIssues = session.data?.validationIssues || [];
+      let validationSummary = session.data?.validationSummary || { total: 0, critical: 0, warning: 0, suggestion: 0 };
+      
+      // Check if validation needs to be run
+      if (!session.data?.validationIssues || session.data.validationIssues.length === 0) {
+        try {
+          console.log('Running validation on session data...');
+          
+          // Fetch real master data from database
+          const masterData = await fetchMasterDataFromDatabase();
+          
+          // Add the selected country to master data for validation
+          masterData.selectedCountry = session.country;
+          
+          // Create validator and run validation
+          const validator = new MediaSufficiencyValidator(masterData);
+          validationIssues = await validator.validateAll(session.data?.records || []);
+          validationSummary = validator.getValidationSummary(validationIssues);
+          
+          // Update session with validation results
+          session.data.validationIssues = validationIssues;
+          session.data.validationSummary = validationSummary;
+          
+          // Save updated session
+          fs.writeFileSync(sessionFilePath, JSON.stringify(session, null, 2), 'utf8');
+          
+          console.log(`Validation completed: ${validationIssues.length} issues found`);
+        } catch (validationError) {
+          console.error('Error during validation:', validationError);
+        }
+      }
+      
+      // Return full session data including records for validation preview
+      return NextResponse.json({
+        sessionId,
+        fileName: session.fileName,
+        fileSize: session.fileSize,
+        recordCount: session.recordCount,
+        createdAt: session.createdAt,
+        status: session.status,
+        totalRecords: session.recordCount,
+        records: session.data?.processedRecords || session.data?.records || [],
+        validationIssues: validationIssues,
+        validationSummary: validationSummary,
+        masterData: summarizeMasterData(session.data.masterData)
+      });
+    } else {
+      // Return session metadata without the full records
+      return NextResponse.json({
+        sessionId,
+        fileName: session.fileName,
+        fileSize: session.fileSize,
+        recordCount: session.recordCount,
+        createdAt: session.createdAt,
+        status: session.status,
+        masterData: summarizeMasterData(session.data.masterData)
+      });
+    }
   } catch (error) {
     const endTime = Date.now();
     console.error(`Error retrieving session data after ${(endTime - startTime) / 1000} seconds:`, error);

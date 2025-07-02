@@ -41,6 +41,8 @@ export function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith('/api/seed-taxonomy') ||
       request.nextUrl.pathname.startsWith('/api/media-sufficiency') ||
       request.nextUrl.pathname.startsWith('/api/admin/media-sufficiency') ||
+      request.nextUrl.pathname.startsWith('/api/admin/reach-planning') ||
+      request.nextUrl.pathname.startsWith('/api/admin/backups') ||
       request.nextUrl.pathname.startsWith('/api/debug/db-test')) {
     console.log('API route detected, allowing access without authentication');
     return NextResponse.next();

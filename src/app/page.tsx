@@ -16,29 +16,28 @@ export default function Home() {
         const userStr = localStorage.getItem('user');
         if (!userStr) {
           setIsRedirecting(true);
-          router.push('/login');
+          router.replace('/login');
           return;
         }
 
         const user = JSON.parse(userStr);
         setIsRedirecting(true);
         
-        // Single redirect based on role - no duplicate auth checks
+        // Single redirect based on role - use replace to avoid back button issues
         if (user.role === 'admin') {
-          router.push('/admin');
+          router.replace('/admin');
         } else {
-          router.push('/dashboard/media-sufficiency');
+          router.replace('/dashboard/media-sufficiency');
         }
       } catch (error) {
         console.error('Error parsing user data:', error);
         setIsRedirecting(true);
-        router.push('/login');
+        router.replace('/login');
       }
     };
 
-    // Small delay to prevent hydration issues
-    const timer = setTimeout(checkAuth, 100);
-    return () => clearTimeout(timer);
+    // Immediate check without delay to reduce perceived loading time
+    checkAuth();
   }, [router, isRedirecting]);
 
   return (

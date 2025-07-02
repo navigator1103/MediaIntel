@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp } from 'react-icons/fi';
+import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -64,7 +64,10 @@ export default function AdminDashboard() {
       '/admin/users',
       '/admin/media-sufficiency',
       '/admin/media-sufficiency/enhanced-upload',
-      '/admin/media-sufficiency/game-plans'
+      '/admin/media-sufficiency/game-plans',
+      '/admin/backups',
+      '/admin/game-plans/upload',
+      '/admin/reach-planning'
     ];
     
     if (implementedPages.includes(path)) {
@@ -157,7 +160,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <FiUploadCloud className="mr-2 text-indigo-600" />
@@ -183,6 +186,20 @@ export default function AdminDashboard() {
               onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
             >
               Manage Plans
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiHardDrive className="mr-2 text-purple-600" />
+              Backups
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">View and restore game plan backups</p>
+            <button 
+              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              onClick={() => handleNavigate('/admin/backups')}
+            >
+              Manage Backups
             </button>
           </div>
 

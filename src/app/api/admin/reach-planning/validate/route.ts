@@ -40,11 +40,7 @@ const FIELD_MAPPING = {
   'Combined Ideal Reach': 'combinedIdealReach',
   'Digital Reach Level Check': 'digitalReachLevelCheck',
   'TV Reach Level Check': 'tvReachLevelCheck',
-  'Combined Reach Level Check': 'combinedReachLevelCheck',
-  'Start Date': 'startDate',
-  'End Date': 'endDate',
-  'Media': 'media',
-  'Media Sub Type': 'mediaSubType'
+  'Combined Reach Level Check': 'combinedReachLevelCheck'
 };
 
 // Required fields for validation
@@ -71,7 +67,6 @@ const FIELD_VALIDATIONS = {
   stringFields: [
     'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
     'Franchise NS', 'Campaign Socio-Demo Target', 'TV Copy Length', 'Digital Target',
-    'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check',
     'Media', 'Media Sub Type'
   ],
   
@@ -84,19 +79,229 @@ const FIELD_VALIDATIONS = {
   // Percentage fields - should be 0-100% or 0-1 decimal
   percentageFields: [
     'TV R1+', 'TV R3+', 'TV Ideal Reach', 'Digital R1+', 'Digital R3+', 'Digital Ideal Reach',
-    'Planned Combined Reach', 'Combined Ideal Reach'
+    'Planned Combined Reach', 'Combined Ideal Reach', 'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check'
   ],
   
   // Date fields - should be valid dates
   dateFields: ['Start Date', 'End Date'],
   
-  // Enum/Choice fields with allowed values
+  // Enum/Choice fields with allowed values (removed reach level fields as they are now percentage fields)
   reachLevelFields: {
-    'Digital Reach Level Check': ['Sufficient', 'Moderate', 'Low', 'Insufficient'],
-    'TV Reach Level Check': ['Sufficient', 'Moderate', 'Low', 'Insufficient'],
-    'Combined Reach Level Check': ['Sufficient', 'Moderate', 'Low', 'Insufficient']
+    // Reach level fields moved to percentage validation
   }
 };
+
+// TV fields that must be validated against game plans
+const TV_FIELDS = [
+  'TV Copy Length',
+  'TV Target Size',
+  'TV R1+', 
+  'TV R3+',
+  'TV Ideal Reach',
+  'CPP 2024',
+  'CPP 2025'
+];
+
+// Digital fields that must be validated against game plans
+const DIGITAL_FIELDS = [
+  'Digital Target Size',
+  'Digital R1+',
+  'Digital Ideal Reach'
+];
+
+// Cross-reference validation against game plans
+async function validateAgainstGamePlans(
+  records: any[], 
+  countryId: number, 
+  lastUpdateId: number
+): Promise<ValidationIssue[]> {
+  const issues: ValidationIssue[] = [];
+  
+  try {
+    // Get all game plans for this country + financial cycle
+    const gamePlans = await prisma.gamePlan.findMany({
+      where: {
+        countryId: countryId,
+        last_update_id: lastUpdateId
+      },
+      include: {
+        campaign: true,
+        mediaSubType: {
+          include: {
+            mediaType: true
+          }
+        }
+      }
+    });
+
+    // Group game plans by campaign and check media types
+    const campaignMediaTypes = new Map<string, Set<string>>();
+    
+    gamePlans.forEach(plan => {
+      const campaignName = plan.campaign?.name;
+      const mediaType = plan.mediaSubType?.mediaType?.name;
+      
+      if (campaignName && mediaType) {
+        if (!campaignMediaTypes.has(campaignName)) {
+          campaignMediaTypes.set(campaignName, new Set());
+        }
+        campaignMediaTypes.get(campaignName)!.add(mediaType);
+      }
+    });
+
+    console.log('Campaign media types found in game plans:', Array.from(campaignMediaTypes.entries()));
+
+    // Validate each record against game plans
+    records.forEach((record, rowIndex) => {
+      const campaignName = record['Campaign'];
+      
+      if (!campaignName) {
+        return; // Skip if no campaign name
+      }
+
+      const mediaTypes = campaignMediaTypes.get(campaignName);
+      
+      if (!mediaTypes) {
+        // No game plans found for this campaign
+        issues.push({
+          rowIndex,
+          columnName: 'Campaign',
+          severity: 'warning',
+          message: `No game plans found for campaign "${campaignName}" in this country/financial cycle. Please verify campaign name.`,
+          currentValue: campaignName
+        });
+        return;
+      }
+
+      const hasTvMedia = mediaTypes.has('TV');
+      const hasDigitalMedia = mediaTypes.has('Digital');
+      console.log(`Campaign "${campaignName}" has TV media: ${hasTvMedia}, Digital media: ${hasDigitalMedia}, Media types: ${Array.from(mediaTypes)}`);
+
+      // Check TV fields validation
+      TV_FIELDS.forEach(fieldName => {
+        const fieldValue = record[fieldName];
+        const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+
+        if (hasTvMedia && !hasValue) {
+          // Campaign has TV media in game plans but TV field is empty
+          issues.push({
+            rowIndex,
+            columnName: fieldName,
+            severity: 'critical',
+            message: `${fieldName} is required because campaign "${campaignName}" has TV media in game plans for this country/financial cycle.`,
+            currentValue: fieldValue || ''
+          });
+        } else if (!hasTvMedia && hasValue) {
+          // Campaign has NO TV media in game plans but TV field has value
+          issues.push({
+            rowIndex,
+            columnName: fieldName,
+            severity: 'warning',
+            message: `${fieldName} should be empty because campaign "${campaignName}" has no TV media in game plans for this country/financial cycle.`,
+            currentValue: fieldValue
+          });
+        }
+      });
+
+      // Check Digital fields validation
+      DIGITAL_FIELDS.forEach(fieldName => {
+        const fieldValue = record[fieldName];
+        const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+
+        if (hasDigitalMedia && !hasValue) {
+          // Campaign has Digital media in game plans but Digital field is empty
+          issues.push({
+            rowIndex,
+            columnName: fieldName,
+            severity: 'critical',
+            message: `${fieldName} is required because campaign "${campaignName}" has Digital media in game plans for this country/financial cycle.`,
+            currentValue: fieldValue || ''
+          });
+        } else if (!hasDigitalMedia && hasValue) {
+          // Campaign has NO Digital media in game plans but Digital field has value
+          issues.push({
+            rowIndex,
+            columnName: fieldName,
+            severity: 'warning',
+            message: `${fieldName} should be empty because campaign "${campaignName}" has no Digital media in game plans for this country/financial cycle.`,
+            currentValue: fieldValue
+          });
+        }
+      });
+
+      // Additional validation for campaigns with both TV and Digital media
+      if (hasTvMedia && hasDigitalMedia) {
+        // Both TV and Digital fields should be filled
+        const allRequiredFields = [...TV_FIELDS, ...DIGITAL_FIELDS];
+        allRequiredFields.forEach(fieldName => {
+          const fieldValue = record[fieldName];
+          const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+          
+          if (!hasValue) {
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'critical',
+              message: `${fieldName} is required because campaign "${campaignName}" has both TV and Digital media in game plans for this country/financial cycle.`,
+              currentValue: fieldValue || ''
+            });
+          }
+        });
+      }
+
+      // Combined reach validation - only required when both TV and Digital reach values are present
+      const tvR1Plus = record['TV R1+'];
+      const digitalR1Plus = record['Digital R1+'];
+      const plannedCombinedReach = record['Planned Combined Reach'];
+      
+      const hasTvR1Plus = tvR1Plus && tvR1Plus.toString().trim() !== '';
+      const hasDigitalR1Plus = digitalR1Plus && digitalR1Plus.toString().trim() !== '';
+      const hasPlannedCombinedReach = plannedCombinedReach && plannedCombinedReach.toString().trim() !== '';
+
+      if (hasTvR1Plus && hasDigitalR1Plus && !hasPlannedCombinedReach) {
+        issues.push({
+          rowIndex,
+          columnName: 'Planned Combined Reach',
+          severity: 'critical',
+          message: 'Planned Combined Reach is required when both TV R1+ and Digital R1+ have values.',
+          currentValue: plannedCombinedReach || ''
+        });
+      }
+
+      // Combined ideal reach validation - only required when both TV and Digital ideal reach values are present
+      const tvIdealReach = record['TV Ideal Reach'];
+      const digitalIdealReach = record['Digital Ideal Reach'];
+      const combinedIdealReach = record['Combined Ideal Reach'];
+      
+      const hasTvIdealReach = tvIdealReach && tvIdealReach.toString().trim() !== '';
+      const hasDigitalIdealReach = digitalIdealReach && digitalIdealReach.toString().trim() !== '';
+      const hasCombinedIdealReach = combinedIdealReach && combinedIdealReach.toString().trim() !== '';
+
+      if (hasTvIdealReach && hasDigitalIdealReach && !hasCombinedIdealReach) {
+        issues.push({
+          rowIndex,
+          columnName: 'Combined Ideal Reach',
+          severity: 'critical',
+          message: 'Combined Ideal Reach is required when both TV Ideal Reach and Digital Ideal Reach have values.',
+          currentValue: combinedIdealReach || ''
+        });
+      }
+
+    });
+
+  } catch (error) {
+    console.error('Error in cross-reference validation:', error);
+    issues.push({
+      rowIndex: 0,
+      columnName: 'General',
+      severity: 'warning',
+      message: 'Unable to perform cross-reference validation against game plans. Please check manually.',
+      currentValue: ''
+    });
+  }
+
+  return issues;
+}
 
 function isValidNumber(value: any): boolean {
   if (!value || value === '') return true; // Empty is allowed for optional fields
@@ -104,18 +309,24 @@ function isValidNumber(value: any): boolean {
   return !isNaN(numValue) && isFinite(numValue);
 }
 
-function isValidPercentage(value: any): boolean {
+function isValidPercentage(value: any, allowNegative: boolean = false): boolean {
   if (!value || value === '') return true; // Empty is allowed for optional fields
   const strValue = value.toString().trim();
   
   // Handle percentage with % symbol
   if (strValue.includes('%')) {
     const numValue = parseFloat(strValue.replace('%', ''));
+    if (allowNegative) {
+      return !isNaN(numValue) && numValue >= -100 && numValue <= 100;
+    }
     return !isNaN(numValue) && numValue >= 0 && numValue <= 100;
   }
   
   // Handle decimal percentage (0-1)
   const numValue = parseFloat(strValue);
+  if (allowNegative) {
+    return !isNaN(numValue) && numValue >= -1 && numValue <= 1;
+  }
   return !isNaN(numValue) && numValue >= 0 && numValue <= 1;
 }
 
@@ -173,16 +384,22 @@ function isValidDate(value: any): boolean {
   return date instanceof Date && !isNaN(date.getTime());
 }
 
-function isValidString(value: any): boolean {
+function isValidString(value: any, fieldName?: string): boolean {
   if (!value || value === '') return true; // Empty is allowed for optional fields
   const strValue = value.toString().trim();
   
-  // Check if it's a pure number (which should be invalid for string fields)
+  // Special handling for TV Copy Length - allows values like "30\"", "20\" 10\""
+  if (fieldName === 'TV Copy Length') {
+    // Allow numbers, quotes, spaces for TV copy length (e.g., "30\"", "20\" 10\"")
+    return /^[0-9\s\"\\]+$/.test(strValue);
+  }
+  
+  // Check if it's a pure number (which should be invalid for most string fields)
   if (/^\d+(\.\d+)?$/.test(strValue)) {
     return false;
   }
   
-  // Must contain at least one letter for text fields
+  // Must contain at least one letter for most text fields
   if (!/[a-zA-Z]/.test(strValue)) {
     return false;
   }
@@ -212,20 +429,28 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   if (masterData) {
     // Validate Country exists in database
     const country = record['Country'];
-    if (country && masterData.countries && !masterData.countries.includes(country.toString().trim())) {
-      issues.push({
-        rowIndex: index,
-        columnName: 'Country',
-        severity: 'critical',
-        message: `Country "${country}" does not exist in the database`,
-        currentValue: country
-      });
+    if (country && masterData.countries) {
+      const countryLower = country.toString().trim().toLowerCase();
+      const countryExists = masterData.countries.some(c => c.toLowerCase() === countryLower);
+      if (!countryExists) {
+        issues.push({
+          rowIndex: index,
+          columnName: 'Country',
+          severity: 'critical',
+          message: `Country "${country}" does not exist in the database`,
+          currentValue: country
+        });
+      }
     }
 
     // Validate Sub Region exists and matches Country
     const subRegion = record['Sub Region'];
     if (subRegion && country) {
-      if (masterData.subRegions && !masterData.subRegions.includes(subRegion.toString().trim())) {
+      // Case-insensitive check for sub region existence
+      const subRegionLower = subRegion.toString().trim().toLowerCase();
+      const subRegionExists = masterData.subRegions && masterData.subRegions.some(sr => sr.toLowerCase() === subRegionLower);
+      
+      if (masterData.subRegions && !subRegionExists) {
         issues.push({
           rowIndex: index,
           columnName: 'Sub Region',
@@ -235,7 +460,8 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         });
       } else if (masterData.countryToSubRegionMap) {
         const expectedSubRegion = masterData.countryToSubRegionMap[country.toString().trim()];
-        if (expectedSubRegion && expectedSubRegion !== subRegion.toString().trim()) {
+        // Case-insensitive comparison for sub region matching
+        if (expectedSubRegion && expectedSubRegion.toLowerCase() !== subRegion.toString().trim().toLowerCase()) {
           issues.push({
             rowIndex: index,
             columnName: 'Sub Region',
@@ -247,22 +473,44 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
       }
     }
 
+    // Validate BU exists in database
+    const bu = record['BU'];
+    if (bu && masterData.businessUnits) {
+      const buLower = bu.toString().trim().toLowerCase();
+      const buExists = masterData.businessUnits.some(b => b?.toLowerCase() === buLower);
+      if (!buExists) {
+        issues.push({
+          rowIndex: index,
+          columnName: 'BU',
+          severity: 'critical',
+          message: `BU "${bu}" does not exist in the database`,
+          currentValue: bu
+        });
+      }
+    }
+
     // Validate Category exists in database
     const category = record['Category'];
-    if (category && masterData.categories && !masterData.categories.includes(category.toString().trim())) {
-      issues.push({
-        rowIndex: index,
-        columnName: 'Category',
-        severity: 'critical',
-        message: `Category "${category}" does not exist in the database`,
-        currentValue: category
-      });
+    if (category && masterData.categories) {
+      const categoryLower = category.toString().trim().toLowerCase();
+      const categoryExists = masterData.categories.some(c => c.toLowerCase() === categoryLower);
+      if (!categoryExists) {
+        issues.push({
+          rowIndex: index,
+          columnName: 'Category',
+          severity: 'critical',
+          message: `Category "${category}" does not exist in the database`,
+          currentValue: category
+        });
+      }
     }
 
     // Validate Range exists and is compatible with Category
     const range = record['Range'];
     if (range && category) {
-      if (masterData.ranges && !masterData.ranges.includes(range.toString().trim())) {
+      const rangeLower = range.toString().trim().toLowerCase();
+      const rangeExists = masterData.ranges && masterData.ranges.some(r => r.toLowerCase() === rangeLower);
+      if (masterData.ranges && !rangeExists) {
         issues.push({
           rowIndex: index,
           columnName: 'Range',
@@ -272,7 +520,8 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         });
       } else if (masterData.categoryToRanges) {
         const validRanges = masterData.categoryToRanges[category.toString().trim()] || [];
-        if (validRanges.length > 0 && !validRanges.includes(range.toString().trim())) {
+        const rangeInCategory = validRanges.some(vr => vr.toLowerCase() === rangeLower);
+        if (validRanges.length > 0 && !rangeInCategory) {
           issues.push({
             rowIndex: index,
             columnName: 'Range',
@@ -287,7 +536,9 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
     // Validate Campaign exists and is compatible with Range
     const campaign = record['Campaign'];
     if (campaign && range) {
-      if (masterData.campaigns && !masterData.campaigns.includes(campaign.toString().trim())) {
+      const campaignLower = campaign.toString().trim().toLowerCase();
+      const campaignExists = masterData.campaigns && masterData.campaigns.some(c => c.toLowerCase() === campaignLower);
+      if (masterData.campaigns && !campaignExists) {
         issues.push({
           rowIndex: index,
           columnName: 'Campaign',
@@ -297,7 +548,7 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         });
       } else if (masterData.campaignToRangeMap) {
         const expectedRange = masterData.campaignToRangeMap[campaign.toString().trim()];
-        if (expectedRange && expectedRange !== range.toString().trim()) {
+        if (expectedRange && expectedRange.toLowerCase() !== range.toString().trim().toLowerCase()) {
           issues.push({
             rowIndex: index,
             columnName: 'Campaign',
@@ -311,20 +562,26 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
 
     // Validate Media Type exists in database
     const media = record['Media'];
-    if (media && masterData.mediaTypes && !masterData.mediaTypes.includes(media.toString().trim())) {
-      issues.push({
-        rowIndex: index,
-        columnName: 'Media',
-        severity: 'critical',
-        message: `Media type "${media}" does not exist in the database`,
-        currentValue: media
-      });
+    if (media && masterData.mediaTypes) {
+      const mediaLower = media.toString().trim().toLowerCase();
+      const mediaExists = masterData.mediaTypes.some(m => m.toLowerCase() === mediaLower);
+      if (!mediaExists) {
+        issues.push({
+          rowIndex: index,
+          columnName: 'Media',
+          severity: 'critical',
+          message: `Media type "${media}" does not exist in the database`,
+          currentValue: media
+        });
+      }
     }
 
     // Validate Media Sub Type exists and is compatible with Media Type
     const mediaSubType = record['Media Sub Type'];
     if (mediaSubType && media) {
-      if (masterData.mediaSubTypes && !masterData.mediaSubTypes.includes(mediaSubType.toString().trim())) {
+      const mediaSubTypeLower = mediaSubType.toString().trim().toLowerCase();
+      const mediaSubTypeExists = masterData.mediaSubTypes && masterData.mediaSubTypes.some(mst => mst.toLowerCase() === mediaSubTypeLower);
+      if (masterData.mediaSubTypes && !mediaSubTypeExists) {
         issues.push({
           rowIndex: index,
           columnName: 'Media Sub Type',
@@ -334,7 +591,8 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         });
       } else if (masterData.mediaToSubtypes) {
         const validSubTypes = masterData.mediaToSubtypes[media.toString().trim()] || [];
-        if (validSubTypes.length > 0 && !validSubTypes.includes(mediaSubType.toString().trim())) {
+        const subTypeInMedia = validSubTypes.some(vst => vst.toLowerCase() === mediaSubTypeLower);
+        if (validSubTypes.length > 0 && !subTypeInMedia) {
           issues.push({
             rowIndex: index,
             columnName: 'Media Sub Type',
@@ -350,12 +608,12 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   // Validate string fields
   FIELD_VALIDATIONS.stringFields.forEach(field => {
     const value = record[field];
-    if (value && !isValidString(value)) {
+    if (value && !isValidString(value, field)) {
       issues.push({
         rowIndex: index,
         columnName: field,
         severity: 'critical',
-        message: `${field} must contain text, not just numbers`,
+        message: `${field} must contain valid text`,
         currentValue: value
       });
     }
@@ -403,7 +661,7 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
     }
   });
   
-  // Validate enum/choice fields
+  // Validate enum/choice fields (currently none, reach level fields moved to percentage validation)
   Object.entries(FIELD_VALIDATIONS.reachLevelFields).forEach(([field, allowedValues]) => {
     const value = record[field];
     if (value && value !== '' && !allowedValues.includes(value.toString().trim())) {
@@ -418,6 +676,38 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   });
   
   // Business logic validations
+  
+  // Franchise NS validation - only required for Derma campaigns
+  const franchiseNs = record['Franchise NS'];
+  const campaign = record['Campaign'];
+  const hasFranchiseNs = franchiseNs && franchiseNs.toString().trim() !== '';
+  
+  if (campaign) {
+    // Check if this is a Derma campaign
+    const campaignNameLower = campaign.toString().toLowerCase();
+    const isDermaCampaign = campaignNameLower.includes('derma') || 
+                            campaignNameLower.includes('eucerin') || 
+                            campaignNameLower.includes('aquaphor') ||
+                            campaignNameLower.includes('atopia');
+    
+    if (isDermaCampaign && !hasFranchiseNs) {
+      issues.push({
+        rowIndex: index,
+        columnName: 'Franchise NS',
+        severity: 'critical',
+        message: `Franchise NS (Actual or Projected) is required for Derma campaigns. Campaign "${campaign}" appears to be a Derma campaign.`,
+        currentValue: franchiseNs || ''
+      });
+    } else if (!isDermaCampaign && hasFranchiseNs) {
+      issues.push({
+        rowIndex: index,
+        columnName: 'Franchise NS',
+        severity: 'warning',
+        message: `Franchise NS (Actual or Projected) should only be filled for Derma campaigns. Campaign "${campaign}" does not appear to be a Derma campaign.`,
+        currentValue: franchiseNs
+      });
+    }
+  }
   
   // Date range validation
   const startDate = record['Start Date'];
@@ -524,7 +814,8 @@ export async function POST(request: NextRequest) {
         categoryToRangeRelations,
         mediaTypes,
         mediaSubTypes,
-        campaigns
+        campaigns,
+        businessUnits
       ] = await Promise.all([
         prisma.country.findMany({
           include: {
@@ -550,7 +841,8 @@ export async function POST(request: NextRequest) {
           include: {
             range: true
           }
-        })
+        }),
+        prisma.businessUnit.findMany()
       ]);
 
       // Build master data mappings
@@ -602,6 +894,7 @@ export async function POST(request: NextRequest) {
         campaigns: campaigns.map(c => c.name),
         mediaTypes: mediaTypes.map(mt => mt.name),
         mediaSubTypes: mediaSubTypes.map(mst => mst.name),
+        businessUnits: businessUnits.map(bu => bu.name).filter(name => name),
         countryToSubRegionMap,
         categoryToRanges,
         campaignToRangeMap,
@@ -614,13 +907,23 @@ export async function POST(request: NextRequest) {
       // Continue validation without database relationship checks
     }
     
-    // Perform validation
+    // Perform standard validation
     let allIssues: ValidationIssue[] = [];
     
     for (let index = 0; index < records.length; index++) {
       const record = records[index];
       const recordIssues = await validateRecord(record, index, masterData);
       allIssues = allIssues.concat(recordIssues);
+    }
+
+    // Add cross-reference validation against game plans
+    if (sessionData.countryId && sessionData.lastUpdateId) {
+      console.log(`Performing cross-reference validation for countryId: ${sessionData.countryId}, lastUpdateId: ${sessionData.lastUpdateId}`);
+      const gameplanValidationIssues = await validateAgainstGamePlans(records, sessionData.countryId, sessionData.lastUpdateId);
+      allIssues = allIssues.concat(gameplanValidationIssues);
+      console.log(`Cross-reference validation found ${gameplanValidationIssues.length} additional issues`);
+    } else {
+      console.log('Skipping cross-reference validation - missing countryId or lastUpdateId in session data');
     }
     
     // Create validation summary

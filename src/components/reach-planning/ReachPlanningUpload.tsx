@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FiUpload, FiFileText, FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
 
 interface UploadState {
@@ -25,6 +25,18 @@ interface ReachPlanningUploadProps {
   onValidationComplete?: (sessionId: string, summary: any) => void;
 }
 
+interface LastUpdate {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Country {
+  id: number;
+  name: string;
+}
+
 export default function ReachPlanningUpload({ 
   onUploadComplete, 
   onValidationComplete 
@@ -32,6 +44,12 @@ export default function ReachPlanningUpload({
   const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [lastUpdates, setLastUpdates] = useState<LastUpdate[]>([]);
+  const [selectedLastUpdateId, setSelectedLastUpdateId] = useState<string>('');
+  const [loadingLastUpdates, setLoadingLastUpdates] = useState(false);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [loadingCountries, setLoadingCountries] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -78,7 +96,66 @@ export default function ReachPlanningUpload({
     }
   };
 
+  // Load last updates and countries when component mounts
+  useEffect(() => {
+    loadLastUpdates();
+    loadCountries();
+  }, []);
+
+  const loadLastUpdates = async () => {
+    try {
+      setLoadingLastUpdates(true);
+      const response = await fetch('/api/admin/media-sufficiency/last-updates');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch financial cycles');
+      }
+      
+      const data = await response.json();
+      setLastUpdates(data);
+    } catch (error) {
+      console.error('Error loading financial cycles:', error);
+    } finally {
+      setLoadingLastUpdates(false);
+    }
+  };
+
+  const loadCountries = async () => {
+    try {
+      setLoadingCountries(true);
+      const response = await fetch('/api/admin/reach-planning/countries');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch countries');
+      }
+      
+      const data = await response.json();
+      setCountries(data);
+    } catch (error) {
+      console.error('Error loading countries:', error);
+    } finally {
+      setLoadingCountries(false);
+    }
+  };
+
   const validateAndUploadFile = async (file: File) => {
+    // Validate selections first
+    if (!selectedLastUpdateId) {
+      setUploadState({
+        status: 'error',
+        error: 'Please select a financial cycle first'
+      });
+      return;
+    }
+
+    if (!selectedCountry) {
+      setUploadState({
+        status: 'error',
+        error: 'Please select a country first'
+      });
+      return;
+    }
+
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setUploadState({
@@ -110,6 +187,8 @@ export default function ReachPlanningUpload({
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('lastUpdateId', selectedLastUpdateId);
+      formData.append('countryId', selectedCountry);
 
       const response = await fetch('/api/admin/reach-planning/upload', {
         method: 'POST',
@@ -238,11 +317,69 @@ export default function ReachPlanningUpload({
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <FiUpload className="h-5 w-5 mr-2" />
-            Reach Planning Data Upload
+            Media Sufficiency Data Upload
           </h3>
         </div>
         <div className="p-6">
           {uploadState.status === 'idle' && (
+            <>
+              {/* Financial Cycle Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Financial Cycle
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedLastUpdateId}
+                    onChange={(e) => setSelectedLastUpdateId(e.target.value)}
+                    disabled={loadingLastUpdates}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a financial cycle...</option>
+                    {lastUpdates.map((update) => (
+                      <option key={update.id} value={update.id.toString()}>
+                        {update.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingLastUpdates && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Country Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Country
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    disabled={loadingCountries}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a country...</option>
+                    {countries.map((country) => (
+                      <option key={country.id} value={country.id.toString()}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingCountries && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {uploadState.status === 'idle' && selectedLastUpdateId && selectedCountry && (
             <div
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
@@ -264,7 +401,7 @@ export default function ReachPlanningUpload({
               />
               <FiUpload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium mb-2">
-                {isDragging ? 'Drop the CSV file here' : 'Upload Reach Planning CSV'}
+                {isDragging ? 'Drop the CSV file here' : 'Upload Media Sufficiency CSV'}
               </p>
               <p className="text-gray-500 mb-4">
                 Drag and drop your CSV file here, or click to browse

@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
 const SESSION_PREFIX = 'reach-planning-';
 
-// Field mapping for MediaSufficiency table
+// Field mapping for MediaSufficiency table - supports both template format and actual CSV format
 const FIELD_MAPPING = {
   'Last Update': 'lastUpdate',
   'Sub Region': 'subRegion', 
@@ -17,26 +17,38 @@ const FIELD_MAPPING = {
   'Range': 'range',
   'Campaign': 'campaign',
   'Franchise NS (Actual or Projected)': 'franchiseNs',
+  'Franchise NS': 'franchiseNs', // Support actual CSV header
   'Campaign Socio-Demo Target': 'campaignSocioDemoTarget',
   'Total Country Population On Target (Abs)': 'totalCountryPopulationOnTarget',
+  'Total Country Population On Target': 'totalCountryPopulationOnTarget', // Support actual CSV header
   'TV Copy Length': 'tvCopyLength',
   'TV Target Size (Abs)': 'tvTargetSize',
+  'TV Target Size': 'tvTargetSize', // Support actual CSV header
   'WOA Open TV': 'woaOpenTv',
   'WOA Paid TV': 'woaPaidTv',
   'Total TRPs': 'totalTrps',
   'TV R1+ (Total)': 'tvR1Plus',
+  'TV R1+': 'tvR1Plus', // Support actual CSV header
   'TV R3+ (Total)': 'tvR3Plus',
+  'TV R3+': 'tvR3Plus', // Support actual CSV header
   'TV IDEAL Reach': 'tvIdealReach',
+  'TV Ideal Reach': 'tvIdealReach', // Support actual CSV header
   'CPP 2024': 'cpp2024',
   'CPP 2025': 'cpp2025',
   'Digital Target': 'digitalTarget',
   'Digital Target Size (Abs)': 'digitalTargetSize',
+  'Digital Target Size': 'digitalTargetSize', // Support actual CSV header
   'WOA PM & FF': 'woaPmFf',
+  'WOA PM FF': 'woaPmFf', // Support actual CSV header
   'WOA Influencers (Amplification)': 'woaInfluencersAmplification',
+  'WOA Influencers Amplification': 'woaInfluencersAmplification', // Support actual CSV header
   'Digital R1+ (Total)': 'digitalR1Plus',
+  'Digital R1+': 'digitalR1Plus', // Support actual CSV header
   'Digital IDEAL Reach': 'digitalIdealReach',
+  'Digital Ideal Reach': 'digitalIdealReach', // Support actual CSV header
   'Planned Combined Reach': 'plannedCombinedReach',
   'Combined IDEAL Reach': 'combinedIdealReach',
+  'Combined Ideal Reach': 'combinedIdealReach', // Support actual CSV header
   'Digital Reach Level Check': 'digitalReachLevelCheck',
   'TV Reach Level Check': 'tvReachLevelCheck',
   'Combined Reach Level Check': 'combinedReachLevelCheck'
@@ -51,10 +63,89 @@ function parseNumber(value: any): number | null {
   return isNaN(parsed) ? null : parsed;
 }
 
-function transformRecord(record: any): any {
+async function transformRecord(record: any, sessionData: any): Promise<any> {
   const transformed: any = {};
   
+  // Get the lastUpdateId and countryId from session data
+  const lastUpdateId = sessionData.lastUpdateId;
+  const countryId = sessionData.countryId;
+  
+  // Set the IDs directly
+  transformed.lastUpdateId = lastUpdateId;
+  transformed.countryId = countryId;
+  
+  // Look up sub region by name (case-insensitive using contains)
+  if (record['Sub Region']) {
+    const subRegion = await prisma.subRegion.findFirst({
+      where: {
+        name: {
+          contains: record['Sub Region'],
+        }
+      }
+    });
+    transformed.subRegionId = subRegion?.id || null;
+    transformed.subRegion = record['Sub Region']; // Keep the text value too
+  }
+  
+  // Look up category by name (case-insensitive using contains)
+  if (record['Category']) {
+    const category = await prisma.category.findFirst({
+      where: {
+        name: {
+          contains: record['Category'],
+        }
+      }
+    });
+    transformed.categoryId = category?.id || null;
+    transformed.category = record['Category'];
+  }
+  
+  // Look up range by name (case-insensitive using contains)
+  if (record['Range']) {
+    const range = await prisma.range.findFirst({
+      where: {
+        name: {
+          contains: record['Range'],
+        }
+      }
+    });
+    transformed.rangeId = range?.id || null;
+    transformed.range = record['Range'];
+  }
+  
+  // Look up campaign by name (case-insensitive using contains)
+  if (record['Campaign']) {
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        name: {
+          contains: record['Campaign'],
+        }
+      }
+    });
+    transformed.campaignId = campaign?.id || null;
+    transformed.campaign = record['Campaign'];
+  }
+  
+  // Look up BU by name (case-insensitive using contains)
+  if (record['BU']) {
+    const bu = await prisma.businessUnit.findFirst({
+      where: {
+        name: {
+          contains: record['BU'],
+        }
+      }
+    });
+    transformed.buId = bu?.id || null;
+    transformed.bu = record['BU'];
+  }
+  
+  // Map other fields
   Object.entries(FIELD_MAPPING).forEach(([csvField, dbField]) => {
+    // Skip fields we've already handled
+    if (['lastUpdate', 'subRegion', 'country', 'category', 'range', 'campaign', 'bu'].includes(dbField)) {
+      return;
+    }
+    
     const value = record[csvField];
     
     // Handle numeric fields
@@ -63,6 +154,20 @@ function transformRecord(record: any): any {
     } else {
       // Handle string fields - convert empty strings to null
       transformed[dbField] = value && value.toString().trim() !== '' ? value.toString().trim() : null;
+    }
+  });
+  
+  // Handle percentage fields that should remain as strings (keep the % symbol)
+  // All percentage fields in MediaSufficiency schema are defined as String
+  const stringPercentageFields = ['tvR1Plus', 'tvR3Plus', 'tvIdealReach', 'digitalR1Plus', 
+                                  'digitalIdealReach', 'plannedCombinedReach', 'combinedIdealReach',
+                                  'digitalReachLevelCheck', 'tvReachLevelCheck', 'combinedReachLevelCheck'];
+  
+  stringPercentageFields.forEach(field => {
+    const csvField = Object.entries(FIELD_MAPPING).find(([_, dbField]) => dbField === field)?.[0];
+    if (csvField && record[csvField]) {
+      // Keep as string with % symbol
+      transformed[field] = record[csvField].toString();
     }
   });
   
@@ -116,7 +221,7 @@ export async function POST(request: NextRequest) {
       
       for (const record of batch) {
         try {
-          const transformedRecord = transformRecord(record);
+          const transformedRecord = await transformRecord(record, sessionData);
           
           // Add metadata
           transformedRecord.uploadedBy = uploadedBy || 'system';

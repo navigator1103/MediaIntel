@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiSearch, FiRefreshCw, FiFilter, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiRefreshCw, FiFilter, FiChevronLeft, FiChevronRight, FiGrid, FiCalendar } from 'react-icons/fi';
 import SimpleEditableGrid from '@/components/media-sufficiency/SimpleEditableGrid';
+import GamePlansCalendar from '@/components/media-sufficiency/GamePlansCalendar';
 
 export default function GamePlansAdmin() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function GamePlansAdmin() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   
   // Load game plans data
   useEffect(() => {
@@ -151,13 +153,41 @@ export default function GamePlansAdmin() {
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Game Plans Management</h1>
-          <button 
-            onClick={handleRefresh}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            <FiRefreshCw className="mr-2" />
-            Refresh
-          </button>
+          <div className="flex items-center space-x-4">
+            {/* View Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`flex items-center px-3 py-1 rounded-md transition-colors ${
+                  viewMode === 'table' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <FiGrid className="mr-1" size={16} />
+                Table
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`flex items-center px-3 py-1 rounded-md transition-colors ${
+                  viewMode === 'calendar' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <FiCalendar className="mr-1" size={16} />
+                Calendar
+              </button>
+            </div>
+            
+            <button 
+              onClick={handleRefresh}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              <FiRefreshCw className="mr-2" />
+              Refresh
+            </button>
+          </div>
         </div>
         
         {error && (
@@ -168,38 +198,62 @@ export default function GamePlansAdmin() {
         )}
         
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center mb-4">
-            <div className="relative flex-grow">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" />
+          {viewMode === 'table' && (
+            <>
+              <div className="flex items-center mb-4">
+                <div className="relative flex-grow">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiSearch className="text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search game plans..."
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div className="ml-4">
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
               </div>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search game plans..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  Showing {filteredGamePlans.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0} to {Math.min(currentPage * rowsPerPage, filteredGamePlans.length)} of {filteredGamePlans.length} game plans
+                </p>
+              </div>
+            </>
+          )}
+
+          {viewMode === 'calendar' && (
+            <div className="mb-4">
+              <div className="relative flex-grow max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiSearch className="text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search campaigns..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                Showing {filteredGamePlans.length} game plans grouped by campaign
+              </p>
             </div>
-            <div className="ml-4">
-              <select
-                value={rowsPerPage}
-                onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              >
-                <option value={10}>10 per page</option>
-                <option value={25}>25 per page</option>
-                <option value={50}>50 per page</option>
-                <option value={100}>100 per page</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="mb-4">
-            <p className="text-sm text-gray-600">
-              Showing {filteredGamePlans.length > 0 ? (currentPage - 1) * rowsPerPage + 1 : 0} to {Math.min(currentPage * rowsPerPage, filteredGamePlans.length)} of {filteredGamePlans.length} game plans
-            </p>
-          </div>
+          )}
           
           {loading ? (
             <div className="flex justify-center items-center h-64">
@@ -207,43 +261,52 @@ export default function GamePlansAdmin() {
             </div>
           ) : (
             <>
-              <SimpleEditableGrid 
-                data={getCurrentPageData()} 
-                onSave={handleDataChange}
-                onDelete={handleDelete} 
-              />
-              
-              <div className="flex items-center justify-between mt-6">
-                <button
-                  onClick={handlePreviousPage}
-                  disabled={currentPage === 1}
-                  className={`flex items-center px-4 py-2 border rounded-md ${
-                    currentPage === 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <FiChevronLeft className="mr-2" />
-                  Previous
-                </button>
-                
-                <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
-                </span>
-                
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className={`flex items-center px-4 py-2 border rounded-md ${
-                    currentPage === totalPages || totalPages === 0
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Next
-                  <FiChevronRight className="ml-2" />
-                </button>
-              </div>
+              {viewMode === 'table' ? (
+                <>
+                  <SimpleEditableGrid 
+                    data={getCurrentPageData()} 
+                    onSave={handleDataChange}
+                    onDelete={handleDelete} 
+                  />
+                  
+                  <div className="flex items-center justify-between mt-6">
+                    <button
+                      onClick={handlePreviousPage}
+                      disabled={currentPage === 1}
+                      className={`flex items-center px-4 py-2 border rounded-md ${
+                        currentPage === 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <FiChevronLeft className="mr-2" />
+                      Previous
+                    </button>
+                    
+                    <span className="text-sm text-gray-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    
+                    <button
+                      onClick={handleNextPage}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className={`flex items-center px-4 py-2 border rounded-md ${
+                        currentPage === totalPages || totalPages === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Next
+                      <FiChevronRight className="ml-2" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <GamePlansCalendar 
+                  data={filteredGamePlans} 
+                  onSave={handleDataChange}
+                />
+              )}
             </>
           )}
         </div>

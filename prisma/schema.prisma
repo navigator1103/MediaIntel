@@ -190,6 +190,7 @@ model GamePlan {
   campaignId       Int          @map("campaign_id")
   mediaSubTypeId   Int          @map("media_sub_type_id")
   pmTypeId         Int?         @map("pm_type_id")
+  burst            Int          @default(1)
   startDate        String       @map("start_date")
   endDate          String       @map("end_date")
   totalBudget      Float        @map("total_budget")
@@ -226,12 +227,19 @@ model GamePlan {
 model MediaSufficiency {
   id                              Int      @id @default(autoincrement())
   lastUpdate                      String?  @map("last_update")
+  lastUpdateId                    Int?     @map("last_update_id")
   subRegion                       String?  @map("sub_region")
+  subRegionId                     Int?     @map("sub_region_id")
   country                         String?
+  countryId                       Int?     @map("country_id")
   bu                              String?
+  buId                            Int?     @map("bu_id")
   category                        String?
+  categoryId                      Int?     @map("category_id")
   range                           String?
+  rangeId                         Int?     @map("range_id")
   campaign                        String?
+  campaignId                      Int?     @map("campaign_id")
   franchiseNs                     String?  @map("franchise_ns")
   campaignSocioDemoTarget         String?  @map("campaign_socio_demo_target")
   totalCountryPopulationOnTarget  String?  @map("total_country_population_on_target")
