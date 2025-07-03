@@ -268,6 +268,9 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
   
   // Check for unexpected/extra columns
   const allExpectedColumns = [...requiredColumns, ...optionalColumns];
+  const criticalErrors: string[] = [];
+  const minorErrors: string[] = [];
+  
   for (const actualColumn of actualColumns) {
     // Check if the column is not in expected columns (case-sensitive first)
     if (!allExpectedColumns.includes(actualColumn)) {
@@ -277,45 +280,67 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
       );
       
       if (matchedColumn) {
-        extraColumns.push(`'${actualColumn}' (should be '${matchedColumn}' - check capitalization)`);
+        // Minor error - just capitalization issue
+        minorErrors.push(`'${actualColumn}' (should be '${matchedColumn}' - check capitalization)`);
       } else {
         // Check for close matches and provide specific suggestions
         let closeSuggestion = '';
+        let isCloseMatch = false;
         const lowerColumn = actualColumn.toLowerCase();
         
         if (lowerColumn.includes('subtype') || lowerColumn.includes('sub type')) {
           closeSuggestion = ` (did you mean 'Media Subtype'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('budget') && !actualColumn.includes('Q')) {
           closeSuggestion = ` (should this be 'Total Budget' or a quarterly budget like 'Q1 Budget'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('date') && lowerColumn.includes('start')) {
           closeSuggestion = ` (did you mean 'Start Date'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('date') && lowerColumn.includes('end')) {
           closeSuggestion = ` (did you mean 'End Date'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('reach')) {
           closeSuggestion = ` (should this be 'Reach 1+' or 'Reach 3+'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('trp')) {
           closeSuggestion = ` (did you mean 'TRPs'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('woa') || lowerColumn.includes('weeks off air')) {
           closeSuggestion = ` (did you mean 'Total WOA' or 'Weeks Off Air'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('pm') && lowerColumn.includes('type')) {
           closeSuggestion = ` (did you mean 'PM Type'?)`;
+          isCloseMatch = true;
         } else if (lowerColumn.includes('playbook')) {
           closeSuggestion = ` (did you mean 'Playbook ID'?)`;
+          isCloseMatch = true;
         }
-        extraColumns.push(`'${actualColumn}'${closeSuggestion}`);
+        
+        if (isCloseMatch) {
+          // Close match - treat as recoverable error
+          minorErrors.push(`'${actualColumn}'${closeSuggestion}`);
+        } else {
+          // Completely unrecognized column - critical error
+          criticalErrors.push(`'${actualColumn}' (unrecognized column - please remove or rename)`);
+        }
       }
     }
   }
+  
+  // Add all errors to extraColumns for reporting
+  extraColumns.push(...criticalErrors, ...minorErrors);
   
   // Report missing columns
   if (missingColumns.length > 0) {
     result.errors.push(`Missing required columns: ${missingColumns.join(', ')}`);
   }
   
-  // Report extra columns as warnings
+  // Report extra columns as errors to prevent data loss
   if (extraColumns.length > 0) {
-    result.warnings.push(`Unexpected columns found (these will be ignored): ${extraColumns.join(', ')}`);
-    result.warnings.push(`Expected columns are: ${requiredColumns.join(', ')} (required) and ${optionalColumns.join(', ')} (optional)`);
+    result.errors.push(`Invalid columns found: ${extraColumns.join(', ')}`);
+    result.errors.push(`Expected columns are: ${requiredColumns.join(', ')} (required) and ${optionalColumns.join(', ')} (optional)`);
+    result.isValid = false;
   }
   
   // If there are issues, show what was found
