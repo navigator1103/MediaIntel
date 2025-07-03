@@ -724,6 +724,44 @@ export class MediaSufficiencyValidator {
       }
     });
 
+    // Media Type validation (alternative field name)
+    this.rules.push({
+      field: 'Media Type',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Media Type must be a valid media type from the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        
+        // Check if media exists in master data
+        const mediaInput = value.toString().trim();
+        
+        // Define allowed media types based on our database structure
+        // These should match exactly with the media_types table
+        const allowedMediaTypes = ['Digital', 'Traditional'];
+        
+        // Get media types from master data or use allowed types
+        let mediaTypes = masterData?.mediaTypes || allowedMediaTypes;
+        
+        // Debug logging for media validation
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Validating Media Type: "${mediaInput}"`);
+          console.log(`Available media types: ${mediaTypes.length}`, mediaTypes);
+        }
+        
+        // Case-insensitive search - mediaTypes array now contains strings directly
+        const isValid = mediaTypes.some((mediaType: string) => {
+          return mediaType.toLowerCase() === mediaInput.toLowerCase();
+        });
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Media Type "${mediaInput}" validation result: ${isValid}`);
+        }
+        
+        return isValid;
+      }
+    });
+
     // Media Subtype validation
     this.rules.push({
       field: 'Media Subtype',
@@ -731,9 +769,11 @@ export class MediaSufficiencyValidator {
       severity: 'critical',
       message: 'Media Subtype must be valid for the selected Media',
       validate: (value, record, allRecords, masterData) => {
-        if (!value || !record.Media) return false; // Critical - require both fields
+        // Check for both 'Media' and 'Media Type' field names
+        const mediaField = record.Media || record['Media Type'];
+        if (!value || !mediaField) return false; // Critical - require both fields
         
-        const media = record.Media.toString().trim();
+        const media = mediaField.toString().trim();
         const subtype = value.toString().trim();
         
         // Log validation attempt for debugging

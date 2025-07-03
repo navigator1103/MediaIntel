@@ -1,0 +1,1829 @@
+{
+  "id": "ms-1751127476312-gajhb64x",
+  "fileName": "New Import Suffiency.csv",
+  "fileSize": 3624,
+  "recordCount": 23,
+  "status": "uploaded",
+  "lastUpdateId": 1,
+  "country": "India",
+  "data": {
+    "records": [
+      {
+        "Year": "2024",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Traditional",
+        "Playbook ID": "GL005",
+        "Media Subtype": "Paid TV",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "300",
+        "Q1 Budget": "500",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "28,000,000",
+        "Current Reach": "25200000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM019",
+        "Media Subtype": "PM & FF",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "5000",
+        "Q1 Budget": "5000",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "50,000,000",
+        "Current Reach": "45000000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "6000",
+        "Q1 Budget": "6000",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "28,000,000",
+        "Current Reach": "25200000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Aug-25",
+        "End Date": "30-Aug-25",
+        "Budget": "7000",
+        "Q1 Budget": "7000",
+        "Q2 Budget": "-",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "32,000,000",
+        "Current Reach": "28800000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Traditional",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Paid TV",
+        "Start Date": "22-Mar-25",
+        "End Date": "30-May-25",
+        "Budget": "284",
+        "Q1 Budget": "85",
+        "Q2 Budget": "199",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "6,000,000",
+        "Current Reach": "5400000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "EM035",
+        "Media Subtype": "PM & FF",
+        "Start Date": "22-Mar-25",
+        "End Date": "07-Jun-25",
+        "Budget": "466",
+        "Q1 Budget": "140",
+        "Q2 Budget": "327",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "2,046,000",
+        "Current Reach": "1841400",
+        "Business Unit": "Nivea",
+        "PM Type": "Full Funnel Advanced"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "22-Mar-25",
+        "End Date": "07-Jun-25",
+        "Budget": "59",
+        "Q1 Budget": "10",
+        "Q2 Budget": "49",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "1,726,000",
+        "Current Reach": "1553400",
+        "Business Unit": "Nivea",
+        "PM Type": "Full Funnel Advanced"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Milk",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Jan-25",
+        "End Date": "28-Feb-25",
+        "Budget": "71",
+        "Q1 Budget": "71",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "4,660,000",
+        "Current Reach": "4194000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Milk",
+        "Campaign": "Body Milk 5 in 1",
+        "Media": "Traditional",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Paid TV",
+        "Start Date": "01-Jan-25",
+        "End Date": "07-Mar-25",
+        "Budget": "796",
+        "Q1 Budget": "796",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "5,444,000",
+        "Current Reach": "4899600",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Face Care",
+        "Range": "Luminous 630",
+        "Campaign": "Luminous Launch",
+        "Media": "Traditional",
+        "Playbook ID": "Paid TV",
+        "Media Subtype": "",
+        "Start Date": "15-Feb-25",
+        "End Date": "02-May-25",
+        "Budget": "853",
+        "Q1 Budget": "640",
+        "Q2 Budget": "213",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "10170",
+        "Current Reach": "10170",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "GL005",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Jan-25",
+        "End Date": "28-Feb-25",
+        "Budget": "152",
+        "Q1 Budget": "152",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "14150556",
+        "Current Reach": "14150556",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "EM019",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Jan-25",
+        "End Date": "31-Mar-25",
+        "Budget": "245",
+        "Q1 Budget": "245",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "4527900",
+        "Current Reach": "4527900",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Deo",
+        "Range": "Black & White",
+        "Campaign": "Black & White Male",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-May-25",
+        "End Date": "31-Aug-25",
+        "Budget": "46",
+        "Q1 Budget": "",
+        "Q2 Budget": "23",
+        "Q3 Budget": "23",
+        "Q4 Budget": "",
+        "Target Reach": "50130000",
+        "Current Reach": "50130000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "Morocco",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Sep-25",
+        "End Date": "15-Oct-25",
+        "Budget": "86",
+        "Q1 Budget": "",
+        "Q2 Budget": "",
+        "Q3 Budget": "43",
+        "Q4 Budget": "43",
+        "Target Reach": "9450000",
+        "Current Reach": "9450000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "Morocco",
+        "Category": "Repair",
+        "Range": "Repair",
+        "Campaign": "Urea",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Nov-25",
+        "End Date": "30-Nov-25",
+        "Budget": "43",
+        "Q1 Budget": "",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "43",
+        "Target Reach": "6750000",
+        "Current Reach": "6750000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "North Africa",
+        "Category": "Deo",
+        "Range": "Black & White",
+        "Campaign": "Black & White Female",
+        "Media": "Digital",
+        "Playbook ID": "EM035",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Feb-25",
+        "End Date": "30-Jun-25",
+        "Budget": "133",
+        "Q1 Budget": "70",
+        "Q2 Budget": "63",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "2205000",
+        "Current Reach": "2205000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "North Africa",
+        "Category": "Deo",
+        "Range": "Deep",
+        "Campaign": "Deep",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Jul-25",
+        "End Date": "31-Dec-25",
+        "Budget": "114",
+        "Q1 Budget": "-",
+        "Q2 Budget": "-",
+        "Q3 Budget": "57",
+        "Q4 Budget": "57",
+        "Target Reach": "2866500",
+        "Current Reach": "2866500",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Singapore",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Mar-25",
+        "End Date": "31-Mar-25",
+        "Budget": "55",
+        "Q1 Budget": "55",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "18000000",
+        "Current Reach": "18000000",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "South Africa",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "01-Sep-25",
+        "End Date": "30-Nov-25",
+        "Budget": "21",
+        "Q1 Budget": "11",
+        "Q2 Budget": "11",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "13140000",
+        "Current Reach": "13140000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "South Africa",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "Paid TV",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "13-Feb-25",
+        "End Date": "30-Apr-25",
+        "Budget": "36",
+        "Q1 Budget": "25",
+        "Q2 Budget": "10",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "9450000",
+        "Current Reach": "9450000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermopure Body (Bacne)",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "04-Feb-25",
+        "End Date": "30-Apr-25",
+        "Budget": "75",
+        "Q1 Budget": "57",
+        "Q2 Budget": "19",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "6852600",
+        "Current Reach": "6852600",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "14-Jan-25",
+        "End Date": "30-Jun-25",
+        "Budget": "282",
+        "Q1 Budget": "211",
+        "Q2 Budget": "70",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "47037600",
+        "Current Reach": "47037600",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Anti Pigment",
+        "Range": "Anti Pigment",
+        "Campaign": "Dragon",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "20-Mar-25",
+        "End Date": "31-May-25",
+        "Budget": "69",
+        "Q1 Budget": "30",
+        "Q2 Budget": "39",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "13824000",
+        "Current Reach": "13824000",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      }
+    ],
+    "processedRecords": [
+      {
+        "Year": "2024",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Traditional",
+        "Playbook ID": "GL005",
+        "Media Subtype": "Paid TV",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "300",
+        "Q1 Budget": "500",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "28,000,000",
+        "Current Reach": "25200000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM019",
+        "Media Subtype": "PM & FF",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "5000",
+        "Q1 Budget": "5000",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "50,000,000",
+        "Current Reach": "45000000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Budget": "6000",
+        "Q1 Budget": "6000",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "28,000,000",
+        "Current Reach": "25200000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Aug-25",
+        "End Date": "30-Aug-25",
+        "Budget": "7000",
+        "Q1 Budget": "7000",
+        "Q2 Budget": "-",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "32,000,000",
+        "Current Reach": "28800000",
+        "Business Unit": "Nivea",
+        "PM Type": "GR Only"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Traditional",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Paid TV",
+        "Start Date": "22-Mar-25",
+        "End Date": "30-May-25",
+        "Budget": "284",
+        "Q1 Budget": "85",
+        "Q2 Budget": "199",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "6,000,000",
+        "Current Reach": "5400000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "EM035",
+        "Media Subtype": "PM & FF",
+        "Start Date": "22-Mar-25",
+        "End Date": "07-Jun-25",
+        "Budget": "466",
+        "Q1 Budget": "140",
+        "Q2 Budget": "327",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "2,046,000",
+        "Current Reach": "1841400",
+        "Business Unit": "Nivea",
+        "PM Type": "Full Funnel Advanced"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Aloe",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "22-Mar-25",
+        "End Date": "07-Jun-25",
+        "Budget": "59",
+        "Q1 Budget": "10",
+        "Q2 Budget": "49",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "1,726,000",
+        "Current Reach": "1553400",
+        "Business Unit": "Nivea",
+        "PM Type": "Full Funnel Advanced"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Milk",
+        "Campaign": "Body Aloe Summer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Jan-25",
+        "End Date": "28-Feb-25",
+        "Budget": "71",
+        "Q1 Budget": "71",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "4,660,000",
+        "Current Reach": "4194000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Hand Body",
+        "Range": "Milk",
+        "Campaign": "Body Milk 5 in 1",
+        "Media": "Traditional",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Paid TV",
+        "Start Date": "01-Jan-25",
+        "End Date": "07-Mar-25",
+        "Budget": "796",
+        "Q1 Budget": "796",
+        "Q2 Budget": "-",
+        "Q3 Budget": "-",
+        "Q4 Budget": "",
+        "Target Reach": "5,444,000",
+        "Current Reach": "4899600",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "INDIA",
+        "Country": "India",
+        "Category": "Face Care",
+        "Range": "Luminous 630",
+        "Campaign": "Luminous Launch",
+        "Media": "Traditional",
+        "Playbook ID": "Paid TV",
+        "Media Subtype": "",
+        "Start Date": "15-Feb-25",
+        "End Date": "02-May-25",
+        "Budget": "853",
+        "Q1 Budget": "640",
+        "Q2 Budget": "213",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "10170",
+        "Current Reach": "10170",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "GL005",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Jan-25",
+        "End Date": "28-Feb-25",
+        "Budget": "152",
+        "Q1 Budget": "152",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "14150556",
+        "Current Reach": "14150556",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "EM019",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Jan-25",
+        "End Date": "31-Mar-25",
+        "Budget": "245",
+        "Q1 Budget": "245",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "4527900",
+        "Current Reach": "4527900",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Malaysia",
+        "Category": "Deo",
+        "Range": "Black & White",
+        "Campaign": "Black & White Male",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-May-25",
+        "End Date": "31-Aug-25",
+        "Budget": "46",
+        "Q1 Budget": "",
+        "Q2 Budget": "23",
+        "Q3 Budget": "23",
+        "Q4 Budget": "",
+        "Target Reach": "50130000",
+        "Current Reach": "50130000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "Morocco",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Sep-25",
+        "End Date": "15-Oct-25",
+        "Budget": "86",
+        "Q1 Budget": "",
+        "Q2 Budget": "",
+        "Q3 Budget": "43",
+        "Q4 Budget": "43",
+        "Target Reach": "9450000",
+        "Current Reach": "9450000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "Morocco",
+        "Category": "Repair",
+        "Range": "Repair",
+        "Campaign": "Urea",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers",
+        "Start Date": "01-Nov-25",
+        "End Date": "30-Nov-25",
+        "Budget": "43",
+        "Q1 Budget": "",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "43",
+        "Target Reach": "6750000",
+        "Current Reach": "6750000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "North Africa",
+        "Category": "Deo",
+        "Range": "Black & White",
+        "Campaign": "Black & White Female",
+        "Media": "Digital",
+        "Playbook ID": "EM035",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Feb-25",
+        "End Date": "30-Jun-25",
+        "Budget": "133",
+        "Q1 Budget": "70",
+        "Q2 Budget": "63",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "2205000",
+        "Current Reach": "2205000",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "North Africa",
+        "Category": "Deo",
+        "Range": "Deep",
+        "Campaign": "Deep",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Other Digital",
+        "Start Date": "01-Jul-25",
+        "End Date": "31-Dec-25",
+        "Budget": "114",
+        "Q1 Budget": "-",
+        "Q2 Budget": "-",
+        "Q3 Budget": "57",
+        "Q4 Budget": "57",
+        "Target Reach": "2866500",
+        "Current Reach": "2866500",
+        "Business Unit": "Nivea",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Singapore",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Organic",
+        "Start Date": "01-Mar-25",
+        "End Date": "31-Mar-25",
+        "Budget": "55",
+        "Q1 Budget": "55",
+        "Q2 Budget": "",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "18000000",
+        "Current Reach": "18000000",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "South Africa",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermo Purifyer",
+        "Media": "Digital",
+        "Playbook ID": "GL079",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "01-Sep-25",
+        "End Date": "30-Nov-25",
+        "Budget": "21",
+        "Q1 Budget": "11",
+        "Q2 Budget": "11",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "13140000",
+        "Current Reach": "13140000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "AME",
+        "Country": "South Africa",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "Paid TV",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "13-Feb-25",
+        "End Date": "30-Apr-25",
+        "Budget": "36",
+        "Q1 Budget": "25",
+        "Q2 Budget": "10",
+        "Q3 Budget": "",
+        "Q4 Budget": "",
+        "Target Reach": "9450000",
+        "Current Reach": "9450000",
+        "Business Unit": "Derma",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Acne",
+        "Range": "Acne",
+        "Campaign": "Dermopure Body (Bacne)",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "04-Feb-25",
+        "End Date": "30-Apr-25",
+        "Budget": "75",
+        "Q1 Budget": "57",
+        "Q2 Budget": "19",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "6852600",
+        "Current Reach": "6852600",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Anti Age",
+        "Range": "Anti Age",
+        "Campaign": "Epigenetics",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "14-Jan-25",
+        "End Date": "30-Jun-25",
+        "Budget": "282",
+        "Q1 Budget": "211",
+        "Q2 Budget": "70",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "47037600",
+        "Current Reach": "47037600",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      },
+      {
+        "Year": "2025",
+        "Sub Region": "ASEAN",
+        "Country": "Thailand",
+        "Category": "Anti Pigment",
+        "Range": "Anti Pigment",
+        "Campaign": "Dragon",
+        "Media": "Digital",
+        "Playbook ID": "EM015",
+        "Media Subtype": "Influencers Amplification",
+        "Start Date": "20-Mar-25",
+        "End Date": "31-May-25",
+        "Budget": "69",
+        "Q1 Budget": "30",
+        "Q2 Budget": "39",
+        "Q3 Budget": "-",
+        "Q4 Budget": "-",
+        "Target Reach": "13824000",
+        "Current Reach": "13824000",
+        "Business Unit": "DERMA",
+        "PM Type": "Non PM"
+      }
+    ],
+    "masterData": {
+      "subRegions": [
+        "INDIA",
+        "ASEAN",
+        "AME"
+      ],
+      "countries": [
+        {
+          "name": "India",
+          "subRegion": "INDIA",
+          "cluster": null
+        },
+        {
+          "name": "Malaysia",
+          "subRegion": "ASEAN",
+          "cluster": null
+        },
+        {
+          "name": "Morocco",
+          "subRegion": "AME",
+          "cluster": null
+        },
+        {
+          "name": "North Africa",
+          "subRegion": "AME",
+          "cluster": null
+        },
+        {
+          "name": "Singapore",
+          "subRegion": "ASEAN",
+          "cluster": null
+        },
+        {
+          "name": "South Africa",
+          "subRegion": "AME",
+          "cluster": null
+        },
+        {
+          "name": "Thailand",
+          "subRegion": "ASEAN",
+          "cluster": null
+        }
+      ],
+      "categories": [
+        "Hand Body",
+        "Face Care",
+        "Acne",
+        "Anti Age",
+        "Deo",
+        "Repair",
+        "Anti Pigment"
+      ],
+      "ranges": [
+        {
+          "name": "Soft",
+          "category": "Hand Body"
+        },
+        {
+          "name": "Aloe",
+          "category": "Hand Body"
+        },
+        {
+          "name": "Milk",
+          "category": "Hand Body"
+        },
+        {
+          "name": "Luminous 630",
+          "category": "Face Care"
+        },
+        {
+          "name": "Acne",
+          "category": "Acne"
+        },
+        {
+          "name": "Anti Age",
+          "category": "Anti Age"
+        },
+        {
+          "name": "Black & White",
+          "category": "Deo"
+        },
+        {
+          "name": "Repair",
+          "category": "Repair"
+        },
+        {
+          "name": "Deep",
+          "category": "Deo"
+        },
+        {
+          "name": "Anti Pigment",
+          "category": "Anti Pigment"
+        }
+      ],
+      "mediaTypes": [
+        "Traditional",
+        "Digital"
+      ],
+      "mediaSubtypes": [
+        {
+          "name": "Paid TV",
+          "mediaType": "Traditional"
+        },
+        {
+          "name": "PM & FF",
+          "mediaType": "Digital"
+        },
+        {
+          "name": "Influencers Amplification",
+          "mediaType": "Digital"
+        },
+        {
+          "name": "Other Digital",
+          "mediaType": "Digital"
+        },
+        {
+          "name": "Influencers",
+          "mediaType": "Digital"
+        },
+        {
+          "name": "Influencers Organic",
+          "mediaType": "Digital"
+        }
+      ],
+      "businessUnits": []
+    },
+    "validationIssues": [
+      {
+        "rowIndex": 0,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 0,
+        "columnName": "Year",
+        "severity": "critical",
+        "message": "Year field must match the year in Start Date and End Date",
+        "currentValue": "2024"
+      },
+      {
+        "rowIndex": 0,
+        "columnName": "Start Date",
+        "severity": "critical",
+        "message": "Start Date year must match the financial cycle year",
+        "currentValue": "01-Jan-25"
+      },
+      {
+        "rowIndex": 0,
+        "columnName": "End Date",
+        "severity": "critical",
+        "message": "End Date year must match the financial cycle year",
+        "currentValue": "15-Mar-25"
+      },
+      {
+        "rowIndex": 0,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "300"
+      },
+      {
+        "rowIndex": 1,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 2,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 2,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 2,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 3,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 3,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 5,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "466"
+      },
+      {
+        "rowIndex": 7,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 7,
+        "columnName": "Media Subtype",
+        "severity": "critical",
+        "message": "Media Subtype must be valid for the selected Media",
+        "currentValue": "Influencers"
+      },
+      {
+        "rowIndex": 8,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 9,
+        "columnName": "Media Subtype",
+        "severity": "critical",
+        "message": "Media Subtype is required",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 9,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 9,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 9,
+        "columnName": "Media Subtype",
+        "severity": "critical",
+        "message": "Media Subtype must be valid for the selected Media",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 10,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 10,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 10,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 11,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 11,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 11,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 12,
+        "columnName": "Q1 Budget",
+        "severity": "warning",
+        "message": "Q1 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 12,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 13,
+        "columnName": "Q1 Budget",
+        "severity": "warning",
+        "message": "Q1 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 13,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 13,
+        "columnName": "Media Subtype",
+        "severity": "critical",
+        "message": "Media Subtype must be valid for the selected Media",
+        "currentValue": "Influencers"
+      },
+      {
+        "rowIndex": 14,
+        "columnName": "Q1 Budget",
+        "severity": "warning",
+        "message": "Q1 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 14,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 14,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 14,
+        "columnName": "Range",
+        "severity": "critical",
+        "message": "Range must be valid for the selected Category",
+        "currentValue": "Repair"
+      },
+      {
+        "rowIndex": 14,
+        "columnName": "Media Subtype",
+        "severity": "critical",
+        "message": "Media Subtype must be valid for the selected Media",
+        "currentValue": "Influencers"
+      },
+      {
+        "rowIndex": 17,
+        "columnName": "Q2 Budget",
+        "severity": "warning",
+        "message": "Q2 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 17,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 17,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 18,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 18,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 18,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "21"
+      },
+      {
+        "rowIndex": 19,
+        "columnName": "Q3 Budget",
+        "severity": "warning",
+        "message": "Q3 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 19,
+        "columnName": "Q4 Budget",
+        "severity": "warning",
+        "message": "Q4 Budget is blank",
+        "currentValue": ""
+      },
+      {
+        "rowIndex": 19,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "36"
+      },
+      {
+        "rowIndex": 20,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "75"
+      },
+      {
+        "rowIndex": 21,
+        "columnName": "Budget",
+        "severity": "critical",
+        "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+        "currentValue": "282"
+      }
+    ],
+    "validationSummary": {
+      "total": 46,
+      "critical": 15,
+      "warning": 31,
+      "suggestion": 0,
+      "byField": {
+        "Q4 Budget": [
+          {
+            "rowIndex": 0,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 1,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 2,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 3,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 7,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 8,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 9,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 10,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 11,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 12,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 17,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 18,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 19,
+            "columnName": "Q4 Budget",
+            "severity": "warning",
+            "message": "Q4 Budget is blank",
+            "currentValue": ""
+          }
+        ],
+        "Year": [
+          {
+            "rowIndex": 0,
+            "columnName": "Year",
+            "severity": "critical",
+            "message": "Year field must match the year in Start Date and End Date",
+            "currentValue": "2024"
+          }
+        ],
+        "Start Date": [
+          {
+            "rowIndex": 0,
+            "columnName": "Start Date",
+            "severity": "critical",
+            "message": "Start Date year must match the financial cycle year",
+            "currentValue": "01-Jan-25"
+          }
+        ],
+        "End Date": [
+          {
+            "rowIndex": 0,
+            "columnName": "End Date",
+            "severity": "critical",
+            "message": "End Date year must match the financial cycle year",
+            "currentValue": "15-Mar-25"
+          }
+        ],
+        "Budget": [
+          {
+            "rowIndex": 0,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "300"
+          },
+          {
+            "rowIndex": 5,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "466"
+          },
+          {
+            "rowIndex": 18,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "21"
+          },
+          {
+            "rowIndex": 19,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "36"
+          },
+          {
+            "rowIndex": 20,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "75"
+          },
+          {
+            "rowIndex": 21,
+            "columnName": "Budget",
+            "severity": "critical",
+            "message": "Budget should equal the sum of Q1, Q2, Q3, and Q4",
+            "currentValue": "282"
+          }
+        ],
+        "Q2 Budget": [
+          {
+            "rowIndex": 2,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 10,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 11,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 13,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 14,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 17,
+            "columnName": "Q2 Budget",
+            "severity": "warning",
+            "message": "Q2 Budget is blank",
+            "currentValue": ""
+          }
+        ],
+        "Q3 Budget": [
+          {
+            "rowIndex": 2,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 3,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 9,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 10,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 11,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 14,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 17,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 18,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 19,
+            "columnName": "Q3 Budget",
+            "severity": "warning",
+            "message": "Q3 Budget is blank",
+            "currentValue": ""
+          }
+        ],
+        "Media Subtype": [
+          {
+            "rowIndex": 7,
+            "columnName": "Media Subtype",
+            "severity": "critical",
+            "message": "Media Subtype must be valid for the selected Media",
+            "currentValue": "Influencers"
+          },
+          {
+            "rowIndex": 9,
+            "columnName": "Media Subtype",
+            "severity": "critical",
+            "message": "Media Subtype is required",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 9,
+            "columnName": "Media Subtype",
+            "severity": "critical",
+            "message": "Media Subtype must be valid for the selected Media",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 13,
+            "columnName": "Media Subtype",
+            "severity": "critical",
+            "message": "Media Subtype must be valid for the selected Media",
+            "currentValue": "Influencers"
+          },
+          {
+            "rowIndex": 14,
+            "columnName": "Media Subtype",
+            "severity": "critical",
+            "message": "Media Subtype must be valid for the selected Media",
+            "currentValue": "Influencers"
+          }
+        ],
+        "Q1 Budget": [
+          {
+            "rowIndex": 12,
+            "columnName": "Q1 Budget",
+            "severity": "warning",
+            "message": "Q1 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 13,
+            "columnName": "Q1 Budget",
+            "severity": "warning",
+            "message": "Q1 Budget is blank",
+            "currentValue": ""
+          },
+          {
+            "rowIndex": 14,
+            "columnName": "Q1 Budget",
+            "severity": "warning",
+            "message": "Q1 Budget is blank",
+            "currentValue": ""
+          }
+        ],
+        "Range": [
+          {
+            "rowIndex": 14,
+            "columnName": "Range",
+            "severity": "critical",
+            "message": "Range must be valid for the selected Category",
+            "currentValue": "Repair"
+          }
+        ]
+      },
+      "uniqueRows": 18
+    }
+  },
+  "createdAt": "2025-06-28T16:17:56.312Z"
+}

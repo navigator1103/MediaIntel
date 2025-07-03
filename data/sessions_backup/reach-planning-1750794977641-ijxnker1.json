@@ -1,0 +1,1315 @@
+{
+  "sessionId": "reach-planning-1750794977641-ijxnker1",
+  "fileName": "Cleaned_Country_Rollout_Support_Cost__Manual_.csv",
+  "uploadedAt": "2025-06-24T19:56:17.642Z",
+  "totalRecords": 37,
+  "headers": [
+    "Country",
+    "Rollout Support Cost"
+  ],
+  "expectedFields": [
+    "Last Update",
+    "Sub Region",
+    "Country",
+    "BU",
+    "Category",
+    "Range",
+    "Campaign",
+    "Franchise NS (Actual or Projected)",
+    "Campaign Socio-Demo Target",
+    "Total Country Population On Target (Abs)",
+    "TV Copy Length",
+    "TV Target Size (Abs)",
+    "WOA Open TV",
+    "WOA Paid TV",
+    "Total TRPs",
+    "TV R1+ (Total)",
+    "TV R3+ (Total)",
+    "TV IDEAL Reach",
+    "CPP 2024",
+    "CPP 2025",
+    "Digital Target",
+    "Digital Target Size (Abs)",
+    "WOA PM & FF",
+    "WOA Influencers (Amplification)",
+    "Digital R1+ (Total)",
+    "Digital IDEAL Reach",
+    "Planned Combined Reach",
+    "Combined IDEAL Reach",
+    "Digital Reach Level Check",
+    "TV Reach Level Check",
+    "Combined Reach Level Check"
+  ],
+  "records": [
+    {
+      "Country": "South Africa",
+      "Rollout Support Cost": "19040.0"
+    },
+    {
+      "Country": "Mexico",
+      "Rollout Support Cost": "19040.0"
+    },
+    {
+      "Country": "Thailand",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Brazil",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "India",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Chile",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Middle East (ar)",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Middle East (en)",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Turkey",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Indonesia",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "Australia",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "Nigeria",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "Malaysia",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Peru",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Colombia",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Ecuador",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Vietnam",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Russia",
+      "Rollout Support Cost": "14560.0"
+    },
+    {
+      "Country": "Argentina",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "Kazakhstan",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Ukraine",
+      "Rollout Support Cost": "11200.0"
+    },
+    {
+      "Country": "East Africa",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Bolivia",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Ghana",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Costa Rica",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Morocco (ar)",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Morocco (fr)",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Philippines",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Paraguay",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Uruguay",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Panama",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Dominican Republic",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "El Salvador",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Egypt",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Pakistan",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Saudi Arabia",
+      "Rollout Support Cost": "8960.0"
+    },
+    {
+      "Country": "Shave Care Australia",
+      "Rollout Support Cost": "0.0"
+    }
+  ],
+  "status": "validated",
+  "fileSize": 671,
+  "validationIssues": [
+    {
+      "rowIndex": 0,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 1,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 1,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 1,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 1,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 1,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 2,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 2,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 2,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 2,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 2,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 3,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 3,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 3,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 3,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 3,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 4,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 4,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 4,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 4,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 4,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 5,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 5,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 5,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 5,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 5,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 6,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 6,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 6,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 6,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 6,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 7,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 7,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 7,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 7,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 7,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 8,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 8,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 8,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 8,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 8,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 9,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 9,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 9,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 9,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 9,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 10,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 10,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 10,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 10,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 10,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 11,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 11,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 11,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 11,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 11,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 12,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 12,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 12,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 12,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 12,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 13,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 13,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 13,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 13,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 13,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 14,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 14,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 14,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 14,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 14,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 15,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 15,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 15,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 15,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 15,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 16,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 16,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 16,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 16,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 16,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 17,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 17,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 17,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 17,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 17,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 18,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 18,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 18,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 18,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 18,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 19,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 19,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 19,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 19,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 19,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 20,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 20,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 20,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 20,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 20,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 21,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 21,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 21,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 21,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 21,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 22,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 22,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 22,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 22,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 22,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 23,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 23,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 23,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 23,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 23,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 24,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 24,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 24,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 24,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 24,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 25,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 25,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 25,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 25,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 25,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 26,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 26,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 26,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 26,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 26,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 27,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 27,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 27,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 27,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 27,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 28,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 28,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 28,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 28,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 28,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 29,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 29,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 29,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 29,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 29,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 30,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 30,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 30,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 30,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 30,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 31,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 31,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 31,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 31,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 31,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 32,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 32,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 32,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 32,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 32,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 33,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 33,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 33,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 33,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 33,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 34,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 34,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 34,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 34,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 34,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 35,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 35,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 35,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 35,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 35,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    },
+    {
+      "rowIndex": 36,
+      "columnName": "Last Update",
+      "severity": "critical",
+      "message": "Last Update is required"
+    },
+    {
+      "rowIndex": 36,
+      "columnName": "Sub Region",
+      "severity": "critical",
+      "message": "Sub Region is required"
+    },
+    {
+      "rowIndex": 36,
+      "columnName": "Category",
+      "severity": "critical",
+      "message": "Category is required"
+    },
+    {
+      "rowIndex": 36,
+      "columnName": "Range",
+      "severity": "critical",
+      "message": "Range is required"
+    },
+    {
+      "rowIndex": 36,
+      "columnName": "Campaign",
+      "severity": "critical",
+      "message": "Campaign is required"
+    }
+  ],
+  "validationSummary": {
+    "total": 185,
+    "critical": 185,
+    "warning": 0,
+    "suggestion": 0,
+    "uniqueRows": 37
+  },
+  "validatedAt": "2025-06-24T19:56:17.833Z"
+}
