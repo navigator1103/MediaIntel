@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive } from 'react-icons/fi';
+import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive, FiGlobe, FiTag, FiBox, FiTarget } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -67,7 +67,12 @@ export default function AdminDashboard() {
       '/admin/media-sufficiency/game-plans',
       '/admin/backups',
       '/admin/game-plans/upload',
-      '/admin/reach-planning'
+      '/admin/reach-planning',
+      '/admin/financial-cycles',
+      '/admin/countries',
+      '/admin/categories',
+      '/admin/ranges',
+      '/admin/campaigns'
     ];
     
     if (implementedPages.includes(path)) {
@@ -191,20 +196,6 @@ export default function AdminDashboard() {
 
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FiHardDrive className="mr-2 text-purple-600" />
-              Backups
-            </h3>
-            <p className="text-gray-600 mb-4 text-sm">View and restore game plan backups</p>
-            <button 
-              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              onClick={() => handleNavigate('/admin/backups')}
-            >
-              Manage Backups
-            </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <FiUsers className="mr-2 text-green-600" />
               User Management
             </h3>
@@ -215,6 +206,116 @@ export default function AdminDashboard() {
             >
               Manage Users
             </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiCalendar className="mr-2 text-amber-600" />
+              Financial Cycles
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">Manage financial cycles for planning</p>
+            <button 
+              className="w-full px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+              onClick={() => handleNavigate('/admin/financial-cycles')}
+            >
+              Manage Cycles
+            </button>
+          </div>
+        </div>
+
+        {/* Master Data Management */}
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">Master Data Management</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiGlobe className="mr-2 text-cyan-600" />
+                Countries
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">Manage countries and regional mappings</p>
+              <button 
+                className="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+                onClick={() => handleNavigate('/admin/countries')}
+              >
+                Manage Countries
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiTag className="mr-2 text-pink-600" />
+                Categories
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">Manage product categories</p>
+              <button 
+                className="w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+                onClick={() => handleNavigate('/admin/categories')}
+              >
+                Manage Categories
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiBox className="mr-2 text-teal-600" />
+                Ranges
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">Manage product ranges and their categories</p>
+              <button 
+                className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                onClick={() => handleNavigate('/admin/ranges')}
+              >
+                Manage Ranges
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiTarget className="mr-2 text-red-600" />
+                Campaigns
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">Manage marketing campaigns</p>
+              <button 
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                onClick={() => handleNavigate('/admin/campaigns')}
+              >
+                Manage Campaigns
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* System Management */}
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">System Management</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiHardDrive className="mr-2 text-purple-600" />
+                Backups
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">View and restore game plan backups</p>
+              <button 
+                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                onClick={() => handleNavigate('/admin/backups')}
+              >
+                Manage Backups
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiTrendingUp className="mr-2 text-orange-600" />
+                Media Import
+              </h3>
+              <p className="text-gray-600 mb-4 text-sm">Import reach planning and media data</p>
+              <button 
+                className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                onClick={() => handleNavigate('/admin/reach-planning')}
+              >
+                Import Media Data
+              </button>
+            </div>
           </div>
         </div>
 

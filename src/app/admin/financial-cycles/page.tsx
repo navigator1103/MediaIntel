@@ -10,6 +10,7 @@ interface FinancialCycle {
   name: string;
   createdAt: string;
   updatedAt: string;
+  gamePlansCount?: number;
 }
 
 export default function FinancialCyclesAdmin() {
@@ -196,6 +197,9 @@ export default function FinancialCyclesAdmin() {
                     Last Updated
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Game Plans
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -217,6 +221,15 @@ export default function FinancialCyclesAdmin() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(cycle.updatedAt)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        (cycle.gamePlansCount || 0) > 0 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {cycle.gamePlansCount || 0} game plans
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
