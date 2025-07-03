@@ -81,6 +81,23 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
 
   const handleImport = async () => {
     try {
+      // First, ensure any pending edits are saved
+      if (editingCell) {
+        await handleCellEditComplete();
+      }
+      
+      // Ensure the latest data is saved to the session
+      if (validationData?.records) {
+        console.log('Saving latest validation data before import...');
+        const updateSuccess = await updateSessionData(validationData.records);
+        if (!updateSuccess) {
+          throw new Error('Failed to save validation data before import');
+        }
+        // Add a small delay to ensure file write is complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('Session data saved, proceeding with import');
+      }
+      
       setImportStatus('importing');
       setImportProgress(0);
       
@@ -124,7 +141,7 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
 
   // Function to update session data on the server - same as enhanced-validate
   const updateSessionData = async (updatedData: any[]) => {
-    if (!sessionId) return;
+    if (!sessionId) return false;
     
     try {
       console.log('Updating session data on server with latest edits...');
@@ -142,11 +159,14 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Failed to update session data:', errorText);
+        return false;
       } else {
         console.log('Session data updated successfully');
+        return true;
       }
     } catch (error) {
       console.error('Error updating session data:', error);
+      return false;
     }
   };
 

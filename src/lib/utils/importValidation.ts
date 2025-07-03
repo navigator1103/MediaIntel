@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { parseDate } from './dateUtils';
 
 const prisma = new PrismaClient();
 
@@ -172,47 +173,3 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
   }
 }
 
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr || dateStr.trim() === '') return null;
-  
-  try {
-    // Try different date formats
-    let date: Date;
-    
-    if (dateStr.includes('/')) {
-      // Handle DD/MM/YYYY format
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1; // Month is 0-indexed
-        const year = parseInt(parts[2]);
-        date = new Date(year, month, day);
-      } else {
-        return null;
-      }
-    } else if (dateStr.includes('-')) {
-      // Handle YYYY-MM-DD or DD-MM-YYYY format
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        if (parts[0].length === 4) {
-          // YYYY-MM-DD
-          date = new Date(dateStr);
-        } else {
-          // DD-MM-YYYY
-          const day = parseInt(parts[0]);
-          const month = parseInt(parts[1]) - 1;
-          const year = parseInt(parts[2]);
-          date = new Date(year, month, day);
-        }
-      } else {
-        return null;
-      }
-    } else {
-      date = new Date(dateStr);
-    }
-    
-    return date instanceof Date && !isNaN(date.getTime()) ? date : null;
-  } catch {
-    return null;
-  }
-}
