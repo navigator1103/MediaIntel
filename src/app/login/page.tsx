@@ -267,8 +267,11 @@ export default function Login() {
         {/* Logo and header */}
         <div className="text-center">
           <div className="flex justify-center">
-            <div className="h-16 w-16 bg-indigo-600 rounded-full flex items-center justify-center">
-              <h1 className="text-2xl font-bold text-white font-quicksand">MIQ</h1>
+            <div className="h-20 w-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="h-12 w-12 text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor" opacity="0.9"/>
+                <circle cx="12" cy="12" r="3" fill="currentColor"/>
+              </svg>
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900 font-quicksand">
@@ -277,8 +280,8 @@ export default function Login() {
             {view === 'forgotPassword' && 'Reset your password'}
           </h2>
           <p className="mt-2 text-sm text-gray-600 font-quicksand">
-            {view === 'login' && 'Sign in to your MediaIQ account'}
-            {view === 'register' && 'Join MediaIQ to access all features'}
+            {view === 'login' && 'Sign in to your Beiersdorf Media Nebula account'}
+            {view === 'register' && 'Join Beiersdorf Media Nebula to access all features'}
             {view === 'forgotPassword' && "We'll send you a link to reset your password"}
           </p>
         </div>

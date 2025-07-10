@@ -10,8 +10,8 @@ const quicksand = Quicksand({
 });
 
 export const metadata: Metadata = {
-  title: "Beiersdorf MediaIntel",
-  description: "Beiersdorf Media Intelligence Platform - Advanced analytics and campaign management for global media operations",
+  title: "Beiersdorf Media Nebula",
+  description: "Beiersdorf Media Nebula - Advanced analytics and campaign management for global media operations",
 };
 
 export default function RootLayout({

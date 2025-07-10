@@ -251,7 +251,7 @@ const UserNavigation = () => {
     <div className={`${expanded ? 'w-64' : 'w-20'} transition-width duration-300 ease-in-out bg-white border-r border-gray-200 flex flex-col h-screen font-quicksand`}>
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
         <div className={`${expanded ? 'flex' : 'hidden'} items-center`}>
-          <span className="text-xl font-bold text-indigo-600 font-quicksand">MediaIQ</span>
+          <span className="text-xl font-bold text-indigo-600 font-quicksand">Beiersdorf Media Nebula</span>
         </div>
         <button 
           onClick={() => setExpanded(!expanded)}

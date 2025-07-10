@@ -103,10 +103,10 @@ const BeiersdorfHeader = () => {
                 </div>
                 <div className="flex flex-col">
                   <Link href="/dashboard" className="text-white font-bold text-xl font-quicksand hover:text-white/80 transition-colors">
-                    Beiersdorf MediaIntel
+                    Beiersdorf Media Nebula
                   </Link>
                   <span className="text-white/70 text-xs font-medium tracking-wide">
-                    Media Intelligence Platform
+                    Media Analytics Platform
                   </span>
                 </div>
               </div>
