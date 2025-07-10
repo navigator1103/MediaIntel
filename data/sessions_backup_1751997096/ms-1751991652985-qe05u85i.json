@@ -1,0 +1,226 @@
+{
+  "id": "ms-1751991652985-qe05u85i",
+  "fileName": "game-plans-template (2).csv",
+  "fileSize": 675,
+  "recordCount": 3,
+  "status": "error",
+  "lastUpdateId": 1,
+  "country": "India",
+  "data": {
+    "records": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "processedRecords": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "masterData": {
+      "subRegions": [
+        "INDIA"
+      ],
+      "countries": [
+        {
+          "name": "India",
+          "subRegion": "INDIA",
+          "cluster": null
+        }
+      ],
+      "categories": [
+        "Hand Body"
+      ],
+      "ranges": [
+        {
+          "name": "Soft",
+          "category": "Hand Body"
+        }
+      ],
+      "mediaTypes": [],
+      "mediaSubtypes": [],
+      "businessUnits": []
+    },
+    "validationIssues": [],
+    "validationSummary": {
+      "total": 0,
+      "critical": 0,
+      "warning": 0,
+      "suggestion": 0,
+      "byField": {},
+      "uniqueRows": 0
+    }
+  },
+  "createdAt": "2025-07-08T16:20:52.986Z",
+  "importProgress": {
+    "current": 0,
+    "total": 3,
+    "percentage": 0,
+    "stage": "Error during import"
+  },
+  "validationErrors": [
+    "Row 2: Total R1+ is mandatory for digital media type 'Display'. Please provide a value in the 'Total R1+' column."
+  ],
+  "importErrors": [
+    {
+      "index": -1,
+      "error": "Import validation failed: Row 2: Total R1+ is mandatory for digital media type 'Display'. Please provide a value in the 'Total R1+' column."
+    }
+  ]
+}

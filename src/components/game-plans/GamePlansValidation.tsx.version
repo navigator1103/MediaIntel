@@ -1,0 +1,7 @@
+VERSION: 2.0.0
+CHANGES:
+- Fixed all throw statements to use proper error state management
+- Enhanced error message extraction from various formats
+- Added try-catch around JSON.stringify
+- Improved debugging with detailed console logs
+- Browser cache may need clearing (Ctrl+Shift+R or Cmd+Shift+R)

@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
     logWithTimestamp('Parsing request body...');
     const body = await request.json();
     sessionId = body.sessionId;
-    logWithTimestamp(`Session ID: ${sessionId}`);
+    const useGovernance = body.useGovernance || false; // New governance option
+    const importSource = body.importSource || 'unknown';
+    logWithTimestamp(`Session ID: ${sessionId}, Use Governance: ${useGovernance}, Import Source: ${importSource}`);
     
     if (!sessionId) {
       logErrorWithTimestamp('No session ID provided');
@@ -46,6 +48,21 @@ export async function POST(request: NextRequest) {
         { error: 'No session ID provided' },
         { status: 400 }
       );
+    }
+    
+    // If governance is enabled, redirect to governance import endpoint
+    if (useGovernance) {
+      logWithTimestamp('Redirecting to governance import endpoint');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/media-sufficiency/import-with-governance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sessionId, importSource })
+      });
+      
+      const result = await response.json();
+      return NextResponse.json(result, { status: response.status });
     }
     
     // Get the session data
@@ -172,12 +189,36 @@ export async function POST(request: NextRequest) {
                 // Find or create related entities
                 let campaign = null;
                 if (record.campaign) {
-                  campaign = await prisma.campaign.upsert({
-                    where: { name: record.campaign },
-                    update: {},
-                    create: { name: record.campaign }
+                  // Clean the campaign name to avoid duplicates due to whitespace/case issues
+                  const cleanCampaignName = record.campaign.toString().trim();
+                  
+                  // First try to find existing campaign
+                  campaign = await prisma.campaign.findFirst({
+                    where: { name: cleanCampaignName }
                   });
-                  importResults.campaignsCount++;
+                  
+                  // Only create if it doesn't exist
+                  if (!campaign) {
+                    try {
+                      campaign = await prisma.campaign.create({
+                        data: { name: cleanCampaignName }
+                      });
+                      importResults.campaignsCount++;
+                      logWithTimestamp(`Created new campaign: ${cleanCampaignName}`);
+                    } catch (error: any) {
+                      // If creation fails due to duplicate, try to find it again
+                      if (error.code === 'P2002') {
+                        logWithTimestamp(`Campaign already exists, finding: ${cleanCampaignName}`);
+                        campaign = await prisma.campaign.findFirst({
+                          where: { name: cleanCampaignName }
+                        });
+                      } else {
+                        throw error;
+                      }
+                    }
+                  } else {
+                    logWithTimestamp(`Using existing campaign: ${cleanCampaignName}`);
+                  }
                 }
 
                 let mediaSubType = null;

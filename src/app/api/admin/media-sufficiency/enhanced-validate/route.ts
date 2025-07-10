@@ -262,7 +262,11 @@ export async function POST(request: NextRequest) {
             { id: 2, name: 'Derma' }
           ]),
           safeQuery(() => prismaAny.pMType.findMany()),
-          safeQuery(() => prisma.campaign.findMany()),
+          safeQuery(() => prisma.campaign.findMany({
+            include: {
+              range: true
+            }
+          })),
           safeQuery(() => prisma.subRegion.findMany())
         ]);
       

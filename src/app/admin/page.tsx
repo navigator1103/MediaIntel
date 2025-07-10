@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive, FiGlobe, FiTag, FiBox, FiTarget } from 'react-icons/fi';
+import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive, FiGlobe, FiTag, FiBox, FiTarget, FiCheckCircle } from 'react-icons/fi';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -69,6 +69,7 @@ export default function AdminDashboard() {
       '/admin/game-plans/upload',
       '/admin/reach-planning',
       '/admin/financial-cycles',
+      '/admin/governance',
       '/admin/countries',
       '/admin/categories',
       '/admin/ranges',
@@ -219,6 +220,20 @@ export default function AdminDashboard() {
               onClick={() => handleNavigate('/admin/financial-cycles')}
             >
               Manage Cycles
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <FiCheckCircle className="mr-2 text-emerald-600" />
+              Entity Governance
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">Review auto-created campaigns and ranges</p>
+            <button 
+              className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+              onClick={() => handleNavigate('/admin/governance')}
+            >
+              Review Entities
             </button>
           </div>
         </div>

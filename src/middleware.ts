@@ -43,6 +43,14 @@ export function middleware(request: NextRequest) {
       request.nextUrl.pathname.startsWith('/api/admin/media-sufficiency') ||
       request.nextUrl.pathname.startsWith('/api/admin/reach-planning') ||
       request.nextUrl.pathname.startsWith('/api/admin/backups') ||
+      request.nextUrl.pathname.startsWith('/api/admin/countries') ||
+      request.nextUrl.pathname.startsWith('/api/admin/categories') ||
+      request.nextUrl.pathname.startsWith('/api/admin/ranges') ||
+      request.nextUrl.pathname.startsWith('/api/admin/campaigns') ||
+      request.nextUrl.pathname.startsWith('/api/admin/financial-cycles') ||
+      request.nextUrl.pathname.startsWith('/api/admin/governance') ||
+      request.nextUrl.pathname.startsWith('/api/admin/users') ||
+      request.nextUrl.pathname.startsWith('/api/admin/regions') ||
       request.nextUrl.pathname.startsWith('/api/debug/db-test')) {
     console.log('API route detected, allowing access without authentication');
     return NextResponse.next();

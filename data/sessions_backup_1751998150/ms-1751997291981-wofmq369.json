@@ -1,0 +1,245 @@
+{
+  "id": "ms-1751997291981-wofmq369",
+  "fileName": "game-plans-template (2).csv",
+  "fileSize": 679,
+  "recordCount": 3,
+  "status": "uploaded",
+  "lastUpdateId": 1,
+  "country": "India",
+  "data": {
+    "records": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-24",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "78",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "87",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "processedRecords": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-24",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "78",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "87",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "masterData": {
+      "subRegions": [
+        "INDIA"
+      ],
+      "countries": [
+        {
+          "name": "India",
+          "subRegion": "INDIA",
+          "cluster": null
+        }
+      ],
+      "categories": [
+        "Hand Body"
+      ],
+      "ranges": [
+        {
+          "name": "Soft",
+          "category": "Hand Body"
+        }
+      ],
+      "mediaTypes": [],
+      "mediaSubtypes": [],
+      "businessUnits": []
+    },
+    "validationIssues": [
+      {
+        "rowIndex": 0,
+        "columnName": "Year",
+        "severity": "critical",
+        "message": "Year field must match the year in Start Date and End Date",
+        "currentValue": "2025"
+      },
+      {
+        "rowIndex": 0,
+        "columnName": "Start Date",
+        "severity": "critical",
+        "message": "Start Date year must match the financial cycle year",
+        "currentValue": "01-Jan-24"
+      }
+    ],
+    "validationSummary": {
+      "total": 2,
+      "critical": 2,
+      "warning": 0,
+      "suggestion": 0,
+      "byField": {
+        "Year": [
+          {
+            "rowIndex": 0,
+            "columnName": "Year",
+            "severity": "critical",
+            "message": "Year field must match the year in Start Date and End Date",
+            "currentValue": "2025"
+          }
+        ],
+        "Start Date": [
+          {
+            "rowIndex": 0,
+            "columnName": "Start Date",
+            "severity": "critical",
+            "message": "Start Date year must match the financial cycle year",
+            "currentValue": "01-Jan-24"
+          }
+        ]
+      },
+      "uniqueRows": 1
+    }
+  },
+  "createdAt": "2025-07-08T17:54:51.981Z"
+}

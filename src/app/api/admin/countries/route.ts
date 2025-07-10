@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
       subRegionId: country.subRegionId,
       cluster: country.cluster?.name || null,
       clusterId: country.clusterId,
-      createdAt: country.createdAt.toISOString(),
-      updatedAt: country.updatedAt.toISOString(),
+      createdAt: country.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: country.updatedAt?.toISOString() || country.createdAt?.toISOString() || new Date().toISOString(),
       gamePlansCount: country._count.gamePlans
     }));
 
@@ -41,7 +41,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching countries:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch countries' },
+      { 
+        error: 'Failed to fetch countries', 
+        details: error instanceof Error ? error.message : String(error) 
+      },
       { status: 500 }
     );
   } finally {

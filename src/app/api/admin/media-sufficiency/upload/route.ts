@@ -641,7 +641,9 @@ export async function GET(request: NextRequest) {
         records: session.data?.processedRecords || session.data?.records || [],
         validationIssues: validationIssues,
         validationSummary: validationSummary,
-        masterData: summarizeMasterData(session.data.masterData)
+        masterData: summarizeMasterData(session.data.masterData),
+        importErrors: session.importErrors || [],
+        importResults: session.importResults || null
       });
     } else {
       // Return session metadata without the full records
@@ -652,7 +654,9 @@ export async function GET(request: NextRequest) {
         recordCount: session.recordCount,
         createdAt: session.createdAt,
         status: session.status,
-        masterData: summarizeMasterData(session.data.masterData)
+        masterData: summarizeMasterData(session.data.masterData),
+        importErrors: session.importErrors || [],
+        importResults: session.importResults || null
       });
     }
   } catch (error) {

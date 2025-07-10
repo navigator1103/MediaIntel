@@ -479,7 +479,7 @@ export default function ReachPlanningPage() {
             {activeTab === 'validation' && (
               <div>
                 {currentSession ? (
-                  <ReachPlanningGrid sessionId={currentSession} />
+                  <ReachPlanningGrid sessionId={currentSession} key={`${currentSession}-${activeTab}`} />
                 ) : (
                   <div className="text-center py-12">
                     <FiBarChart className="h-12 w-12 text-gray-400 mx-auto mb-4" />

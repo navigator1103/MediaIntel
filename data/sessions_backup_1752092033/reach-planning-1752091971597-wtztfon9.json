@@ -1,0 +1,247 @@
+{
+  "sessionId": "reach-planning-1752091971597-wtztfon9",
+  "fileName": "media-sufficiency-template-India-2025-07-09.csv",
+  "uploadedAt": "2025-07-09T20:12:51.597Z",
+  "totalRecords": 1,
+  "headers": [
+    "Last Update",
+    "Sub Region",
+    "Country",
+    "BU",
+    "Category",
+    "Range",
+    "Campaign",
+    "Franchise NS",
+    "Campaign Socio-Demo Target",
+    "Total Country Population On Target",
+    "TV Copy Length",
+    "TV Target Size",
+    "WOA Open TV",
+    "WOA Paid TV",
+    "Total TRPs",
+    "TV R1+",
+    "TV R3+",
+    "TV Ideal Reach",
+    "CPP 2024",
+    "CPP 2025",
+    "Digital Target",
+    "Digital Target Size",
+    "WOA PM FF",
+    "WOA Influencers Amplification",
+    "Digital R1+",
+    "Digital Ideal Reach",
+    "Planned Combined Reach",
+    "Combined Ideal Reach",
+    "Digital Reach Level Check",
+    "TV Reach Level Check",
+    "Combined Reach Level Check"
+  ],
+  "expectedFields": [
+    "Last Update",
+    "Sub Region",
+    "Country",
+    "BU",
+    "Category",
+    "Range",
+    "Campaign",
+    "Franchise NS (Actual or Projected)",
+    "Campaign Socio-Demo Target",
+    "Total Country Population On Target (Abs)",
+    "TV Copy Length",
+    "TV Target Size (Abs)",
+    "WOA Open TV",
+    "WOA Paid TV",
+    "Total TRPs",
+    "TV R1+ (Total)",
+    "TV R3+ (Total)",
+    "TV IDEAL Reach",
+    "CPP 2024",
+    "CPP 2025",
+    "Digital Target",
+    "Digital Target Size (Abs)",
+    "WOA PM & FF",
+    "WOA Influencers (Amplification)",
+    "Digital R1+ (Total)",
+    "Digital IDEAL Reach",
+    "Planned Combined Reach",
+    "Combined IDEAL Reach",
+    "Digital Reach Level Check",
+    "TV Reach Level Check",
+    "Combined Reach Level Check"
+  ],
+  "records": [
+    {
+      "Last Update": "ABP 2025",
+      "Sub Region": "INDIA",
+      "Country": "India",
+      "BU": "",
+      "Category": "Hand Body",
+      "Range": "Soft",
+      "Campaign": "Soft",
+      "Franchise NS": "",
+      "Campaign Socio-Demo Target": "M 18-22",
+      "Total Country Population On Target": "100000000",
+      "TV Copy Length": "20",
+      "TV Target Size": "90000000",
+      "WOA Open TV": "4",
+      "WOA Paid TV": "3",
+      "Total TRPs": "6000000",
+      "TV R1+": "12000000",
+      "TV R3+": "2100000",
+      "TV Ideal Reach": "1200000000",
+      "CPP 2024": "182893992",
+      "CPP 2025": "2938292999",
+      "Digital Target": "80000000",
+      "Digital Target Size": "200000",
+      "WOA PM FF": "3",
+      "WOA Influencers Amplification": "2",
+      "Digital R1+": "232323232",
+      "Digital Ideal Reach": "400000",
+      "Planned Combined Reach": "1000030022",
+      "Combined Ideal Reach": "2000000000",
+      "Digital Reach Level Check": "20909209",
+      "TV Reach Level Check": "20802808",
+      "Combined Reach Level Check": "208028082"
+    }
+  ],
+  "status": "validated",
+  "fileSize": 691,
+  "lastUpdateId": 1,
+  "countryId": 33,
+  "validationIssues": [
+    {
+      "rowIndex": 0,
+      "columnName": "Digital Target",
+      "severity": "critical",
+      "message": "Digital Target must contain valid text",
+      "currentValue": "80000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV R1+",
+      "severity": "critical",
+      "message": "TV R1+ must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "12000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV R3+",
+      "severity": "critical",
+      "message": "TV R3+ must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "2100000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV Ideal Reach",
+      "severity": "critical",
+      "message": "TV Ideal Reach must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "1200000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Digital R1+",
+      "severity": "critical",
+      "message": "Digital R1+ must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "232323232"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Digital Ideal Reach",
+      "severity": "critical",
+      "message": "Digital Ideal Reach must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "400000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Planned Combined Reach",
+      "severity": "critical",
+      "message": "Planned Combined Reach must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "1000030022"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Combined Ideal Reach",
+      "severity": "critical",
+      "message": "Combined Ideal Reach must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "2000000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Digital Reach Level Check",
+      "severity": "critical",
+      "message": "Digital Reach Level Check must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "20909209"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV Reach Level Check",
+      "severity": "critical",
+      "message": "TV Reach Level Check must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "20802808"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "Combined Reach Level Check",
+      "severity": "critical",
+      "message": "Combined Reach Level Check must be a valid percentage (0-100% or 0-1)",
+      "currentValue": "208028082"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV Copy Length",
+      "severity": "warning",
+      "message": "TV Copy Length should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "20"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV Target Size",
+      "severity": "warning",
+      "message": "TV Target Size should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "90000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV R1+",
+      "severity": "warning",
+      "message": "TV R1+ should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "12000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV R3+",
+      "severity": "warning",
+      "message": "TV R3+ should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "2100000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "TV Ideal Reach",
+      "severity": "warning",
+      "message": "TV Ideal Reach should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "1200000000"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "CPP 2024",
+      "severity": "warning",
+      "message": "CPP 2024 should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "182893992"
+    },
+    {
+      "rowIndex": 0,
+      "columnName": "CPP 2025",
+      "severity": "warning",
+      "message": "CPP 2025 should be empty because campaign \"Soft\" has no TV media in game plans for this country/financial cycle.",
+      "currentValue": "2938292999"
+    }
+  ],
+  "validationSummary": {
+    "total": 18,
+    "critical": 11,
+    "warning": 7,
+    "suggestion": 0,
+    "uniqueRows": 1
+  },
+  "validatedAt": "2025-07-09T20:12:51.865Z"
+}

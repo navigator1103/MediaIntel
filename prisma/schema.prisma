@@ -92,8 +92,18 @@ model Range {
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @default(now()) @updatedAt @map("updated_at")
   category_id Int?
-  categories  CategoryToRange[]
-  campaigns   Campaign[]
+  
+  // Governance fields
+  status       String           @default("active") @map("status")  // "active", "pending_review", "merged", "archived"
+  createdBy    String?          @map("created_by")  // "import_auto", "manual", "admin"
+  reviewedBy   String?          @map("reviewed_by") // Admin who reviewed
+  reviewedAt   DateTime?        @map("reviewed_at") // When reviewed
+  originalName String?          @map("original_name") // Original name from import
+  mergedInto   Int?             @map("merged_into") // If merged into another range
+  notes        String?          @map("notes") // Admin notes
+  
+  categories   CategoryToRange[]
+  campaigns    Campaign[]
 
   @@map("ranges")
 }
@@ -174,13 +184,23 @@ model BusinessUnit {
 }
 
 model Campaign {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique(map: "sqlite_autoindex_campaigns_1")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
-  rangeId   Int?       @map("range_id")
-  range     Range?     @relation(fields: [rangeId], references: [id])
-  gamePlans GamePlan[]
+  id           Int        @id @default(autoincrement())
+  name         String     @unique(map: "sqlite_autoindex_campaigns_1")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at")
+  rangeId      Int?       @map("range_id")
+  
+  // Governance fields
+  status       String     @default("active") @map("status")  // "active", "pending_review", "merged", "archived"
+  createdBy    String?    @map("created_by")  // "import_auto", "manual", "admin"
+  reviewedBy   String?    @map("reviewed_by") // Admin who reviewed
+  reviewedAt   DateTime?  @map("reviewed_at") // When reviewed
+  originalName String?    @map("original_name") // Original name from import
+  mergedInto   Int?       @map("merged_into") // If merged into another campaign
+  notes        String?    @map("notes") // Admin notes
+  
+  range        Range?     @relation(fields: [rangeId], references: [id])
+  gamePlans    GamePlan[]
 
   @@map("campaigns")
 }
@@ -198,11 +218,13 @@ model GamePlan {
   q2Budget         Float?       @map("q2_budget")
   q3Budget         Float?       @map("q3_budget")
   q4Budget         Float?       @map("q4_budget")
-  trps             Float?
-  reach1Plus       Float?       @map("reach_1_plus")
-  reach3Plus       Float?       @map("reach_3_plus")
+  totalTrps        Float?       @map("total_trps")
+  totalR1Plus      Float?       @map("total_r1_plus")
+  totalR3Plus      Float?       @map("total_r3_plus")
   totalWoa         Float?       @map("total_woa")
   weeksOffAir      Float?       @map("weeks_off_air")
+  nsVsWm           String?      @map("ns_vs_wm")
+  weeksLive        Float?       @map("weeks_live")
   createdAt        String       @default("CURRENT_TIMESTAMP") @map("created_at")
   updatedAt        String       @default("CURRENT_TIMESTAMP") @map("updated_at")
   year             Int?

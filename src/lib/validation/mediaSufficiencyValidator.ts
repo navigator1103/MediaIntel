@@ -51,10 +51,10 @@ export interface MediaSufficiencyRecord {
 // Define validation rule types
 export interface ValidationRule {
   field: string;
-  type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency';
+  type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency' | 'requirement';
   severity: 'critical' | 'warning' | 'suggestion';
   message: string;
-  validate: (value: any, record: MediaSufficiencyRecord, allRecords: MediaSufficiencyRecord[], masterData?: MasterData) => boolean | Promise<boolean>;
+  validate: (value: any, record: MediaSufficiencyRecord, allRecords: MediaSufficiencyRecord[], masterData?: MasterData) => boolean | Promise<boolean | { isValid: boolean; message?: string }> | { isValid: boolean; message?: string };
 }
 
 // Define the validator class
@@ -106,15 +106,15 @@ export class MediaSufficiencyValidator {
   private initializeRules() {
     // Define all fields that should be validated
     const allFields = [
-      'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 
-      'Start Date', 'End Date', 'Budget', 'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
+      'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 'Media Type', 'Media Subtype', 
+      'Start Date', 'End Date', 'Total Budget', 'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
       'PM Type', 'Objectives Values'
     ];
     
     // Fields that are required (critical if missing)
     const requiredFields = [
-      'Year', 'Country', 'Category', 'Range', 'Campaign', 'Media', 'Media Subtype', 
-      'Start Date', 'End Date', 'Budget'
+      'Year', 'Country', 'Category', 'Range', 'Campaign', 'Media Type', 'Media Subtype', 
+      'Start Date', 'End Date', 'Total Budget', 'Burst'
     ];
     
     // Add validation for required fields (critical)
@@ -309,37 +309,82 @@ export class MediaSufficiencyValidator {
       });
     });
 
-    // Sub Region validation
+    // Sub Region validation - Combined existence and country match check
     this.rules.push({
       field: 'Sub Region',
       type: 'relationship',
-      severity: 'warning',
-      message: 'Sub Region should be a valid region name',
+      severity: 'critical', // Changed to critical as mismatch is more important than existence
+      message: 'Sub Region must exist and match the selected country',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return true; // Sub Region is not required
         
-        // Check if sub region exists in master data
         const subRegionInput = value.toString().trim();
-        const subRegions = masterData?.subRegions || [];
+        const countryInput = record['Country']?.toString().trim();
+        const selectedCountry = masterData?.selectedCountry;
         
-        // Check if it's in the subRegions list (case insensitive)
+        // First check if sub-region exists
+        const subRegions = masterData?.subRegions || [];
         const isValidSubRegion = subRegions.some((sr: string) => {
           return sr.toLowerCase() === subRegionInput.toLowerCase();
         });
         
-        if (isValidSubRegion) {
-          return true;
+        if (!isValidSubRegion) {
+          // Check if it's a valid country name (sometimes countries are used as sub-regions)
+          const countries = masterData?.countries || [];
+          const isValidCountry = countries.some((country: string) => 
+            country.toLowerCase() === subRegionInput.toLowerCase()
+          );
+          
+          if (!isValidCountry) {
+            return {
+              isValid: false,
+              message: `Sub-region '${subRegionInput}' not found in database`
+            };
+          }
         }
         
-        // If not in subRegions, check if it's a valid country name (sometimes countries are used as sub-regions)
-        const countries = masterData?.countries || [];
-        const isValidCountry = countries.some((country: string) => 
-          country.toLowerCase() === subRegionInput.toLowerCase()
-        );
+        // Now check country relationship
+        const countryToCheck = countryInput || selectedCountry;
         
-        return isValidCountry;
+        if (!countryToCheck) {
+          return true; // Can't validate relationship without country
+        }
+        
+        // Find the country in master data
+        const countriesData = masterData?.countries || [];
+        const countryData = countriesData.find((c: any) => {
+          if (typeof c === 'string') {
+            return c.toLowerCase() === countryToCheck.toLowerCase();
+          } else if (c && typeof c === 'object' && c.name) {
+            return c.name.toLowerCase() === countryToCheck.toLowerCase();
+          }
+          return false;
+        });
+        
+        if (!countryData) {
+          return true; // Country not found, will be caught by country validation
+        }
+        
+        // Get expected sub-region for this country
+        const expectedSubRegion = typeof countryData === 'object' ? countryData.subRegion : null;
+        
+        if (expectedSubRegion) {
+          // Check if the provided sub-region matches the expected one
+          const isMatch = subRegionInput.toLowerCase() === expectedSubRegion.toLowerCase();
+          
+          if (!isMatch) {
+            console.log(`[CRITICAL] Sub-region mismatch detected: '${subRegionInput}' != '${expectedSubRegion}' for country '${countryToCheck}'`);
+            return {
+              isValid: false,
+              message: `Sub-region '${subRegionInput}' does not belong to country '${countryToCheck}'. Expected: '${expectedSubRegion}'`
+            };
+          }
+        }
+        
+        return true;
       }
     });
+
 
     // Country validation
     this.rules.push({
@@ -403,7 +448,7 @@ export class MediaSufficiencyValidator {
     this.rules.push({
       field: 'Country',
       type: 'relationship',
-      severity: 'warning',
+      severity: 'critical',
       message: 'Country does not match the specified Sub Region',
       validate: (value, record, allRecords, masterData) => {
         // Skip validation if either country or sub region is missing
@@ -430,7 +475,17 @@ export class MediaSufficiencyValidator {
         if (countryKey) {
           const mappedSubRegion = countryToSubRegionMap[countryKey];
           // Check if the specified sub-region matches what's in our mapping
-          return mappedSubRegion.toLowerCase() === subRegionInput.toLowerCase();
+          const isMatch = mappedSubRegion.toLowerCase() === subRegionInput.toLowerCase();
+          
+          if (!isMatch) {
+            console.log(`[CRITICAL] Country-SubRegion mismatch: '${subRegionInput}' != '${mappedSubRegion}' for country '${countryInput}'`);
+            return {
+              isValid: false,
+              message: `Sub-region '${subRegionInput}' does not belong to country '${countryInput}'. Expected: '${mappedSubRegion}'`
+            };
+          }
+          
+          return true;
         }
         
         // If country isn't in our mappings, check if the sub-region exists
@@ -504,9 +559,10 @@ export class MediaSufficiencyValidator {
         const campaignInput = value.toString().trim();
         const campaigns = masterData?.campaigns || [];
         
-        // Case-insensitive search - campaigns array contains strings directly
-        return campaigns.some((campaign: string) => {
-          return campaign.toLowerCase() === campaignInput.toLowerCase();
+        // Case-insensitive search - handle both string and object formats
+        return campaigns.some((campaign: string | { name: string }) => {
+          const campaignName = typeof campaign === 'string' ? campaign : campaign.name;
+          return campaignName.toLowerCase() === campaignInput.toLowerCase();
         });
       }
     });
@@ -617,10 +673,10 @@ export class MediaSufficiencyValidator {
 
     // Budget validation
     this.rules.push({
-      field: 'Budget',
+      field: 'Total Budget',
       type: 'format',
       severity: 'critical',
-      message: 'Budget must be a valid number greater than zero',
+      message: 'Total Budget must be a valid number greater than zero',
       validate: (value) => {
         if (!value) return false;
         
@@ -635,10 +691,10 @@ export class MediaSufficiencyValidator {
     
     // Budget equals sum of quarterly budgets validation
     this.rules.push({
-      field: 'Budget',
+      field: 'Total Budget',
       type: 'consistency',
       severity: 'critical',
-      message: 'Budget should equal the sum of Q1, Q2, Q3, and Q4',
+      message: 'Total Budget should equal the sum of Q1, Q2, Q3, and Q4 budgets',
       validate: (value, record) => {
         if (!value) return true; // Skip if no budget
         
@@ -686,12 +742,12 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Media validation
+    // Media Type validation
     this.rules.push({
-      field: 'Media',
+      field: 'Media Type',
       type: 'relationship',
       severity: 'critical',
-      message: 'Media must be a valid media type from the database',
+      message: 'Media Type must be a valid media type from the database',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -793,9 +849,10 @@ export class MediaSufficiencyValidator {
           
           // If we have valid subtypes for this media type, validate against them
           if (validSubtypes.length > 0) {
-            // Case-insensitive search - validSubtypes array now contains strings directly
-            const isValid = validSubtypes.some((subType: string) => {
-              return subType.toLowerCase() === subtype.toLowerCase();
+            // Case-insensitive search - handle both string and object formats
+            const isValid = validSubtypes.some((subType: string | { name: string }) => {
+              const subTypeName = typeof subType === 'string' ? subType : subType.name;
+              return subTypeName.toLowerCase() === subtype.toLowerCase();
             });
             
             console.log(`Validation result for ${subtype}: ${isValid}`);
@@ -950,6 +1007,422 @@ export class MediaSufficiencyValidator {
         return true;
       }
     });
+
+    // Burst validation - must be positive integer
+    this.rules.push({
+      field: 'Burst',
+      type: 'format',
+      severity: 'critical',
+      message: 'Burst must be a positive integer (1 or greater)',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || value.toString().trim() === '') {
+          return false; // Required field, will be caught by required field validation
+        }
+        
+        // Parse as integer
+        const burstValue = parseInt(value.toString().trim(), 10);
+        
+        if (isNaN(burstValue) || burstValue < 1) {
+          return {
+            isValid: false,
+            message: `Burst must be a positive integer (1 or greater). Current value: '${value}'`
+          };
+        }
+        
+        return true;
+      }
+    });
+
+    // Total TRPs validation - only for TV media types
+    this.rules.push({
+      field: 'Total TRPs',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Total TRPs should only be used for TV media types',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || value.toString().trim() === '') {
+          return true; // Empty TRPs is fine
+        }
+        
+        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
+        
+        // Check if it's a TV media type
+        const isTvMedia = mediaType?.toLowerCase().includes('traditional') ||
+                         mediaType?.toLowerCase().includes('tv') ||
+                         mediaSubtype?.toLowerCase().includes('tv') ||
+                         mediaSubtype?.toLowerCase().includes('television') ||
+                         mediaSubtype?.toLowerCase().includes('open') ||
+                         mediaSubtype?.toLowerCase().includes('paid');
+        
+        if (!isTvMedia) {
+          return {
+            isValid: false,
+            message: `Total TRPs should only be used for TV media types (Open TV, Paid TV, etc.). Media type '${mediaSubtype || mediaType}' does not support TRPs. Consider using reach metrics instead.`
+          };
+        }
+        
+        return true;
+      }
+    });
+
+    // Media Subtype and PM Type combination validation (PM Type field)
+    this.rules.push({
+      field: 'PM Type',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Invalid PM Type for the selected Media Subtype',
+      validate: (value, record, allRecords, masterData) => {
+        const pmType = value?.toString().trim();
+        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
+        
+        if (!pmType || !mediaSubtype) {
+          return true; // Skip validation if either is missing
+        }
+        
+        // Define valid combinations
+        const validCombinations: Record<string, string[]> = {
+          // Digital combinations
+          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'influencers organic': ['Non PM'],
+          'other digital': ['Non PM'],
+          'search': ['GR Only'],
+          // Traditional combinations
+          'open tv': ['Non PM'],
+          'paid tv': ['Non PM'],
+          'ooh': ['Non PM'],
+          'radio': ['Non PM']
+        };
+        
+        // Normalize the media subtype for comparison
+        const normalizedSubtype = mediaSubtype.toLowerCase();
+        
+        // Find matching rule
+        let allowedPmTypes: string[] = [];
+        for (const [subtypePattern, pmTypes] of Object.entries(validCombinations)) {
+          if (normalizedSubtype.includes(subtypePattern) || 
+              (subtypePattern === 'ooh' && (normalizedSubtype.includes('out of home') || normalizedSubtype.includes('outdoor')))) {
+            allowedPmTypes = pmTypes;
+            break;
+          }
+        }
+        
+        // If we found a rule, validate against it
+        if (allowedPmTypes.length > 0) {
+          const isValid = allowedPmTypes.some(allowed => 
+            allowed.toLowerCase() === pmType.toLowerCase()
+          );
+          
+          if (!isValid) {
+            return {
+              isValid: false,
+              message: `PM Type '${pmType}' is not valid for Media Subtype '${mediaSubtype}'. Allowed PM Types: ${allowedPmTypes.join(', ')}`
+            };
+          }
+        }
+        
+        return true;
+      }
+    });
+
+    // Media Subtype and PM Type combination validation (Media Subtype field)
+    this.rules.push({
+      field: 'Media Subtype',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Invalid Media Subtype for the selected PM Type',
+      validate: (value, record, allRecords, masterData) => {
+        const mediaSubtype = value?.toString().trim();
+        const pmType = record['PM Type']?.toString().trim();
+        
+        if (!pmType || !mediaSubtype) {
+          return true; // Skip validation if either is missing
+        }
+        
+        // Define valid combinations (reverse mapping)
+        const validCombinations: Record<string, string[]> = {
+          // Digital combinations
+          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'influencers organic': ['Non PM'],
+          'other digital': ['Non PM'],
+          'search': ['GR Only'],
+          // Traditional combinations
+          'open tv': ['Non PM'],
+          'paid tv': ['Non PM'],
+          'ooh': ['Non PM'],
+          'radio': ['Non PM']
+        };
+        
+        // Normalize the media subtype for comparison
+        const normalizedSubtype = mediaSubtype.toLowerCase();
+        
+        // Find matching rule
+        let allowedPmTypes: string[] = [];
+        for (const [subtypePattern, pmTypes] of Object.entries(validCombinations)) {
+          if (normalizedSubtype.includes(subtypePattern) || 
+              (subtypePattern === 'ooh' && (normalizedSubtype.includes('out of home') || normalizedSubtype.includes('outdoor')))) {
+            allowedPmTypes = pmTypes;
+            break;
+          }
+        }
+        
+        // If we found a rule, validate against it
+        if (allowedPmTypes.length > 0) {
+          const isValid = allowedPmTypes.some(allowed => 
+            allowed.toLowerCase() === pmType.toLowerCase()
+          );
+          
+          if (!isValid) {
+            return {
+              isValid: false,
+              message: `Media Subtype '${mediaSubtype}' cannot be used with PM Type '${pmType}'. Allowed PM Types: ${allowedPmTypes.join(', ')}`
+            };
+          }
+        }
+        
+        return true;
+      }
+    });
+
+    // Country validation - check if country exists in database
+    this.rules.push({
+      field: 'Country',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Country must exist in the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        const countryName = value.toString().trim();
+        const countries = masterData?.countries || [];
+        // Countries are returned as array of strings, not objects
+        return countries.some((country: string) => 
+          country.toLowerCase() === countryName.toLowerCase()
+        );
+      }
+    });
+
+    // Category validation - check if category exists in database  
+    this.rules.push({
+      field: 'Category',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Category must exist in the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        const categoryName = value.toString().trim();
+        const categories = masterData?.categories || [];
+        // Categories are returned as array of strings, not objects
+        return categories.some((category: string) => 
+          category.toLowerCase() === categoryName.toLowerCase()
+        );
+      }
+    });
+
+    // Range validation - check if range exists and is linked to category
+    this.rules.push({
+      field: 'Range',
+      type: 'relationship', 
+      severity: 'critical',
+      message: 'Range must exist in the database and be linked to the specified Category',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        const rangeName = value.toString().trim();
+        const categoryName = record['Category']?.toString().trim();
+        
+        // Check if range exists (ranges are returned as array of strings)
+        const ranges = masterData?.ranges || [];
+        const rangeExists = ranges.some((range: string) => 
+          range.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        if (!rangeExists) return false;
+        
+        // Check if range is linked to category
+        const categoryToRanges = masterData?.categoryToRanges || {};
+        const categoryRanges = categoryName ? (categoryToRanges[categoryName] || []) : [];
+        return categoryRanges.some((range: string) => 
+          range.toLowerCase() === rangeName.toLowerCase()
+        );
+      }
+    });
+
+    // Campaign validation - check if campaign exists
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'critical', 
+      message: 'Campaign must exist in the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        const campaignName = value.toString().trim();
+        const campaigns = masterData?.campaigns || [];
+        // Handle both string and object formats for campaigns
+        return campaigns.some((campaign: string | { name: string }) => {
+          const cName = typeof campaign === 'string' ? campaign : campaign.name;
+          return cName.toLowerCase() === campaignName.toLowerCase();
+        });
+      }
+    });
+
+    // Media Subtype validation - check if it exists and is linked to Media Type
+    this.rules.push({
+      field: 'Media Subtype',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Media Subtype must exist and be linked to the specified Media Type',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        const subtypeName = value.toString().trim();
+        const mediaTypeName = record['Media Type']?.toString().trim();
+        
+        // Check if subtype exists (mediaSubTypes are returned as array of strings)
+        const mediaSubTypes = masterData?.mediaSubTypes || [];
+        const subtypeExists = mediaSubTypes.some((subtype: string) => 
+          subtype.toLowerCase() === subtypeName.toLowerCase()
+        );
+        
+        if (!subtypeExists) return false;
+        
+        // Check if subtype is linked to media type
+        const mediaToSubtypes = masterData?.mediaToSubtypes || {};
+        const mediaSubtypes = mediaTypeName ? (mediaToSubtypes[mediaTypeName] || []) : [];
+        return mediaSubtypes.some((subtype: string | { name: string }) => {
+          const subtypeNameFromArray = typeof subtype === 'string' ? subtype : subtype.name;
+          return subtypeNameFromArray.toLowerCase() === subtypeName.toLowerCase();
+        });
+      }
+    });
+
+    // PM Type validation - check if it exists in database
+    this.rules.push({
+      field: 'PM Type',
+      type: 'relationship',
+      severity: 'warning', // Changed to warning since relationship mapping isn't available
+      message: 'PM Type should exist in the database',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return true; // PM Type is optional
+        const pmTypeName = value.toString().trim();
+        
+        // Check if PM Type exists (pmTypes are returned as array of strings)
+        const pmTypes = masterData?.pmTypes || [];
+        return pmTypes.some((pmType: string) => 
+          pmType.toLowerCase() === pmTypeName.toLowerCase()
+        );
+        
+        // Note: Subtype-to-PMType relationship validation is disabled 
+        // until the master data API includes subtypeToPmTypes mapping
+      }
+    });
+
+    // Total R1+ validation for digital, Open TV and OOH media types
+    this.rules.push({
+      field: 'Total R1+',
+      type: 'requirement',
+      severity: 'critical',
+      message: 'Total R1+ is mandatory for Digital, Open TV and OOH media types',
+      validate: (value, record, allRecords, masterData) => {
+        // Check if this is a digital media type
+        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
+        
+        // Check if it's digital media
+        const isDigital = mediaType?.toLowerCase().includes('digital') || 
+                         mediaSubtype?.toLowerCase().includes('display') ||
+                         mediaSubtype?.toLowerCase().includes('digital') ||
+                         mediaSubtype?.toLowerCase().includes('video') ||
+                         mediaSubtype?.toLowerCase().includes('social');
+        
+        // Check if it's Open TV or OOH
+        const isOpenTv = mediaSubtype?.toLowerCase().includes('open') || 
+                        (mediaSubtype?.toLowerCase().includes('tv') && mediaSubtype?.toLowerCase().includes('open'));
+        
+        const isOoh = mediaSubtype?.toLowerCase().includes('ooh') ||
+                     mediaSubtype?.toLowerCase().includes('out of home') ||
+                     mediaSubtype?.toLowerCase().includes('outdoor') ||
+                     mediaType?.toLowerCase().includes('ooh');
+        
+        const requiresR1Plus = isDigital || isOpenTv || isOoh;
+        
+        if (requiresR1Plus) {
+          // Total R1+ is required for these media types
+          if (!value || value.toString().trim() === '') {
+            let mediaTypeDesc = mediaSubtype || mediaType;
+            let message: string;
+            if (isDigital) {
+              message = `Total R1+ is mandatory for digital media type '${mediaTypeDesc}'. Please provide a value.`;
+            } else if (isOpenTv) {
+              message = `Total R1+ is mandatory for Open TV media type '${mediaTypeDesc}'. Please provide a value.`;
+            } else if (isOoh) {
+              message = `Total R1+ is mandatory for OOH (Out of Home) media type '${mediaTypeDesc}'. Please provide a value.`;
+            } else {
+              message = `Total R1+ is mandatory for this media type. Please provide a value.`;
+            }
+            return {
+              isValid: false,
+              message
+            };
+          }
+          
+          // Validate it's a valid percentage
+          const numValue = this.parseNumber(value);
+          if (numValue === null || numValue < 0 || numValue > 100) {
+            return {
+              isValid: false,
+              message: `Total R1+ value '${value}' is invalid. Must be between 0-100%.`
+            };
+          }
+        }
+        
+        return true;
+      }
+    });
+
+    // Campaign-Range relationship validation - check if existing campaign is linked to correct range
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'warning',
+      message: 'Campaign exists but is linked to a different range than specified in your data',
+      validate: async (value, record, allRecords, masterData) => {
+        if (!value || !record['Range']) return true;
+        
+        const campaignName = value.toString().trim();
+        const expectedRangeName = record['Range'].toString().trim();
+        
+        try {
+          // Check if we have campaign data in masterData with range relationships
+          const campaigns = masterData?.campaigns || [];
+          
+          // Find the campaign in master data (campaigns should include range information)
+          const campaign = campaigns.find((c: any) => {
+            // Handle both string and object formats
+            const cName = typeof c === 'string' ? c : c.name;
+            return cName && cName.toLowerCase() === campaignName.toLowerCase();
+          });
+          
+          // If campaign exists in master data and has range info, validate relationship
+          if (campaign && typeof campaign === 'object' && campaign.range) {
+            const actualRangeName = campaign.range.name || campaign.range;
+            if (actualRangeName && actualRangeName.toLowerCase() !== expectedRangeName.toLowerCase()) {
+              // Return object with custom message
+              return {
+                isValid: false,
+                message: `Campaign '${campaignName}' exists but is linked to range '${actualRangeName}', not '${expectedRangeName}' as specified in your data. This may indicate a data inconsistency that should be reviewed.`
+              };
+            }
+          }
+          
+          return true;
+        } catch (error) {
+          // If we can't check, assume valid to avoid false positives
+          console.warn('Failed to validate campaign-range relationship:', error);
+          return true;
+        }
+      }
+    });
   }
   
   // Helper method to check if a record is completely empty
@@ -963,7 +1436,7 @@ export class MediaSufficiencyValidator {
   }
 
   // Validate a single record
-  public validateRecord(record: MediaSufficiencyRecord, index: number, allRecords: MediaSufficiencyRecord[]): ValidationIssue[] {
+  public async validateRecord(record: MediaSufficiencyRecord, index: number, allRecords: MediaSufficiencyRecord[]): Promise<ValidationIssue[]> {
     const issues: ValidationIssue[] = [];
     
     // Skip validation for completely empty rows
@@ -979,10 +1452,6 @@ export class MediaSufficiencyValidator {
       const value = record[rule.field];
       
       try {
-        // For now, we'll handle async validation as synchronous
-        // This is because the current architecture expects synchronous validation
-        // In the future, this should be refactored to fully support async validation
-        
         // Add special debug for Budget field and problematic fields
         if (rule.field === 'Budget' || rule.field === 'Range' || 
             (record.Category && ['Sun', 'Anti Age', 'Anti Pigment', 'Dry Skin'].includes(record.Category.toString()))) {
@@ -993,14 +1462,27 @@ export class MediaSufficiencyValidator {
         
         const validationResult = rule.validate(value, record, allRecords, this.masterData);
         
-        // If it's a Promise (async validation), we'll log a warning and treat it as valid
-        // This is a temporary solution until we can fully refactor for async support
-        if (validationResult instanceof Promise) {
-          console.warn(`Async validation detected for ${rule.field} but not supported in current architecture. Treating as valid.`);
-          continue;
-        }
+        // Handle both sync and async validation
+        let isValid: boolean;
+        let customMessage: string | undefined;
         
-        const isValid = validationResult;
+        if (validationResult instanceof Promise) {
+          // Properly await async validation
+          const result = await validationResult;
+          if (result && typeof result === 'object' && 'isValid' in result) {
+            isValid = result.isValid;
+            customMessage = result.message;
+          } else {
+            isValid = result as boolean;
+          }
+        } else {
+          if (validationResult && typeof validationResult === 'object' && 'isValid' in validationResult) {
+            isValid = validationResult.isValid;
+            customMessage = validationResult.message;
+          } else {
+            isValid = validationResult as boolean;
+          }
+        }
         
         // Only log critical validation failures in production
         if (!isValid && rule.severity === 'critical' && process.env.NODE_ENV === 'development') {
@@ -1012,7 +1494,7 @@ export class MediaSufficiencyValidator {
             rowIndex: index,
             columnName: rule.field,
             severity: rule.severity,
-            message: rule.message,
+            message: customMessage || rule.message,
             currentValue: value // Store the current value for comparison
           };
           

@@ -18,6 +18,9 @@ interface ValidationContext {
   campaigns: Map<string, number>;
   mediaSubTypes: Map<string, number>;
   lastUpdates: Map<string, number>;
+  countrySubRegions: Map<number, number | null>; // Map of countryId to subRegionId
+  subRegions: Map<string, number>; // Map of subRegion name to id
+  mediaSubTypeToMediaType: Map<number, string>; // Map of mediaSubTypeId to mediaType name
 }
 
 export async function preValidateImportData(
@@ -72,13 +75,14 @@ export async function preValidateImportData(
 }
 
 async function buildValidationContext(): Promise<ValidationContext> {
-  const [countries, categories, ranges, campaigns, mediaSubTypes, lastUpdates] = await Promise.all([
-    prisma.country.findMany(),
+  const [countries, categories, ranges, campaigns, mediaSubTypes, lastUpdates, subRegions] = await Promise.all([
+    prisma.country.findMany({ include: { subRegion: true } }),
     prisma.category.findMany(),
     prisma.range.findMany(),
     prisma.campaign.findMany(),
-    prisma.mediaSubType.findMany(),
-    prisma.lastUpdate.findMany()
+    prisma.mediaSubType.findMany({ include: { mediaType: true } }),
+    prisma.lastUpdate.findMany(),
+    prisma.subRegion.findMany()
   ]);
 
   return {
@@ -87,7 +91,10 @@ async function buildValidationContext(): Promise<ValidationContext> {
     ranges: new Map(ranges.map(r => [r.name, r.id])),
     campaigns: new Map(campaigns.map(c => [c.name, c.id])),
     mediaSubTypes: new Map(mediaSubTypes.map(m => [m.name, m.id])),
-    lastUpdates: new Map(lastUpdates.map(l => [l.name, l.id]))
+    lastUpdates: new Map(lastUpdates.map(l => [l.name, l.id])),
+    countrySubRegions: new Map(countries.map(c => [c.id, c.subRegionId])),
+    subRegions: new Map(subRegions.map(s => [s.name, s.id])),
+    mediaSubTypeToMediaType: new Map(mediaSubTypes.map(m => [m.id, m.mediaType?.name || 'Unknown']))
   };
 }
 
@@ -105,7 +112,8 @@ function validateRecord(
     { field: 'Range', getValue: (r: any) => r.Range },
     { field: 'Media Subtype', getValue: (r: any) => r['Media Subtype'] || r['Media Sub Type'] },
     { field: 'Start Date', getValue: (r: any) => r['Start Date'] },
-    { field: 'End Date', getValue: (r: any) => r['End Date'] }
+    { field: 'End Date', getValue: (r: any) => r['End Date'] },
+    { field: 'Burst', getValue: (r: any) => r.Burst }
   ];
   
   for (const { field, getValue } of requiredFields) {
@@ -115,15 +123,11 @@ function validateRecord(
     }
   }
 
-  // Validate Campaign exists
-  if (record.Campaign && !context.campaigns.has(record.Campaign)) {
-    errors.push(`Row ${rowNumber}: Campaign '${record.Campaign}' not found in database`);
-  }
+  // Note: Campaigns can be new, so we don't validate their existence
+  // They will be created during import if they don't exist
 
-  // Validate Range exists
-  if (record.Range && !context.ranges.has(record.Range)) {
-    errors.push(`Row ${rowNumber}: Range '${record.Range}' not found in database`);
-  }
+  // Note: Ranges can be new, so we don't validate their existence
+  // They will be created during import if they don't exist
 
   // Validate Media Subtype exists (with flexible column naming)
   const mediaSubtypeValue = record['Media Subtype'] || record['Media Sub Type'];
@@ -131,10 +135,8 @@ function validateRecord(
     errors.push(`Row ${rowNumber}: Media Subtype '${mediaSubtypeValue}' not found in database`);
   }
 
-  // Validate Category exists (if provided)
-  if (record.Category && !context.categories.has(record.Category)) {
-    errors.push(`Row ${rowNumber}: Category '${record.Category}' not found in database`);
-  }
+  // Note: Categories can be new, so we don't validate their existence
+  // They will be created during import if they don't exist
 
   // Validate date formats
   if (record['Start Date']) {
@@ -160,6 +162,137 @@ function validateRecord(
     }
   }
 
+  // Validate sub-region belongs to the selected country
+  const subRegionValue = record['Sub Region'] || record['Sub-Region'] || record.SUBREGION || record['Sub_Region'];
+  console.log(`Row ${rowNumber}: Checking sub-region validation - subRegion: '${subRegionValue}', country: '${selectedCountry}'`);
+  
+  if (subRegionValue && selectedCountry) {
+    const countryId = context.countries.get(selectedCountry);
+    const subRegionId = context.subRegions.get(subRegionValue);
+    
+    console.log(`Row ${rowNumber}: countryId: ${countryId}, subRegionId: ${subRegionId}`);
+    
+    if (countryId && subRegionId) {
+      const expectedSubRegionId = context.countrySubRegions.get(countryId);
+      console.log(`Row ${rowNumber}: expectedSubRegionId: ${expectedSubRegionId}, actual: ${subRegionId}`);
+      
+      if (expectedSubRegionId && expectedSubRegionId !== subRegionId) {
+        // Find the expected sub-region name
+        let expectedSubRegionName = 'None';
+        for (const [name, id] of context.subRegions.entries()) {
+          if (id === expectedSubRegionId) {
+            expectedSubRegionName = name;
+            break;
+          }
+        }
+        console.log(`Row ${rowNumber}: SUB-REGION MISMATCH DETECTED! Expected: '${expectedSubRegionName}', Got: '${subRegionValue}'`);
+        errors.push(`Row ${rowNumber}: Sub-region '${subRegionValue}' does not belong to country '${selectedCountry}'. Expected sub-region: '${expectedSubRegionName}'. This is a critical error that will cause data inconsistency.`);
+      }
+    } else if (subRegionValue && !context.subRegions.has(subRegionValue)) {
+      console.log(`Row ${rowNumber}: Sub-region '${subRegionValue}' not found in database`);
+      errors.push(`Row ${rowNumber}: Sub-region '${subRegionValue}' not found in database`);
+    }
+  }
+
+  // Validate Burst is a valid positive integer
+  const burstValue = record.Burst;
+  if (burstValue && burstValue.toString().trim() !== '') {
+    const burstNumber = parseInt(burstValue.toString().trim(), 10);
+    if (isNaN(burstNumber) || burstNumber < 1) {
+      errors.push(`Row ${rowNumber}: Burst must be a positive integer (1 or greater). Current value: '${burstValue}'`);
+    }
+  }
+
+  // Validate Total R1+ is mandatory for Digital, Open TV, and OOH media types
+  if (mediaSubtypeValue) {
+    const mediaSubtypeId = context.mediaSubTypes.get(mediaSubtypeValue);
+    if (mediaSubtypeId) {
+      const mediaTypeName = context.mediaSubTypeToMediaType.get(mediaSubtypeId);
+      const normalizedSubtype = mediaSubtypeValue.toLowerCase();
+      
+      // Check if it's Digital, Open TV, or OOH (Traditional)
+      const requiresR1Plus = mediaTypeName === 'Digital' || 
+                            normalizedSubtype.includes('open tv') || 
+                            normalizedSubtype.includes('ooh') ||
+                            normalizedSubtype.includes('out of home') ||
+                            normalizedSubtype.includes('outdoor');
+      
+      if (requiresR1Plus) {
+        // Check for Total R1+ field with various possible column names
+        const totalR1Plus = record['Total R1+'] || record['Total R1 Plus'] || record['TotalR1+'] || 
+                           record['Total_R1_Plus'] || record['TOTALR1+'] || record['totalr1+'];
+        
+        if (!totalR1Plus || totalR1Plus.toString().trim() === '') {
+          const mediaTypeDesc = mediaTypeName === 'Digital' ? 'digital' : 'traditional';
+          errors.push(`Row ${rowNumber}: Total R1+ is mandatory for ${mediaTypeDesc} media type '${mediaSubtypeValue}'. Please provide a value in the 'Total R1+' column.`);
+        } else {
+          // Validate that it's a valid percentage (0-100% or 0-1 decimal)
+          const numericValue = parseFloat(totalR1Plus.toString().replace(/[^0-9.\-]/g, ''));
+          if (isNaN(numericValue) || numericValue < 0 || numericValue > 100) {
+            errors.push(`Row ${rowNumber}: Total R1+ value '${totalR1Plus}' is invalid for media type '${mediaSubtypeValue}'. Must be between 0-100% or 0-1.0.`);
+          }
+        }
+      }
+    }
+  }
+
+  // Validate TRP is only for TV media types (Open TV, Paid TV)
+  if (mediaSubtypeValue) {
+    const trpValue = record['TRPs'] || record['Total TRPs'] || record['TRP'];
+    if (trpValue && trpValue.toString().trim() !== '') {
+      const normalizedSubtype = mediaSubtypeValue.toLowerCase();
+      const isTVMediaType = normalizedSubtype.includes('tv') || 
+                           normalizedSubtype.includes('television');
+      
+      if (!isTVMediaType) {
+        errors.push(`Row ${rowNumber}: TRP values can only be used with TV media types (Open TV, Paid TV). Media subtype '${mediaSubtypeValue}' is not a TV media type.`);
+      }
+    }
+  }
+
+  // Validate Media Subtype and PM Type combinations
+  const pmTypeValue = record['PM Type'];
+  if (mediaSubtypeValue && pmTypeValue) {
+    const normalizedSubtype = mediaSubtypeValue.toLowerCase();
+    const normalizedPmType = pmTypeValue.toString().trim();
+    
+    // Define valid combinations
+    const validCombinations: Record<string, string[]> = {
+      // Digital combinations
+      'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+      'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+      'influencers organic': ['Non PM'],
+      'other digital': ['Non PM'],
+      'search': ['GR Only'],
+      // Traditional combinations
+      'open tv': ['Non PM'],
+      'paid tv': ['Non PM'],
+      'ooh': ['Non PM'],
+      'radio': ['Non PM']
+    };
+    
+    // Find matching rule
+    let allowedPmTypes: string[] = [];
+    for (const [subtypePattern, pmTypes] of Object.entries(validCombinations)) {
+      if (normalizedSubtype.includes(subtypePattern) || 
+          (subtypePattern === 'ooh' && (normalizedSubtype.includes('out of home') || normalizedSubtype.includes('outdoor')))) {
+        allowedPmTypes = pmTypes;
+        break;
+      }
+    }
+    
+    // If we found a rule, validate against it
+    if (allowedPmTypes.length > 0) {
+      const isValid = allowedPmTypes.some(allowed => 
+        allowed.toLowerCase() === normalizedPmType.toLowerCase()
+      );
+      
+      if (!isValid) {
+        errors.push(`Row ${rowNumber}: PM Type '${pmTypeValue}' is not valid for Media Subtype '${mediaSubtypeValue}'. Allowed PM Types: ${allowedPmTypes.join(', ')}.`);
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -172,7 +305,7 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
 
   // Define all expected columns based on GamePlan model (required and optional)
   // Required columns for game plan creation
-  const requiredColumns = ['Campaign', 'Range', 'Media Subtype', 'Start Date', 'End Date'];
+  const requiredColumns = ['Campaign', 'Range', 'Media Subtype', 'Start Date', 'End Date', 'Burst'];
   
   // Optional columns that map to GamePlan fields
   const optionalColumns = [
@@ -192,11 +325,13 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
     'Q4 Budget',         // maps to q4Budget
     
     // Reach and performance fields
-    'TRPs',              // maps to trps
-    'Reach 1+',          // maps to reach1Plus
-    'Reach 3+',          // maps to reach3Plus
+    'Total TRPs',        // maps to totalTrps
+    'Total R1+',         // maps to totalR1Plus
+    'Total R3+',         // maps to totalR3Plus
     'Total WOA',         // maps to totalWoa
-    'Weeks Off Air',     // maps to weeksOffAir
+    'Weeks Off Air',     // maps to weeksOffAir (also accepts 'W Off Air')
+    'W Off Air',         // alternative for weeksOffAir
+    'NS vs WM',          // maps to nsVsWm
     
     // Reference fields
     'Business Unit',     // maps to business_unit_id

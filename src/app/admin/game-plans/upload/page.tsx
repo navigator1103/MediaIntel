@@ -205,6 +205,7 @@ export default function GamePlansUploadPage() {
                         <span className="text-red-600">• Campaign</span>
                         <span className="text-red-600">• Media Type</span>
                         <span className="text-red-600">• Media Sub Type</span>
+                        <span className="text-red-600">• Burst</span>
                         <span className="text-red-600">• Start Date</span>
                         <span className="text-red-600">• End Date</span>
                         <span className="text-red-600">• Total Budget</span>
@@ -215,15 +216,15 @@ export default function GamePlansUploadPage() {
                       <h4 className="font-medium text-gray-900 mb-2">Optional Fields</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-600">
                         <span>• Sub Region</span>
-                        <span>• Cluster</span>
-                        <span>• Burst</span>
                         <span>• Business Unit</span>
                         <span>• PM Type</span>
                         <span>• Q1-Q4 Budget</span>
-                        <span>• TRPs</span>
-                        <span>• Reach 1+/3+</span>
+                        <span>• Total TRPs</span>
+                        <span className="text-orange-600">• Total R1+ (required for Digital, Open TV, OOH)</span>
+                        <span>• Total R3+</span>
                         <span>• Total WOA</span>
-                        <span>• Weeks Off Air</span>
+                        <span>• Weeks Off Air / W Off Air</span>
+                        <span>• NS vs WM</span>
                         <span>• Playbook ID</span>
                       </div>
                     </div>
@@ -236,6 +237,7 @@ export default function GamePlansUploadPage() {
                         <li>• First row must contain column headers</li>
                         <li>• Date format: YYYY-MM-DD</li>
                         <li>• Budget values should be numeric (no currency symbols)</li>
+                        <li>• Burst must be a positive integer (1, 2, 3, etc.)</li>
                       </ul>
                     </div>
                   </div>

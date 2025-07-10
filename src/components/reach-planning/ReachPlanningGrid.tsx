@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiPlus } from 'react-icons/fi';
+import { FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiPlus, FiRefreshCw } from 'react-icons/fi';
 
 interface ValidationIssue {
   rowIndex: number;
@@ -48,14 +48,27 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     loadSessionData();
   }, [sessionId]);
 
+  // Force reload when component becomes visible
+  useEffect(() => {
+    // Add a small delay to ensure the validation has completed
+    const timer = setTimeout(() => {
+      loadSessionData();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   const loadSessionData = async () => {
     try {
       setLoading(true);
+      console.log(`Loading session data for sessionId: ${sessionId}`);
+      
       const response = await fetch(`/api/admin/reach-planning/session?sessionId=${sessionId}`);
       
       if (!response.ok) {
@@ -64,7 +77,37 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
       }
       
       const result = await response.json();
+      console.log('Session data loaded:', {
+        totalRecords: result.session?.totalRecords,
+        validationIssues: result.session?.validationIssues?.length || 0,
+        validationSummary: result.session?.validationSummary
+      });
+      
       setSessionData(result.session);
+      
+      // Debug validation issues
+      if (result.session?.validationSummary) {
+        console.log('=== VALIDATION DEBUG ===');
+        console.log('Summary total:', result.session.validationSummary.total);
+        console.log('Issues array exists:', !!result.session.validationIssues);
+        console.log('Issues array length:', result.session.validationIssues?.length || 0);
+        console.log('Issues is array:', Array.isArray(result.session.validationIssues));
+        if (result.session.validationIssues && result.session.validationIssues.length > 0) {
+          console.log('First 3 issues:', result.session.validationIssues.slice(0, 3));
+          console.log('All column names with issues:', 
+            [...new Set(result.session.validationIssues.map((i: any) => i.columnName))]);
+        }
+        console.log('======================');
+      }
+      
+      // If validation issues are empty but summary shows issues, retry loading
+      if (result.session?.validationSummary?.total > 0 && 
+          (!result.session?.validationIssues || result.session.validationIssues.length === 0) && 
+          retryCount < 3) {
+        console.log('Validation issues mismatch detected, retrying...');
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => loadSessionData(), 1000);
+      }
     } catch (error: any) {
       console.error('Error loading session data:', error);
       setError(error.message);
@@ -182,11 +225,38 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
 
   return (
     <div className="space-y-6">
+      {/* Debug: Show validation status */}
+      {sessionData && (
+        <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+          Debug: Status={sessionData.status}, Issues={sessionData.validationIssues?.length || 0}, Summary={sessionData.validationSummary?.total || 0}
+        </div>
+      )}
+      
+      {/* Show loading indicator if validation might be in progress */}
+      {sessionData && sessionData.status === 'uploaded' && !sessionData.validationSummary && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+          <div className="flex items-center">
+            <div className="animate-spin h-5 w-5 mr-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            <div className="text-sm text-blue-800">
+              Validation in progress... The validation grid will update automatically when complete.
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Validation Summary */}
       {sessionData.validationSummary && (
         <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-900">Validation Summary</h3>
+            <button
+              onClick={() => loadSessionData()}
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              title="Refresh validation data"
+            >
+              <FiRefreshCw className="h-4 w-4 mr-1" />
+              Refresh
+            </button>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -280,6 +350,12 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
           <h3 className="text-lg font-medium text-gray-900">Data Preview with Validation Issues</h3>
           <p className="text-sm text-gray-500 mt-1">
             Cells with validation issues are highlighted. Hover over highlighted cells to see the issue details.
+            {/* Debug info */}
+            {sessionData.validationIssues && (
+              <span className="ml-2 text-xs text-gray-400">
+                ({sessionData.validationIssues.length} issues loaded)
+              </span>
+            )}
           </p>
         </div>
         <div className="p-6">
@@ -315,16 +391,31 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
                 {sessionData.records?.slice(0, 20).map((record, displayIndex) => {
                   // Use the actual original row index for validation issue matching
                   const originalRowIndex = displayIndex; // For now, assuming no offset
-                  const rowIssues = sessionData.validationIssues?.filter(issue => issue.rowIndex === originalRowIndex) || [];
+                  const rowIssues = sessionData.validationIssues?.filter((issue: any) => issue.rowIndex === originalRowIndex) || [];
+                  
+                  // Debug logging
+                  if (displayIndex === 0) {
+                    console.log(`Row ${originalRowIndex} validation check:`, {
+                      totalIssues: sessionData.validationIssues?.length || 0,
+                      rowIssues: rowIssues.length,
+                      firstIssue: rowIssues[0]
+                    });
+                  }
+                  
                   return (
                     <tr key={displayIndex} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200 min-w-16 z-10">
                         {originalRowIndex + 1}
                       </td>
                       {Object.keys(record).map((header) => {
-                        const cellIssue = rowIssues.find(issue => issue.columnName === header);
+                        const cellIssue = rowIssues.find((issue: any) => issue.columnName === header);
                         const cellValue = record[header] || '-';
                         const isCustomColumn = !isTemplateColumn(header);
+                        
+                        // Debug logging for specific cells
+                        if (displayIndex === 0 && cellIssue) {
+                          console.log(`Cell ${header} has issue:`, cellIssue);
+                        }
                         
                         return (
                           <td 

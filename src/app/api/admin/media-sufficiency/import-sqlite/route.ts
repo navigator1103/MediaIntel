@@ -29,6 +29,31 @@ function logErrorWithTimestamp(message: string, error?: any) {
 // Re-export the date utility functions for backward compatibility
 export { parseDate, formatDateForStorage, areDatesEqual } from '@/lib/utils/dateUtils';
 
+// Helper function to calculate weeks between two dates
+function calculateWeeksLive(startDate: string, endDate: string): number | null {
+  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Check if dates are valid
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return null;
+    }
+    
+    // Calculate the difference in milliseconds
+    const diffMs = end.getTime() - start.getTime();
+    
+    // Convert to weeks (1 week = 7 days = 7 * 24 * 60 * 60 * 1000 ms)
+    const weeksLive = diffMs / (7 * 24 * 60 * 60 * 1000);
+    
+    // Round to 2 decimal places
+    return Math.round(weeksLive * 100) / 100;
+  } catch (error) {
+    logErrorWithTimestamp(`Error calculating weeks live: ${error}`);
+    return null;
+  }
+}
+
 // Helper function to parse numeric values from strings with enhanced debugging
 function parseNumeric(value: string | undefined | null, isReachValue: boolean = false): number | null {
   if (!value) {
@@ -171,10 +196,10 @@ export async function POST(request: NextRequest) {
         // Ensure results is defined before accessing its properties
         if (results) {
           sessionData.importErrors = results.errors || [];
-          sessionData.importResults = results.results || [];
+          sessionData.importResults = results; // Store the complete results object
         } else {
           sessionData.importErrors = [];
-          sessionData.importResults = [];
+          sessionData.importResults = null;
         }
         
         // Write the updated session data back to the file
@@ -460,34 +485,120 @@ async function processImport(
     }
   }
   
-  // First pass: collect and create all necessary entities
-  logWithTimestamp('First pass: collecting entities...');
+  // STEP 4: PRE-PROCESS ALL UNIQUE RANGES FIRST (needed for campaigns)
+  logWithTimestamp('Step 4a: Pre-processing all unique ranges...');
+  
+  const uniqueRanges = new Set<string>();
+  for (const record of records) {
+    if (record.Range) {
+      uniqueRanges.add(record.Range);
+    }
+  }
+  
+  for (const rangeName of uniqueRanges) {
+    if (!processedEntities.ranges.has(rangeName)) {
+      const existingRange = await prisma.range.findFirst({
+        where: { name: rangeName }
+      });
+      
+      if (existingRange) {
+        // Mark existing range as auto-imported
+        await prisma.range.update({
+          where: { id: existingRange.id },
+          data: {
+            createdBy: 'auto-import',
+            notes: 'Auto-created during game plans import',
+            updatedAt: new Date().toISOString()
+          }
+        });
+        processedEntities.ranges.set(rangeName, existingRange.id);
+        logWithTimestamp(`Found and marked existing range: ${rangeName} (ID: ${existingRange.id})`);
+      } else {
+        const newRange = await prisma.range.create({
+          data: {
+            name: rangeName,
+            status: 'active', // Keep active so they can be used immediately
+            createdBy: 'auto-import', // Track that this was auto-created
+            notes: 'Auto-created during game plans import',
+            createdAt: new Date().toISOString()
+          }
+        });
+        processedEntities.ranges.set(rangeName, newRange.id);
+        importResults.rangesCount++;
+        logWithTimestamp(`Created new range: ${rangeName} (ID: ${newRange.id})`);
+      }
+    }
+  }
+  
+  // STEP 4b: PRE-CREATE ALL UNIQUE CAMPAIGNS TO AVOID DUPLICATES
+  logWithTimestamp('Step 4b: Pre-creating unique campaigns...');
+  
+  // Collect all unique campaign+range combinations
+  const uniqueCampaigns = new Map<string, {campaign: string, range: string}>();
+  
+  for (const record of records) {
+    if (record.Campaign && record.Range) {
+      const key = `${record.Campaign}-${record.Range}`;
+      if (!uniqueCampaigns.has(key)) {
+        uniqueCampaigns.set(key, {
+          campaign: record.Campaign,
+          range: record.Range
+        });
+      }
+    }
+  }
+  
+  logWithTimestamp(`Found ${uniqueCampaigns.size} unique campaigns to process`);
+  
+  // Create/find all campaigns upfront
+  for (const [key, info] of uniqueCampaigns) {
+    const rangeId = processedEntities.ranges.get(info.range);
+    
+    if (rangeId) {
+      // Always do upsert to handle duplicates gracefully
+      const campaign = await prisma.campaign.upsert({
+        where: { 
+          // Use a compound unique constraint or just name if that's what's unique
+          name: info.campaign
+        },
+        update: {
+          createdBy: 'auto-import', // Mark as auto-imported even if it existed
+          notes: 'Auto-created during game plans import',
+          updatedAt: new Date().toISOString()
+        }, // Mark existing campaigns as auto-imported
+        create: {
+          name: info.campaign,
+          rangeId: rangeId,
+          status: 'active', // Keep active so they can be used immediately
+          createdBy: 'auto-import', // Track that this was auto-created
+          notes: 'Auto-created during game plans import',
+          createdAt: new Date().toISOString()
+        }
+      });
+      
+      processedEntities.campaigns.set(key, campaign.id);
+      logWithTimestamp(`Campaign processed: ${info.campaign} (ID: ${campaign.id})`);
+      
+      // Only count as created if it was actually created (not found)
+      const wasCreated = !await prisma.campaign.findFirst({
+        where: { id: campaign.id, createdAt: { lt: new Date(Date.now() - 1000).toISOString() } }
+      });
+      if (wasCreated) {
+        importResults.campaignsCount++;
+      }
+    } else {
+      logErrorWithTimestamp(`Cannot process campaign '${info.campaign}' - Range '${info.range}' not found`);
+    }
+  }
+
+  // First pass: collect and create all other entities (except campaigns which are done)
+  logWithTimestamp('First pass: collecting other entities...');
   
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
     
     try {
-      // Process range
-      if (record.Range && !processedEntities.ranges.has(record.Range)) {
-        const existingRange = await prisma.range.findFirst({
-          where: { name: record.Range }
-        });
-        
-        if (existingRange) {
-          processedEntities.ranges.set(record.Range, existingRange.id);
-          logWithTimestamp(`Found existing range: ${record.Range} (ID: ${existingRange.id})`);
-        } else {
-          const newRange = await prisma.range.create({
-            data: {
-              name: record.Range,
-              createdAt: new Date().toISOString() // Use ISO string with Z suffix
-            }
-          });
-          processedEntities.ranges.set(record.Range, newRange.id);
-          importResults.rangesCount++;
-          logWithTimestamp(`Created new range: ${record.Range} (ID: ${newRange.id})`);
-        }
-      }
+      // Ranges are already processed in pre-processing step
       
       // Process media subtype
       if (record['Media Subtype'] && !processedEntities.mediaSubTypes.has(record['Media Subtype'])) {
@@ -637,6 +748,8 @@ async function processImport(
             logWithTimestamp(`Found existing sub-region: ${subRegionValue} (ID: ${existingSubRegion.id})`);
           } else {
             // Create a new sub-region
+            // NOTE: This should only happen if pre-validation passes, which includes checking
+            // that sub-regions belong to the correct country
             const newSubRegion = await prisma.subRegion.create({
               data: {
                 name: subRegionValue,
@@ -749,41 +862,7 @@ async function processImport(
         }
       }
       
-      // Process campaign
-      if (record.Campaign && record.Range) {
-        const campaignKey = `${record.Campaign}-${record.Range}`;
-        
-        if (!processedEntities.campaigns.has(campaignKey)) {
-          const rangeId = processedEntities.ranges.get(record.Range);
-          
-          if (rangeId) {
-            const existingCampaign = await prisma.campaign.findFirst({
-              where: {
-                name: record.Campaign,
-                rangeId: rangeId
-              }
-            });
-            
-            if (existingCampaign) {
-              processedEntities.campaigns.set(campaignKey, existingCampaign.id);
-              logWithTimestamp(`Found existing campaign: ${record.Campaign} (ID: ${existingCampaign.id})`);
-            } else {
-              const newCampaign = await prisma.campaign.create({
-                data: {
-                  name: record.Campaign,
-                  rangeId: rangeId,
-                  createdAt: new Date().toISOString() // Use ISO string with Z suffix
-                }
-              });
-              processedEntities.campaigns.set(campaignKey, newCampaign.id);
-              importResults.campaignsCount++;
-              logWithTimestamp(`Created new campaign: ${record.Campaign} (ID: ${newCampaign.id})`);
-            }
-          } else {
-            logErrorWithTimestamp(`Range ID not found for ${record.Range}`);
-          }
-        }
-      }
+      // Campaigns are already created upfront, skip campaign processing here
       
       // Update progress
       if ((i + 1) % 5 === 0 || i === records.length - 1) {
@@ -882,6 +961,10 @@ async function processImport(
             const startDateIso = formatDateForStorage(startDate);
             const endDateIso = formatDateForStorage(endDate);
             
+            // Calculate weeks live automatically
+            const weeksLive = calculateWeeksLive(startDateIso, endDateIso);
+            logWithTimestamp(`Calculated weeks live: ${weeksLive} weeks for campaign ${record.Campaign}`);
+            
             if (!startDateIso || !endDateIso) {
               throw new Error('Failed to format dates for storage');
             }
@@ -926,21 +1009,29 @@ async function processImport(
               logWithTimestamp(`Parsed budget values for ${record.Campaign} - ${record['Media Subtype']}:`);
               logWithTimestamp(`Total: ${totalBudget}, Q1: ${q1Budget}, Q2: ${q2Budget}, Q3: ${q3Budget}, Q4: ${q4Budget}`);
               
-              // Parse reach values with validation to ensure they're below 100%
-              const rawTargetReach = record['Target Reach'] || record['Target_Reach'] || record['TargetReach'] || record['TARGETREACH'];
-              const rawCurrentReach = record['Current Reach'] || record['Current_Reach'] || record['CurrentReach'] || record['CURRENTREACH'];
+              // Parse reach and performance values
+              const rawTotalR1Plus = record['Total R1+'] || record['Total R1 Plus'] || record['TotalR1+'] || 
+                                    record['Total_R1_Plus'] || record['TOTALR1+'] || record['totalr1+'];
+              const rawTotalR3Plus = record['Total R3+'] || record['Total R3 Plus'] || record['TotalR3+'] || 
+                                    record['Total_R3_Plus'] || record['TOTALR3+'] || record['totalr3+'];
+              const rawTotalTrps = record['Total TRPs'] || record['TotalTRPs'] || record['Total_TRPs'] || 
+                                  record['TOTALTRPS'] || record['totaltrps'] || record['TRPs'];
+              const rawNsVsWm = record['NS vs WM'] || record['NS_vs_WM'] || record['NSVSWM'] || 
+                               record['ns_vs_wm'] || record['NS/WM'] || record['nsVsWm'];
               
-              logWithTimestamp(`Processing reach values - Raw Target Reach: ${rawTargetReach}, Raw Current Reach: ${rawCurrentReach}`);
+              logWithTimestamp(`Processing reach values - Raw Total R1+: ${rawTotalR1Plus}, Raw Total R3+: ${rawTotalR3Plus}, Raw Total TRPs: ${rawTotalTrps}, Raw NS vs WM: ${rawNsVsWm}`);
               
-              const targetReach = parseNumeric(rawTargetReach, true);
-              const currentReach = parseNumeric(rawCurrentReach, true);
+              const totalR1Plus = parseNumeric(rawTotalR1Plus, true);
+              const totalR3Plus = parseNumeric(rawTotalR3Plus, true);
+              const totalTrps = parseNumeric(rawTotalTrps);
+              const nsVsWm = rawNsVsWm ? rawNsVsWm.toString().trim() : null;
               
-              logWithTimestamp(`Processed reach values - Target Reach: ${targetReach}, Current Reach: ${currentReach}`);
-              if (rawTargetReach && targetReach !== null && parseFloat(String(rawTargetReach).replace(/[^0-9.\-]/g, '')) > 1) {
-                logWithTimestamp(`✅ Target Reach value normalized from ${rawTargetReach} to ${targetReach}`);
+              logWithTimestamp(`Processed reach values - Total R1+: ${totalR1Plus}, Total R3+: ${totalR3Plus}, Total TRPs: ${totalTrps}, NS vs WM: ${nsVsWm}`);
+              if (rawTotalR1Plus && totalR1Plus !== null && parseFloat(String(rawTotalR1Plus).replace(/[^0-9.\-]/g, '')) > 1) {
+                logWithTimestamp(`✅ Total R1+ value normalized from ${rawTotalR1Plus} to ${totalR1Plus}`);
               }
-              if (rawCurrentReach && currentReach !== null && parseFloat(String(rawCurrentReach).replace(/[^0-9.\-]/g, '')) > 1) {
-                logWithTimestamp(`✅ Current Reach value normalized from ${rawCurrentReach} to ${currentReach}`);
+              if (rawTotalR3Plus && totalR3Plus !== null && parseFloat(String(rawTotalR3Plus).replace(/[^0-9.\-]/g, '')) > 1) {
+                logWithTimestamp(`✅ Total R3+ value normalized from ${rawTotalR3Plus} to ${totalR3Plus}`);
               }
               
               // Use the selected country for all game plans instead of CSV data
@@ -1120,10 +1211,13 @@ async function processImport(
                       q2_budget = ${q2Budget !== null && q2Budget !== undefined ? q2Budget : 'NULL'},
                       q3_budget = ${q3Budget !== null && q3Budget !== undefined ? q3Budget : 'NULL'},
                       q4_budget = ${q4Budget !== null && q4Budget !== undefined ? q4Budget : 'NULL'},
-                      reach_1_plus = ${targetReach !== null && targetReach !== undefined ? targetReach : 'NULL'},
-                      reach_3_plus = ${currentReach !== null && currentReach !== undefined ? currentReach : 'NULL'},
+                      total_r1_plus = ${totalR1Plus !== null && totalR1Plus !== undefined ? totalR1Plus : 'NULL'},
+                      total_r3_plus = ${totalR3Plus !== null && totalR3Plus !== undefined ? totalR3Plus : 'NULL'},
+                      total_trps = ${totalTrps !== null && totalTrps !== undefined ? totalTrps : 'NULL'},
+                      ns_vs_wm = ${nsVsWm !== null && nsVsWm !== undefined ? `'${nsVsWm}'` : 'NULL'},
                       total_woa = ${totalWoa !== null && totalWoa !== undefined ? totalWoa : 'NULL'},
                       weeks_off_air = ${weeksOffAir !== null && weeksOffAir !== undefined ? weeksOffAir : 'NULL'},
+                      weeks_live = ${weeksLive !== null && weeksLive !== undefined ? weeksLive : 'NULL'},
                       country_id = ${countryId !== null && countryId !== undefined ? countryId : 'NULL'},
                       region_id = ${regionId !== null && regionId !== undefined ? regionId : 'NULL'},
                       sub_region_id = ${subRegionId !== null && subRegionId !== undefined ? subRegionId : 'NULL'},
@@ -1174,7 +1268,7 @@ async function processImport(
                       campaign_id, media_sub_type_id, pm_type_id, 
                       start_date, end_date, 
                       total_budget, q1_budget, q2_budget, q3_budget, q4_budget,
-                      reach_1_plus, reach_3_plus, total_woa, weeks_off_air, country_id, region_id, sub_region_id,
+                      total_r1_plus, total_r3_plus, total_trps, ns_vs_wm, total_woa, weeks_off_air, weeks_live, country_id, region_id, sub_region_id,
                       business_unit_id, range_id, category_id, last_update_id, playbook_id, created_at, updated_at
                     ) VALUES (
                       ${campaignId}, ${mediaSubtypeId}, ${pmTypeId !== null && pmTypeId !== undefined ? pmTypeId : 'NULL'}, 
@@ -1184,10 +1278,13 @@ async function processImport(
                       ${q2Budget !== null && q2Budget !== undefined ? q2Budget : 'NULL'}, 
                       ${q3Budget !== null && q3Budget !== undefined ? q3Budget : 'NULL'}, 
                       ${q4Budget !== null && q4Budget !== undefined ? q4Budget : 'NULL'},
-                      ${targetReach !== null && targetReach !== undefined ? targetReach : 'NULL'}, 
-                      ${currentReach !== null && currentReach !== undefined ? currentReach : 'NULL'}, 
+                      ${totalR1Plus !== null && totalR1Plus !== undefined ? totalR1Plus : 'NULL'}, 
+                      ${totalR3Plus !== null && totalR3Plus !== undefined ? totalR3Plus : 'NULL'}, 
+                      ${totalTrps !== null && totalTrps !== undefined ? totalTrps : 'NULL'},
+                      ${nsVsWm !== null && nsVsWm !== undefined ? `'${nsVsWm}'` : 'NULL'},
                       ${totalWoa !== null && totalWoa !== undefined ? totalWoa : 'NULL'},
                       ${weeksOffAir !== null && weeksOffAir !== undefined ? weeksOffAir : 'NULL'},
+                      ${weeksLive !== null && weeksLive !== undefined ? weeksLive : 'NULL'},
                       ${countryId !== null && countryId !== undefined ? countryId : 'NULL'}, 
                       ${regionId !== null && regionId !== undefined ? regionId : 'NULL'}, 
                       ${subRegionId !== null && subRegionId !== undefined ? subRegionId : 'NULL'},
@@ -1223,10 +1320,13 @@ async function processImport(
                     q2Budget: q2Budget || null,
                     q3Budget: q3Budget || null,
                     q4Budget: q4Budget || null,
-                    reach1Plus: targetReach || null,
-                    reach3Plus: currentReach || null,
+                    totalR1Plus: totalR1Plus || null,
+                    totalR3Plus: totalR3Plus || null,
+                    totalTrps: totalTrps || null,
+                    nsVsWm: nsVsWm || null,
                     totalWoa: totalWoa || null,
                     weeksOffAir: weeksOffAir || null,
+                    weeksLive: weeksLive || null,
                     countryId: countryId || null,
                     regionId: regionId || null,
                     subRegionId: subRegionId || null,

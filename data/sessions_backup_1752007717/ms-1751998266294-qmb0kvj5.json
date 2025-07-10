@@ -1,0 +1,230 @@
+{
+  "id": "ms-1751998266294-qmb0kvj5",
+  "fileName": "game-plans-template (2).csv",
+  "fileSize": 683,
+  "recordCount": 3,
+  "status": "uploaded",
+  "lastUpdateId": 1,
+  "country": "India",
+  "data": {
+    "records": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "AUSTRALIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "78",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "87",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "processedRecords": [
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "AUSTRALIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Traditional",
+        "Media Subtype": "TV",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "1000000",
+        "Q1 Budget": "500000",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "100000",
+        "Q4 Budget": "100000",
+        "Total TRPs": "800",
+        "Total R1+": "78",
+        "Total R3+": "65",
+        "Total WOA": "12",
+        "Weeks Off Air": "4",
+        "NS vs WM": "",
+        "Playbook ID": "GL005"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Display",
+        "PM Type": "GR Only",
+        "Burst": "1",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "800000",
+        "Q1 Budget": "200000",
+        "Q2 Budget": "400000",
+        "Q3 Budget": "200000",
+        "Q4 Budget": "0",
+        "Total TRPs": "600",
+        "Total R1+": "87",
+        "Total R3+": "70",
+        "Total WOA": "8",
+        "Weeks Off Air": "2",
+        "NS vs WM": "",
+        "Playbook ID": "EM019"
+      },
+      {
+        "Year": "2025",
+        "Country": "India",
+        "Sub Region": "INDIA",
+        "Category": "Hand Body",
+        "Range": "Soft",
+        "Campaign": "Soft",
+        "Business Unit": "NIVEA",
+        "Media Type": "Digital",
+        "Media Subtype": "Other Digital",
+        "PM Type": "GR Only",
+        "Burst": "2",
+        "Start Date": "01-Jan-25",
+        "End Date": "15-Mar-25",
+        "Total Budget": "600000",
+        "Q1 Budget": "0",
+        "Q2 Budget": "300000",
+        "Q3 Budget": "300000",
+        "Q4 Budget": "0",
+        "Total TRPs": "400",
+        "Total R1+": "70",
+        "Total R3+": "60",
+        "Total WOA": "6",
+        "Weeks Off Air": "1",
+        "NS vs WM": "",
+        "Playbook ID": "EM015"
+      }
+    ],
+    "masterData": {
+      "subRegions": [
+        "AUSTRALIA",
+        "INDIA"
+      ],
+      "countries": [
+        {
+          "name": "India",
+          "subRegion": "INDIA",
+          "cluster": null
+        }
+      ],
+      "categories": [
+        "Hand Body"
+      ],
+      "ranges": [
+        {
+          "name": "Soft",
+          "category": "Hand Body"
+        }
+      ],
+      "mediaTypes": [],
+      "mediaSubtypes": [],
+      "businessUnits": []
+    },
+    "validationIssues": [
+      {
+        "rowIndex": 0,
+        "columnName": "Country",
+        "severity": "warning",
+        "message": "Country does not match the specified Sub Region",
+        "currentValue": "India"
+      }
+    ],
+    "validationSummary": {
+      "total": 1,
+      "critical": 0,
+      "warning": 1,
+      "suggestion": 0,
+      "byField": {
+        "Country": [
+          {
+            "rowIndex": 0,
+            "columnName": "Country",
+            "severity": "warning",
+            "message": "Country does not match the specified Sub Region",
+            "currentValue": "India"
+          }
+        ]
+      },
+      "uniqueRows": 1
+    }
+  },
+  "createdAt": "2025-07-08T18:11:06.294Z"
+}
