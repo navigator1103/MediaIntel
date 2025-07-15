@@ -9,18 +9,33 @@ datasource db {
 }
 
 model User {
-  id                  Int      @id @default(autoincrement())
-  email               String   @unique
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
   name                String?
   password            String
-  role                String   @default("user")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-  accessibleBrands    String?  @map("accessible_brands")
-  accessibleCountries String?  @map("accessible_countries")
-  accessiblePages     String?  @map("accessible_pages")
+  role                String               @default("user")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  accessibleBrands    String?              @map("accessible_brands")
+  accessibleCountries String?              @map("accessible_countries")
+  accessiblePages     String?              @map("accessible_pages")
+  emailVerified       Boolean?             @default(false) @map("email_verified")
+  verificationToken   String?              @map("verification_token")
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique(map: "sqlite_autoindex_password_reset_tokens_1")
+  userId    Int       @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime? @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "idx_password_reset_tokens_user_id")
+  @@map("password_reset_tokens")
 }
 
 model Region {
@@ -66,10 +81,10 @@ model SubRegion {
 }
 
 model Cluster {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique(map: "sqlite_autoindex_clusters_1")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
+  id        Int       @id @default(autoincrement())
+  name      String    @unique(map: "sqlite_autoindex_clusters_1")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   countries Country[]
 
   @@map("clusters")
@@ -87,21 +102,18 @@ model Category {
 }
 
 model Range {
-  id          Int               @id @default(autoincrement())
-  name        String            @unique(map: "sqlite_autoindex_ranges_1")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @default(now()) @updatedAt @map("updated_at")
-  category_id Int?
-  
-  // Governance fields
-  status       String           @default("active") @map("status")  // "active", "pending_review", "merged", "archived"
-  createdBy    String?          @map("created_by")  // "import_auto", "manual", "admin"
-  reviewedBy   String?          @map("reviewed_by") // Admin who reviewed
-  reviewedAt   DateTime?        @map("reviewed_at") // When reviewed
-  originalName String?          @map("original_name") // Original name from import
-  mergedInto   Int?             @map("merged_into") // If merged into another range
-  notes        String?          @map("notes") // Admin notes
-  
+  id           Int               @id @default(autoincrement())
+  name         String            @unique(map: "sqlite_autoindex_ranges_1")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @default(now()) @updatedAt @map("updated_at")
+  category_id  Int?
+  status       String            @default("active") @map("status")
+  createdBy    String?           @map("created_by")
+  reviewedBy   String?           @map("reviewed_by")
+  reviewedAt   DateTime?         @map("reviewed_at")
+  originalName String?           @map("original_name")
+  mergedInto   Int?              @map("merged_into")
+  notes        String?           @map("notes")
   categories   CategoryToRange[]
   campaigns    Campaign[]
 
@@ -189,16 +201,13 @@ model Campaign {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at")
   rangeId      Int?       @map("range_id")
-  
-  // Governance fields
-  status       String     @default("active") @map("status")  // "active", "pending_review", "merged", "archived"
-  createdBy    String?    @map("created_by")  // "import_auto", "manual", "admin"
-  reviewedBy   String?    @map("reviewed_by") // Admin who reviewed
-  reviewedAt   DateTime?  @map("reviewed_at") // When reviewed
-  originalName String?    @map("original_name") // Original name from import
-  mergedInto   Int?       @map("merged_into") // If merged into another campaign
-  notes        String?    @map("notes") // Admin notes
-  
+  status       String     @default("active") @map("status")
+  createdBy    String?    @map("created_by")
+  reviewedBy   String?    @map("reviewed_by")
+  reviewedAt   DateTime?  @map("reviewed_at")
+  originalName String?    @map("original_name")
+  mergedInto   Int?       @map("merged_into")
+  notes        String?    @map("notes")
   range        Range?     @relation(fields: [rangeId], references: [id])
   gamePlans    GamePlan[]
 
@@ -224,7 +233,6 @@ model GamePlan {
   totalWoa         Float?       @map("total_woa")
   weeksOffAir      Float?       @map("weeks_off_air")
   nsVsWm           String?      @map("ns_vs_wm")
-  weeksLive        Float?       @map("weeks_live")
   createdAt        String       @default("CURRENT_TIMESTAMP") @map("created_at")
   updatedAt        String       @default("CURRENT_TIMESTAMP") @map("updated_at")
   year             Int?
@@ -236,6 +244,7 @@ model GamePlan {
   range_id         Int?
   last_update_id   Int?
   playbook_id      String?
+  weeksLive        Float?       @map("weeks_live")
   campaign         Campaign     @relation(fields: [campaignId], references: [id])
   mediaSubType     MediaSubType @relation(fields: [mediaSubTypeId], references: [id])
   pmType           PMType?      @relation(fields: [pmTypeId], references: [id])
@@ -247,49 +256,49 @@ model GamePlan {
 }
 
 model MediaSufficiency {
-  id                              Int      @id @default(autoincrement())
-  lastUpdate                      String?  @map("last_update")
-  lastUpdateId                    Int?     @map("last_update_id")
-  subRegion                       String?  @map("sub_region")
-  subRegionId                     Int?     @map("sub_region_id")
-  country                         String?
-  countryId                       Int?     @map("country_id")
-  bu                              String?
-  buId                            Int?     @map("bu_id")
-  category                        String?
-  categoryId                      Int?     @map("category_id")
-  range                           String?
-  rangeId                         Int?     @map("range_id")
-  campaign                        String?
-  campaignId                      Int?     @map("campaign_id")
-  franchiseNs                     String?  @map("franchise_ns")
-  campaignSocioDemoTarget         String?  @map("campaign_socio_demo_target")
-  totalCountryPopulationOnTarget  String?  @map("total_country_population_on_target")
-  tvCopyLength                    String?  @map("tv_copy_length")
-  tvTargetSize                    String?  @map("tv_target_size")
-  woaOpenTv                       Float?   @map("woa_open_tv")
-  woaPaidTv                       Float?   @map("woa_paid_tv")
-  totalTrps                       Float?   @map("total_trps")
-  tvR1Plus                        String?  @map("tv_r1_plus")
-  tvR3Plus                        String?  @map("tv_r3_plus")
-  tvIdealReach                    String?  @map("tv_ideal_reach")
-  cpp2024                         Float?   @map("cpp_2024")
-  cpp2025                         Float?   @map("cpp_2025")
-  digitalTarget                   String?  @map("digital_target")
-  digitalTargetSize               String?  @map("digital_target_size")
-  woaPmFf                         Float?   @map("woa_pm_ff")
-  woaInfluencersAmplification     Float?   @map("woa_influencers_amplification")
-  digitalR1Plus                   String?  @map("digital_r1_plus")
-  digitalIdealReach               String?  @map("digital_ideal_reach")
-  plannedCombinedReach            String?  @map("planned_combined_reach")
-  combinedIdealReach              String?  @map("combined_ideal_reach")
-  digitalReachLevelCheck          String?  @map("digital_reach_level_check")
-  tvReachLevelCheck               String?  @map("tv_reach_level_check")
-  combinedReachLevelCheck         String?  @map("combined_reach_level_check")
-  uploadedBy                      String?  @map("uploaded_by")
-  uploadSession                   String?  @map("upload_session")
-  createdAt                       DateTime @default(now()) @map("created_at")
-  updatedAt                       DateTime @updatedAt @map("updated_at")
+  id                             Int      @id @default(autoincrement())
+  lastUpdate                     String?  @map("last_update")
+  lastUpdateId                   Int?     @map("last_update_id")
+  subRegion                      String?  @map("sub_region")
+  subRegionId                    Int?     @map("sub_region_id")
+  country                        String?
+  countryId                      Int?     @map("country_id")
+  bu                             String?
+  buId                           Int?     @map("bu_id")
+  category                       String?
+  categoryId                     Int?     @map("category_id")
+  range                          String?
+  rangeId                        Int?     @map("range_id")
+  campaign                       String?
+  campaignId                     Int?     @map("campaign_id")
+  franchiseNs                    String?  @map("franchise_ns")
+  campaignSocioDemoTarget        String?  @map("campaign_socio_demo_target")
+  totalCountryPopulationOnTarget String?  @map("total_country_population_on_target")
+  tvCopyLength                   String?  @map("tv_copy_length")
+  tvTargetSize                   String?  @map("tv_target_size")
+  woaOpenTv                      Float?   @map("woa_open_tv")
+  woaPaidTv                      Float?   @map("woa_paid_tv")
+  totalTrps                      Float?   @map("total_trps")
+  tvR1Plus                       String?  @map("tv_r1_plus")
+  tvR3Plus                       String?  @map("tv_r3_plus")
+  tvIdealReach                   String?  @map("tv_ideal_reach")
+  cpp2024                        Float?   @map("cpp_2024")
+  cpp2025                        Float?   @map("cpp_2025")
+  digitalTarget                  String?  @map("digital_target")
+  digitalTargetSize              String?  @map("digital_target_size")
+  woaPmFf                        Float?   @map("woa_pm_ff")
+  woaInfluencersAmplification    Float?   @map("woa_influencers_amplification")
+  digitalR1Plus                  String?  @map("digital_r1_plus")
+  digitalIdealReach              String?  @map("digital_ideal_reach")
+  plannedCombinedReach           String?  @map("planned_combined_reach")
+  combinedIdealReach             String?  @map("combined_ideal_reach")
+  digitalReachLevelCheck         String?  @map("digital_reach_level_check")
+  tvReachLevelCheck              String?  @map("tv_reach_level_check")
+  combinedReachLevelCheck        String?  @map("combined_reach_level_check")
+  uploadedBy                     String?  @map("uploaded_by")
+  uploadSession                  String?  @map("upload_session")
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
 
   @@map("media_sufficiency")
 }

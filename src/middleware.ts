@@ -7,8 +7,17 @@ export function middleware(request: NextRequest) {
   // Define public paths that don't require authentication
   const publicPaths = [
     '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/verify-email',
     '/api/auth/login',
     '/api/auth/logout',
+    '/api/auth/register',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/verify-email',
+    '/api/auth/test',
     '/api/test',
     '/api/taxonomy',
     '/api/countries',

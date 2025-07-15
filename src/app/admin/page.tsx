@@ -175,7 +175,7 @@ export default function AdminDashboard() {
             <p className="text-gray-600 mb-4 text-sm">Upload and manage media sufficiency data</p>
             <button 
               className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              onClick={() => handleNavigate('/admin/media-sufficiency/enhanced-upload')}
+              onClick={() => handleNavigate('/admin/game-plans/upload')}
             >
               Upload Data
             </button>

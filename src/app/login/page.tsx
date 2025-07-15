@@ -5,17 +5,23 @@ import { useState } from 'react';
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [view, setView] = useState('login'); // login, register, forgotPassword
+  const [view, setView] = useState('login'); // login view only
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loginType, setLoginType] = useState<'user' | 'admin' | null>(null);
   
   // Handle login form submission
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (type: 'user' | 'admin') => {
+    console.log('=== LOGIN ATTEMPT ===');
+    console.log('Login type clicked:', type);
+    console.log('Email:', email);
+    console.log('Password length:', password.length);
+    
     setIsLoading(true);
-    setError('');
+    setError(''); // Clear any previous errors
+    setLoginType(type);
     
     // Always log the attempt for debugging
     console.log(`Login attempt for: ${email}`);
@@ -42,53 +48,48 @@ export default function Login() {
       
       // IMPORTANT: Check for demo accounts first and use client-side authentication for them
       // This is a guaranteed fallback that will work even if the backend is unavailable
+      console.log('DEBUG: Checking demo accounts');
+      console.log('Email:', email);
+      console.log('Password:', password);
+      console.log('Admin check:', (email === 'admin@example.com' && password === 'admin') || (email.toLowerCase() === 'admin' && password === 'admin'));
+      console.log('User check:', (email === 'user@example.com' && password === 'user') || (email.toLowerCase() === 'user' && password === 'user'));
+      
+      // Check for demo accounts and validate permissions
+      let demoUser = null;
+      
       if ((email === 'admin@example.com' && password === 'admin') || (email.toLowerCase() === 'admin' && password === 'admin')) {
-        // Admin login
-        console.log('Using direct client-side authentication for admin demo account');
-        const mockAdminUser = {
+        demoUser = {
           id: 1,
           email: 'admin@example.com',
           name: 'Admin User',
           role: 'admin'
         };
-        
-        // Display success message
-        const successMessage = document.createElement('div');
-        successMessage.style.position = 'fixed';
-        successMessage.style.top = '0';
-        successMessage.style.left = '0';
-        successMessage.style.width = '100%';
-        successMessage.style.padding = '10px';
-        successMessage.style.backgroundColor = '#4f46e5';
-        successMessage.style.color = 'white';
-        successMessage.style.textAlign = 'center';
-        successMessage.style.zIndex = '9999';
-        successMessage.innerText = 'Login successful! Redirecting to dashboard...';
-        document.body.appendChild(successMessage);
-        
-        // Store authentication data
-        localStorage.setItem('token', 'mock-admin-token');
-        localStorage.setItem('user', JSON.stringify(mockAdminUser));
-        document.cookie = `token=mock-admin-token; path=/; max-age=${60 * 60 * 24}`;
-        
-        // Use a direct navigation approach instead of location.href
-        setTimeout(() => {
-          const adminLink = document.createElement('a');
-          adminLink.href = '/admin';
-          adminLink.style.display = 'none';
-          document.body.appendChild(adminLink);
-          adminLink.click();
-        }, 1500);
-        return;
       } else if ((email === 'user@example.com' && password === 'user') || (email.toLowerCase() === 'user' && password === 'user')) {
-        // Regular user login
-        console.log('Using direct client-side authentication for user demo account');
-        const mockRegularUser = {
+        demoUser = {
           id: 2,
           email: 'user@example.com',
           name: 'Regular User',
           role: 'user'
         };
+      }
+      
+      if (demoUser) {
+        console.log('Demo account detected:', demoUser.email);
+        console.log('Login type requested:', loginType);
+        console.log('User role:', demoUser.role);
+        
+        // Validate permissions - check if user has required role for the requested login type
+        if (type === 'admin' && demoUser.role !== 'admin') {
+          console.log('=== ADMIN ACCESS DENIED FOR DEMO ACCOUNT ===');
+          console.log('Requested: admin, User role:', demoUser.role);
+          console.log('Setting error state for demo account');
+          setError('You do not have admin privileges. Please login as a regular user.');
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log('=== DEMO ACCOUNT PERMISSION CHECK PASSED ===');
+        console.log('Using direct client-side authentication for demo account');
         
         // Display success message
         const successMessage = document.createElement('div');
@@ -105,17 +106,29 @@ export default function Login() {
         document.body.appendChild(successMessage);
         
         // Store authentication data
-        localStorage.setItem('token', 'mock-user-token');
-        localStorage.setItem('user', JSON.stringify(mockRegularUser));
-        document.cookie = `token=mock-user-token; path=/; max-age=${60 * 60 * 24}`;
+        const token = demoUser.role === 'admin' ? 'mock-admin-token' : 'mock-user-token';
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(demoUser));
+        localStorage.setItem('loginType', type || 'user');
+        document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24}`;
         
-        // Use a direct navigation approach instead of location.href
+        // Redirect based on login type and permissions
         setTimeout(() => {
-          const homeLink = document.createElement('a');
-          homeLink.href = '/';
-          homeLink.style.display = 'none';
-          document.body.appendChild(homeLink);
-          homeLink.click();
+          if (type === 'admin' && demoUser.role === 'admin') {
+            console.log('Redirecting to admin dashboard');
+            const adminLink = document.createElement('a');
+            adminLink.href = '/admin';
+            adminLink.style.display = 'none';
+            document.body.appendChild(adminLink);
+            adminLink.click();
+          } else {
+            console.log('Redirecting to user dashboard');
+            const homeLink = document.createElement('a');
+            homeLink.href = '/';
+            homeLink.style.display = 'none';
+            document.body.appendChild(homeLink);
+            homeLink.click();
+          }
         }, 1500);
         return;
       }
@@ -149,7 +162,7 @@ export default function Login() {
         const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, loginType: type }),
           credentials: 'include'
         });
         
@@ -163,20 +176,60 @@ export default function Login() {
         const data = await response.json();
         
         if (!response.ok) {
-          throw new Error(data.error || 'Login failed');
+          console.log('API login failed:', data.error || 'Login failed');
+          console.log('Response status:', response.status);
+          const errorMessage = data.error || 'Login failed';
+          setError(errorMessage);
+          setIsLoading(false);
+          
+          return;
         }
         
         if (data.user) {
+          console.log('=== LOGIN SUCCESS ===');
+          console.log('User data received:', data.user);
+          console.log('Login type from state:', loginType);
+          console.log('User role from API:', data.user.role);
+          
+          // CRITICAL: Double-check admin permissions on client side as additional security layer
+          if (type === 'admin' && data.user.role !== 'admin') {
+            console.log('=== CLIENT-SIDE ADMIN ACCESS DENIED ===');
+            console.log('Requested: admin, User role:', data.user.role);
+            console.log('This should have been caught by the server, but blocking here as fallback');
+            setError('You do not have admin privileges. Please login as a regular user.');
+            setIsLoading(false);
+            
+            // Clear any stored authentication data to prevent confusion
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('loginType');
+            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            
+            return;
+          }
+          
+          console.log('=== PERMISSION CHECK PASSED ===');
+          
           // Store user data in localStorage
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('loginType', type || 'user');
           
-          // Redirect based on role
-          if (data.user.role === 'admin') {
-            window.location.href = '/admin';
-          } else {
-            window.location.href = '/';
-          }
+          // Use setTimeout to ensure localStorage is saved before redirect
+          setTimeout(() => {
+            // Redirect based on login type parameter, not state
+            if (type === 'admin') {
+              console.log('Redirecting to admin dashboard');
+              window.location.href = '/admin';
+            } else {
+              console.log('Redirecting to user dashboard');
+              window.location.href = '/dashboard';
+            }
+          }, 100);
+        } else {
+          console.log('No user data in response');
+          setError('Login failed - no user data received');
+          setIsLoading(false);
         }
       } catch (apiError: any) {
         console.error('API login failed:', apiError);
@@ -288,23 +341,25 @@ export default function Login() {
         
         {/* Error message */}
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+          <div className="bg-red-50 border border-red-400 rounded-lg p-4 mb-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-6 w-6 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
+                <h3 className="text-sm font-medium text-red-800">Access Denied</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
           </div>
         )}
         
+        
         {/* Login Form */}
         {view === 'login' && (
-          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <form className="mt-8 space-y-6" onSubmit={(e) => e.preventDefault()}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
                 <label htmlFor="email" className="sr-only">Email address</label>
@@ -350,44 +405,77 @@ export default function Login() {
               </div>
 
               <div className="text-sm">
-                <button 
-                  type="button" 
-                  onClick={() => setView('forgotPassword')}
+                <a 
+                  href="/forgot-password"
                   className="font-medium text-indigo-600 hover:text-indigo-500 font-quicksand"
                 >
                   Forgot your password?
-                </button>
+                </a>
               </div>
             </div>
 
-            <div>
+            <div className="space-y-3">
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleLogin('user')}
                 disabled={isLoading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-quicksand disabled:opacity-70 disabled:cursor-not-allowed"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 font-quicksand disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
+                {isLoading && loginType === 'user' ? (
                   <span className="flex items-center">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Signing in...
+                    Signing in as User...
                   </span>
-                ) : 'Sign in'}
+                ) : (
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Login as User
+                  </span>
+                )}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('ADMIN BUTTON CLICKED');
+                  handleLogin('admin');
+                }}
+                disabled={isLoading}
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 font-quicksand disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isLoading && loginType === 'admin' ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Signing in as Admin...
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Login as Admin
+                  </span>
+                )}
               </button>
             </div>
             
             <div className="text-center mt-4">
               <p className="text-sm text-gray-600 font-quicksand">
                 Don't have an account?{' '}
-                <button 
-                  type="button"
-                  onClick={() => setView('register')}
+                <a 
+                  href="/register"
                   className="font-medium text-indigo-600 hover:text-indigo-500 font-quicksand"
                 >
                   Sign up
-                </button>
+                </a>
               </p>
             </div>
             

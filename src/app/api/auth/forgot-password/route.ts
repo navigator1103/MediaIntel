@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { generatePasswordResetToken, getTokenExpiryDate } from '@/lib/auth/tokens';
+import { sendPasswordResetEmail } from '@/lib/email/sendgrid';
 
 // POST /api/auth/forgot-password - Request password reset
 export async function POST(request: NextRequest) {
@@ -16,20 +18,31 @@ export async function POST(request: NextRequest) {
     
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { email: body.email }
+      where: { email: body.email.toLowerCase() }
     });
+    
+    if (user) {
+      // Generate reset token
+      const resetToken = generatePasswordResetToken();
+      const expiresAt = getTokenExpiryDate(1); // 1 hour expiry
+      
+      // Store reset token in database
+      await prisma.passwordResetToken.create({
+        data: {
+          token: resetToken,
+          userId: user.id,
+          expiresAt
+        }
+      });
+      
+      // Send password reset email
+      await sendPasswordResetEmail(user.email, resetToken);
+      
+      console.log(`Password reset email sent to: ${user.email}`);
+    }
     
     // Always return success even if user doesn't exist (security best practice)
     // This prevents email enumeration attacks
-    
-    // In a real application, you would:
-    // 1. Generate a password reset token
-    // 2. Store it in the database with an expiration time
-    // 3. Send an email with a link containing the token
-    
-    console.log(`Password reset requested for email: ${body.email}`);
-    
-    // Return success regardless of whether the user exists
     return NextResponse.json({
       message: 'If an account with that email exists, a password reset link has been sent.'
     });

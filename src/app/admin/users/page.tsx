@@ -17,8 +17,20 @@ interface User {
 }
 
 
+interface Country {
+  id: number;
+  name: string;
+}
+
+interface Brand {
+  id: number;
+  name: string;
+}
+
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -37,13 +49,25 @@ export default function UserManagementPage() {
       try {
         setLoading(true);
         
-        // Fetch users
-        const usersResponse = await fetch('/api/admin/users');
+        // Fetch users, countries, and brands in parallel
+        const [usersResponse, countriesResponse] = await Promise.all([
+          fetch('/api/admin/users'),
+          fetch('/api/admin/countries')
+        ]);
+
         if (!usersResponse.ok) {
           throw new Error('Failed to fetch users');
         }
+        if (!countriesResponse.ok) {
+          throw new Error('Failed to fetch countries');
+        }
+
         const usersData = await usersResponse.json();
+        const countriesData = await countriesResponse.json();
+
         setUsers(usersData);
+        setCountries(countriesData);
+        setBrands([]); // Brands not implemented yet
         
         setError(null);
       } catch (err) {
@@ -192,9 +216,8 @@ export default function UserManagementPage() {
       {isFormOpen && (
         <UserForm
           user={selectedUser}
-          countries={[]}
-          brands={[]}
-          availablePages={availablePages}
+          countries={countries}
+          brands={brands}
           onSubmit={handleFormSubmit}
           onCancel={handleFormClose}
         />
