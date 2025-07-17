@@ -58,6 +58,8 @@ model Country {
   subRegion   SubRegion? @relation(fields: [subRegionId], references: [id])
   cluster     Cluster?   @relation(fields: [clusterId], references: [id])
   gamePlans   GamePlan[]
+  competitorShareOfVoice CompetitorShareOfVoice[]
+  mediaDiminishingReturns MediaDiminishingReturns[]
 
   @@map("countries")
 }
@@ -276,8 +278,6 @@ model MediaSufficiency {
   totalCountryPopulationOnTarget String?  @map("total_country_population_on_target")
   tvCopyLength                   String?  @map("tv_copy_length")
   tvTargetSize                   String?  @map("tv_target_size")
-  woaOpenTv                      Float?   @map("woa_open_tv")
-  woaPaidTv                      Float?   @map("woa_paid_tv")
   totalTrps                      Float?   @map("total_trps")
   tvR1Plus                       String?  @map("tv_r1_plus")
   tvR3Plus                       String?  @map("tv_r3_plus")
@@ -286,8 +286,6 @@ model MediaSufficiency {
   cpp2025                        Float?   @map("cpp_2025")
   digitalTarget                  String?  @map("digital_target")
   digitalTargetSize              String?  @map("digital_target_size")
-  woaPmFf                        Float?   @map("woa_pm_ff")
-  woaInfluencersAmplification    Float?   @map("woa_influencers_amplification")
   digitalR1Plus                  String?  @map("digital_r1_plus")
   digitalIdealReach              String?  @map("digital_ideal_reach")
   plannedCombinedReach           String?  @map("planned_combined_reach")
@@ -297,8 +295,80 @@ model MediaSufficiency {
   combinedReachLevelCheck        String?  @map("combined_reach_level_check")
   uploadedBy                     String?  @map("uploaded_by")
   uploadSession                  String?  @map("upload_session")
+  // NEW FIELDS - Missing from Excel template
+  tvDemoGender                   String?  @map("tv_demo_gender")
+  tvDemoMinAge                   Int?     @map("tv_demo_min_age")
+  tvDemoMaxAge                   Int?     @map("tv_demo_max_age")
+  tvSel                          String?  @map("tv_sel")
+  finalTvTarget                  String?  @map("final_tv_target")
+  cpp2026                        Float?   @map("cpp_2026")
+  reportedCurrency               String?  @map("reported_currency")
+  isDigitalTargetSameAsTv        Boolean? @map("is_digital_target_same_as_tv")
+  digitalDemoGender              String?  @map("digital_demo_gender")
+  digitalDemoMinAge              Int?     @map("digital_demo_min_age")
+  digitalDemoMaxAge              Int?     @map("digital_demo_max_age")
+  digitalSel                     String?  @map("digital_sel")
+  finalDigitalTarget             String?  @map("final_digital_target")
+  digitalTargetSizeAbs           String?  @map("digital_target_size_abs")
   createdAt                      DateTime @default(now()) @map("created_at")
   updatedAt                      DateTime @updatedAt @map("updated_at")
 
   @@map("media_sufficiency")
+}
+
+model CompetitorShareOfVoice {
+  id                     Int      @id @default(autoincrement())
+  brand                  String   // "Nivea" or "Eucerin"
+  category               String   // "Face Care" or medical indication like "Anti-Age"
+  company                String   // "Nivea", "Eucerin", "Competitor 1", etc.
+  
+  // TV Data
+  tvInvestment           Float?   @map("tv_investment")
+  tvTrps                 Float?   @map("tv_trps")
+  
+  // Digital Data  
+  digitalInvestment      Float?   @map("digital_investment")
+  digitalImpressions     Float?   @map("digital_impressions")
+  
+  // Metadata
+  matPeriod              String?  @map("mat_period") // "Last 12 months" or specific period
+  countryId              Int?     @map("country_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  country                Country? @relation(fields: [countryId], references: [id])
+  
+  @@map("competitor_share_of_voice")
+}
+
+model MediaDiminishingReturns {
+  id                     Int      @id @default(autoincrement())
+  mediaType              String   @map("media_type") // "TV", "Digital", "Combined"
+  
+  // Target Demographics
+  gender                 String   // "F", "M", "BG"
+  minAge                 Int      @map("min_age")
+  maxAge                 Int      @map("max_age")
+  sel                    String?  // SEL value
+  finalTarget            String   @map("final_target") // "F 18-45", "M 20-60", etc.
+  saturationPoint        Float    @map("saturation_point") // 0.7768, 0.7534, etc.
+  
+  // Input Metrics (varies by media type)
+  inputValue             Float    @map("input_value") // TRPs for TV, Budget for Digital
+  inputType              String   @map("input_type") // "TRP", "Budget"
+  
+  // Output Metrics
+  reach1Plus             Float    @map("reach_1_plus") // R1+ percentage
+  frequency              Float?   // For Digital/Combined
+  
+  // Metadata
+  countryId              Int?     @map("country_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  country                Country? @relation(fields: [countryId], references: [id])
+  
+  @@map("media_diminishing_returns")
 }

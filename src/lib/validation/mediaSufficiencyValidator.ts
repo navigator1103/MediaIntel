@@ -46,6 +46,32 @@ export interface MediaSufficiencyRecord {
   'Weeks Off Air'?: string | number;
   'Playbook ID'?: string;
   'Objectives Values'?: string;
+  // NEW FIELDS - Excel template fields
+  'TV Demo Gender'?: string;
+  'TV Demo Min. Age'?: number;
+  'TV Demo Max. Age'?: number;
+  'TV SEL'?: string;
+  'Final TV Target (don\'t fill)'?: string;
+  'TV Target Size'?: string;
+  'TV Copy Length'?: string;
+  'Total TV Planned R1+ (%)'?: string | number;
+  'Total TV Planned R3+ (%)'?: string | number;
+  'TV Potential R1+'?: string | number;
+  'CPP 2024'?: number;
+  'CPP 2025'?: number;
+  'CPP 2026'?: number;
+  'Reported Currency'?: string;
+  'Is Digital target the same than TV?'?: boolean | string;
+  'Digital Demo Gender'?: string;
+  'Digital Demo Min. Age'?: number;
+  'Digital Demo Max. Age'?: number;
+  'Digital SEL'?: string;
+  'Final Digital Target (don\'t fill)'?: string;
+  'Digital Target Size (Abs)'?: string;
+  'Total Digital Planned R1+'?: string | number;
+  'Total Digital Potential R1+'?: string | number;
+  'Planned Combined Reach (don\'t fill)'?: string;
+  'Combined Potential Reach'?: string | number;
 }
 
 // Define validation rule types
@@ -108,7 +134,15 @@ export class MediaSufficiencyValidator {
     const allFields = [
       'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 'Media Type', 'Media Subtype', 
       'Start Date', 'End Date', 'Total Budget', 'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
-      'PM Type', 'Objectives Values'
+      'PM Type', 'Objectives Values',
+      // NEW FIELDS - Excel template fields
+      'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 'Final TV Target (don\'t fill)',
+      'TV Target Size', 'TV Copy Length', 'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 
+      'TV Potential R1+', 'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
+      'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
+      'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)', 
+      'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
+      'Planned Combined Reach (don\'t fill)', 'Combined Potential Reach'
     ];
     
     // Fields that are required (critical if missing)
@@ -1084,16 +1118,21 @@ export class MediaSufficiencyValidator {
         // Define valid combinations
         const validCombinations: Record<string, string[]> = {
           // Digital combinations
-          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
-          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'influencers amp.': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
           'influencers organic': ['Non PM'],
-          'other digital': ['Non PM'],
-          'search': ['GR Only'],
+          'influencers org.': ['Non PM'],
+          'influencers': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'Non PM', 'PM & FF'],
+          'other digital': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'Non PM', 'PM & FF'],
+          'search': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'paid search': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
           // Traditional combinations
-          'open tv': ['Non PM'],
-          'paid tv': ['Non PM'],
-          'ooh': ['Non PM'],
-          'radio': ['Non PM']
+          'open tv': ['Non PM', 'GR Only'],
+          'paid tv': ['Non PM', 'GR Only'],
+          'ooh': ['Non PM', 'GR Only'],
+          'radio': ['Non PM', 'GR Only'],
+          'others': ['Non PM', 'GR Only']
         };
         
         // Normalize the media subtype for comparison
@@ -1144,16 +1183,21 @@ export class MediaSufficiencyValidator {
         // Define valid combinations (reverse mapping)
         const validCombinations: Record<string, string[]> = {
           // Digital combinations
-          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
-          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+          'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'influencers amp.': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
           'influencers organic': ['Non PM'],
-          'other digital': ['Non PM'],
-          'search': ['GR Only'],
+          'influencers org.': ['Non PM'],
+          'influencers': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'Non PM', 'PM & FF'],
+          'other digital': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'Non PM', 'PM & FF'],
+          'search': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+          'paid search': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
           // Traditional combinations
-          'open tv': ['Non PM'],
-          'paid tv': ['Non PM'],
-          'ooh': ['Non PM'],
-          'radio': ['Non PM']
+          'open tv': ['Non PM', 'GR Only'],
+          'paid tv': ['Non PM', 'GR Only'],
+          'ooh': ['Non PM', 'GR Only'],
+          'radio': ['Non PM', 'GR Only'],
+          'others': ['Non PM', 'GR Only']
         };
         
         // Normalize the media subtype for comparison
@@ -1276,7 +1320,8 @@ export class MediaSufficiencyValidator {
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         const subtypeName = value.toString().trim();
-        const mediaTypeName = record['Media Type']?.toString().trim();
+        // Check for both 'Media' and 'Media Type' field names
+        const mediaTypeName = (record.Media || record['Media Type'])?.toString().trim();
         
         // Check if subtype exists (mediaSubTypes are returned as array of strings)
         const mediaSubTypes = masterData?.mediaSubTypes || [];

@@ -260,9 +260,13 @@ function validateRecord(
     const validCombinations: Record<string, string[]> = {
       // Digital combinations
       'pm & ff': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
-      'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced'],
+      'influencers amplification': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
+      'influencers amp.': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
       'influencers organic': ['Non PM'],
+      'influencers org.': ['Non PM'],
       'other digital': ['Non PM'],
+      'others': ['Non PM', 'GR Only'],
+      'paid search': ['GR Only', 'PM Advanced', 'Full Funnel Basic', 'Full Funnel Advanced', 'PM & FF'],
       'search': ['GR Only'],
       // Traditional combinations
       'open tv': ['Non PM'],

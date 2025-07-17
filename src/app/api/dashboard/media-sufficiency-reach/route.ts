@@ -16,13 +16,9 @@ export async function GET() {
         tvR3Plus: true,
         tvIdealReach: true,
         tvTargetSize: true,
-        woaOpenTv: true,
-        woaPaidTv: true,
         digitalR1Plus: true,
         digitalIdealReach: true,
         digitalTargetSize: true,
-        woaPmFf: true,
-        woaInfluencersAmplification: true,
         plannedCombinedReach: true,
         combinedIdealReach: true,
         totalCountryPopulationOnTarget: true,
@@ -43,11 +39,7 @@ export async function GET() {
         totalRecords: mediaSufficiencyData.length,
         countries: [...new Set(mediaSufficiencyData.map(d => d.country).filter(Boolean))].length,
         campaigns: [...new Set(mediaSufficiencyData.map(d => d.campaign).filter(Boolean))].length,
-        lastUpdated: mediaSufficiencyData[0]?.createdAt || null,
-        woaOpenTv: mediaSufficiencyData.reduce((sum, d) => sum + (d.woaOpenTv || 0), 0),
-        woaPaidTv: mediaSufficiencyData.reduce((sum, d) => sum + (d.woaPaidTv || 0), 0),
-        woaPmFf: mediaSufficiencyData.reduce((sum, d) => sum + (d.woaPmFf || 0), 0),
-        woaInfluencersAmplification: mediaSufficiencyData.reduce((sum, d) => sum + (d.woaInfluencersAmplification || 0), 0)
+        lastUpdated: mediaSufficiencyData[0]?.createdAt || null
       },
 
       // TV Reach data for charts with calculated fields
