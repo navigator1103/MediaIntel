@@ -13,7 +13,7 @@ export default function LayoutClientWrapper({ children }: { children: React.Reac
   return (
     <>
       {showHeader && <BeiersdorfHeader />}
-      <main className={showHeader ? 'pt-16' : ''}>
+      <main className={showHeader ? 'pt-20' : ''}>
         {children}
       </main>
       <DebugConsole />
