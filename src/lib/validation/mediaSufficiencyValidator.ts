@@ -29,15 +29,24 @@ export interface MediaSufficiencyRecord {
   Category?: string;
   Range?: string;
   Campaign?: string;
+  'Campaign Archetype'?: string;
   Media?: string;
   'Media Subtype'?: string;
-  'Start Date'?: string | Date;
+  'Initial Date'?: string | Date;
   'End Date'?: string | Date;
   Budget?: string | number;
-  'Q1 Budget'?: string | number;
-  'Q2 Budget'?: string | number;
-  'Q3 Budget'?: string | number;
-  'Q4 Budget'?: string | number;
+  Jan?: string | number;
+  Feb?: string | number;
+  Mar?: string | number;
+  Apr?: string | number;
+  May?: string | number;
+  Jun?: string | number;
+  Jul?: string | number;
+  Aug?: string | number;
+  Sep?: string | number;
+  Oct?: string | number;
+  Nov?: string | number;
+  Dec?: string | number;
   'PM Type'?: string;
   TRPs?: string | number;
   'Reach 1+'?: string | number; // Percentage
@@ -130,84 +139,218 @@ export class MediaSufficiencyValidator {
   
   // Initialize default validation rules
   private initializeRules() {
-    // Define all fields that should be validated
-    const allFields = [
-      'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 'Media Type', 'Media Subtype', 
-      'Start Date', 'End Date', 'Total Budget', 'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
-      'PM Type', 'Objectives Values',
-      // NEW FIELDS - Excel template fields
-      'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 'Final TV Target (don\'t fill)',
-      'TV Target Size', 'TV Copy Length', 'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 
-      'TV Potential R1+', 'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
-      'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
-      'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)', 
-      'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
-      'Planned Combined Reach (don\'t fill)', 'Combined Potential Reach'
+    // Define REQUIRED columns - all must be present in CSV (your exact list)
+    const allExpectedColumns = [
+      'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst', 
+      'Media', 'Media Subtype', 'Initial Date', 'End Date', 'Total Weeks', 'Total Budget', 
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Total WOA', 'Total WOFF', 'Total TRPs', 'Total R1+ (%)', 'Total R3+ (%)'
     ];
     
-    // Fields that are required (critical if missing)
-    const requiredFields = [
-      'Year', 'Country', 'Category', 'Range', 'Campaign', 'Media Type', 'Media Subtype', 
-      'Start Date', 'End Date', 'Total Budget', 'Burst'
+    // Core fields that must have values (cannot be empty)
+    const coreRequiredFields = [
+      'Category', 'Range', 'Campaign', 'Campaign Archetype', 'Media', 'Media Subtype', 
+      'Initial Date', 'End Date', 'Total Budget', 'Burst'
     ];
     
-    // Add validation for required fields (critical)
-    requiredFields.forEach(field => {
+    // Monthly budget fields - must have values
+    const budgetFields = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Other fields that must have values
+    const otherRequiredFields = ['Playbook ID', 'Total Weeks'];
+    
+    // Conditional fields - required only for specific media types
+    const conditionalFields = ['Total TRPs', 'Total R1+ (%)', 'Total R3+ (%)'];
+    
+    // Optional fields that can be empty
+    const optionalFields = ['Total WOA', 'Total WOFF'];
+    
+    // First, validate ALL expected columns are present (structural validation)
+    // This will be handled in the validateRecord method
+    
+    // Add validation for core required fields (critical - cannot be empty)
+    coreRequiredFields.forEach(field => {
       this.rules.push({
         field,
         type: 'required',
         severity: 'critical',
-        message: `${field} is required`,
+        message: `${field} is required and cannot be empty`,
         validate: (value) => {
           return value !== undefined && value !== null && value.toString().trim() !== '';
         }
       });
     });
     
-    // Add explicit validation for blank quarterly budget fields (warning)
-    const budgetFields = ['Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget'];
-    
+    // Add validation for monthly budget fields (critical - must have values)
     budgetFields.forEach(field => {
       this.rules.push({
         field,
         type: 'required',
-        severity: 'warning',
-        message: `${field} is blank`,
-        validate: (value, record) => {
-          console.log(`Validating blank ${field}:`, value);
-          // Consider empty strings, null, undefined, and whitespace-only as blank
-          const isBlank = value === undefined || value === null || value.toString().trim() === '';
-          console.log(`${field} is blank:`, isBlank);
-          return !isBlank; // Return false if blank to trigger the warning
+        severity: 'critical',
+        message: `${field} budget is required and cannot be empty`,
+        validate: (value) => {
+          return value !== undefined && value !== null && value.toString().trim() !== '';
         }
       });
     });
     
-    // Add validation for other non-required fields (warning)
-    allFields
-      .filter(field => !requiredFields.includes(field) && !budgetFields.includes(field))
-      .forEach(field => {
-        this.rules.push({
-          field,
-          type: 'required',
-          severity: 'warning',
-          message: `${field} is blank`,
-          validate: (value) => {
-            return value !== undefined && value !== null && value.toString().trim() !== '';
-          }
-        });
+    // Add validation for other required fields (critical - must have values)
+    otherRequiredFields.forEach(field => {
+      this.rules.push({
+        field,
+        type: 'required',
+        severity: 'critical',
+        message: `${field} is required and cannot be empty`,
+        validate: (value) => {
+          return value !== undefined && value !== null && value.toString().trim() !== '';
+        }
       });
+    });
 
-    // Year format validation
+    // Add conditional validation for Total TRPs (only required for TV campaigns)
+    this.rules.push({
+      field: 'Total TRPs',
+      type: 'requirement',
+      severity: 'critical',
+      message: 'Total TRPs is required for TV campaigns and must be a valid number',
+      validate: (value, record) => {
+        const mediaSubtype = record['Media Subtype']?.toString().toLowerCase() || '';
+        const isTvCampaign = mediaSubtype.includes('tv') || mediaSubtype.includes('television') || 
+                            mediaSubtype.includes('open tv') || mediaSubtype.includes('paid tv');
+        
+        if (isTvCampaign) {
+          // Total TRPs is required for TV campaigns
+          if (!value || value.toString().trim() === '') {
+            return {
+              isValid: false,
+              message: `Total TRPs is required for TV campaign with Media Subtype '${record['Media Subtype']}' and cannot be empty`
+            };
+          }
+          // Validate it's a number
+          const numValue = parseFloat(value.toString());
+          if (isNaN(numValue) || numValue < 0) {
+            return {
+              isValid: false,
+              message: `Total TRPs must be a valid positive number for TV campaigns. Current value: '${value}'`
+            };
+          }
+        } else {
+          // For non-TV campaigns, Total TRPs should be empty
+          if (value && value.toString().trim() !== '') {
+            return {
+              isValid: false,
+              message: `Total TRPs should only be used for TV campaigns. Media Subtype '${record['Media Subtype']}' should not have TRP values.`
+            };
+          }
+        }
+        return true;
+      }
+    });
+
+    // Add conditional validation for Total R1+ (%) (required for specific media types, must be %)
+    this.rules.push({
+      field: 'Total R1+ (%)',
+      type: 'requirement',
+      severity: 'critical',
+      message: 'Total R1+ (%) is required for certain media types and must be a valid percentage',
+      validate: (value, record) => {
+        const mediaSubtype = record['Media Subtype']?.toString().toLowerCase() || '';
+        
+        // Required for: PM & FF, Influencer Amplification, Other Digital, Open TV, Paid TV
+        const requiresR1Plus = mediaSubtype.includes('pm & ff') || 
+                              mediaSubtype.includes('influencer amplification') || 
+                              mediaSubtype.includes('influencers amplification') ||
+                              mediaSubtype.includes('other digital') ||
+                              mediaSubtype.includes('open tv') ||
+                              mediaSubtype.includes('paid tv');
+        
+        if (requiresR1Plus) {
+          // R1+ is required
+          if (!value || value.toString().trim() === '') {
+            return {
+              isValid: false,
+              message: `Total R1+ (%) is required for Media Subtype '${record['Media Subtype']}' and cannot be empty`
+            };
+          }
+          // Validate it's a valid percentage (0-100)
+          const numValue = parseFloat(value.toString().replace('%', ''));
+          if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+            return {
+              isValid: false,
+              message: `Total R1+ (%) must be a valid percentage (0-100%). Current value: '${value}'`
+            };
+          }
+        }
+        return true;
+      }
+    });
+
+    // Add conditional validation for Total R3+ (%) (required for TV only, must be %)
+    this.rules.push({
+      field: 'Total R3+ (%)',
+      type: 'requirement',
+      severity: 'critical',
+      message: 'Total R3+ (%) is required for TV campaigns and must be a valid percentage',
+      validate: (value, record) => {
+        const mediaSubtype = record['Media Subtype']?.toString().toLowerCase() || '';
+        
+        // Required for: Open TV and Paid TV
+        const requiresR3Plus = mediaSubtype.includes('open tv') || mediaSubtype.includes('paid tv');
+        
+        if (requiresR3Plus) {
+          // R3+ is required for TV campaigns
+          if (!value || value.toString().trim() === '') {
+            return {
+              isValid: false,
+              message: `Total R3+ (%) is required for TV campaign with Media Subtype '${record['Media Subtype']}' and cannot be empty`
+            };
+          }
+          // Validate it's a valid percentage (0-100)
+          const numValue = parseFloat(value.toString().replace('%', ''));
+          if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+            return {
+              isValid: false,
+              message: `Total R3+ (%) must be a valid percentage (0-100%). Current value: '${value}'`
+            };
+          }
+        }
+        return true;
+      }
+    });
+
+    // Year format validation - make it warning since year can be derived from dates
     this.rules.push({
       field: 'Year',
       type: 'format',
-      severity: 'critical',
-      message: 'Year must be a valid 4-digit year',
-      validate: (value) => {
-        if (!value) return false;
+      severity: 'warning', // Changed from critical to warning since it can be derived from dates
+      message: 'Year field is empty or invalid - will be derived from Start/End dates',
+      validate: (value, record) => {
+        // If no year provided, check if we have dates to derive it from
+        if (!value || value.toString().trim() === '') {
+          if (record['Initial Date'] || record['Start Date'] || record['End Date']) {
+            // Year can be derived from dates, so this is just a warning
+            return true;
+          } else {
+            // No dates available to derive year from
+            return {
+              isValid: false,
+              message: 'Year field is required when no Initial Date or End Date is provided'
+            };
+          }
+        }
+        
+        // If year is provided, validate it's a proper 4-digit year
         const year = parseInt(value.toString());
-        return !isNaN(year) && year >= 2000 && year <= 2100;
+        const isValid = !isNaN(year) && year >= 2000 && year <= 2100;
+        
+        if (!isValid) {
+          return {
+            isValid: false,
+            message: `Year must be a valid 4-digit year between 2000-2100. Current value: '${value}'`
+          };
+        }
+        
+        return true;
       }
     });
 
@@ -216,7 +359,7 @@ export class MediaSufficiencyValidator {
       field: 'Year',
       type: 'consistency',
       severity: 'critical',
-      message: 'Year field must match the year in Start Date and End Date',
+      message: 'Year field must match the year in Initial Date and End Date',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return true; // Skip if Year is missing (will be caught by required validation)
         
@@ -238,8 +381,8 @@ export class MediaSufficiencyValidator {
         
         // Validate Year field against dates in the same record only
         // This avoids false positives when there are mixed datasets
-        if (record['Start Date'] || record['End Date']) {
-          const startDate = record['Start Date'] ? this.parseDate(record['Start Date']) : null;
+        if (record['Initial Date'] || record['Start Date'] || record['End Date']) {
+          const startDate = (record['Initial Date'] || record['Start Date']) ? this.parseDate(record['Initial Date'] || record['Start Date']) : null;
           const endDate = record['End Date'] ? this.parseDate(record['End Date']) : null;
           
           if (startDate) {
@@ -249,7 +392,7 @@ export class MediaSufficiencyValidator {
                 yearFieldYear,
                 startYear,
                 yearValue,
-                startDate: record['Start Date']
+                startDate: record['Initial Date'] || record['Start Date']
               });
               return false;
             }
@@ -274,7 +417,7 @@ export class MediaSufficiencyValidator {
     });
 
     // Date format validation
-    const dateFields = ['Start Date', 'End Date'];
+    const dateFields = ['Initial Date', 'End Date'];
     dateFields.forEach(field => {
       this.rules.push({
         field,
@@ -292,7 +435,7 @@ export class MediaSufficiencyValidator {
     });
 
     // Financial cycle year validation for dates
-    const dateFields2 = ['Start Date', 'End Date'];
+    const dateFields2 = ['Initial Date', 'End Date'];
     dateFields2.forEach(field => {
       this.rules.push({
         field,
@@ -420,16 +563,28 @@ export class MediaSufficiencyValidator {
     });
 
 
-    // Country validation
+    // Country validation - special handling for auto-population from selected country
     this.rules.push({
       field: 'Country',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Country must be a valid country name',
+      severity: 'warning', // Changed from critical to warning since it can be auto-populated
+      message: 'Country field is empty - will be auto-populated from selected country',
       validate: (value, record, allRecords, masterData) => {
-        if (!value) return false;
+        // If no country value provided, check if we have a selected country to use
+        if (!value || value.toString().trim() === '') {
+          if (masterData?.selectedCountry) {
+            // Country will be auto-populated, so this is just a warning
+            return true; // Allow empty country if selectedCountry is available
+          } else {
+            // No selected country available, this is a problem
+            return {
+              isValid: false,
+              message: 'Country field is required when no country is pre-selected'
+            };
+          }
+        }
         
-        // Check if country exists in master data
+        // If country value is provided, validate it exists in master data
         const countryInput = value.toString().trim();
         const countries = masterData?.countries || [];
         
@@ -560,12 +715,12 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Range validation
+    // Range validation - modified for governance support
     this.rules.push({
       field: 'Range',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Range must be a valid range name',
+      severity: 'warning', // Changed from critical to warning to allow auto-creation
+      message: 'Range does not exist and will be auto-created during import',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -574,18 +729,22 @@ export class MediaSufficiencyValidator {
         const ranges = masterData?.ranges || [];
         
         // Case-insensitive search - ranges array now contains strings directly
-        return ranges.some((range: string) => {
+        const exists = ranges.some((range: string) => {
           return range.toLowerCase() === rangeInput.toLowerCase();
         });
+        
+        // Return false if range doesn't exist (to trigger warning highlight)
+        // Return true if range exists (no highlighting needed)
+        return exists;
       }
     });
 
-    // Campaign validation
+    // Campaign validation - modified for governance support
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Campaign must be a valid campaign name',
+      severity: 'warning', // Changed from critical to warning to allow auto-creation
+      message: 'Campaign does not exist and will be auto-created during import',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -594,26 +753,30 @@ export class MediaSufficiencyValidator {
         const campaigns = masterData?.campaigns || [];
         
         // Case-insensitive search - handle both string and object formats
-        return campaigns.some((campaign: string | { name: string }) => {
+        const exists = campaigns.some((campaign: string | { name: string }) => {
           const campaignName = typeof campaign === 'string' ? campaign : campaign.name;
           return campaignName.toLowerCase() === campaignInput.toLowerCase();
         });
+        
+        // Return false if campaign doesn't exist (to trigger warning highlight)
+        // Return true if campaign exists (no highlighting needed)
+        return exists;
       }
     });
 
-    // Category-Range relationship validation
+    // Category-Range relationship validation - modified for governance support
     this.rules.push({
       field: 'Range',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Range must be valid for the selected Category',
+      severity: 'warning', // Changed from critical to warning to allow auto-creation
+      message: 'Range does not exist and will be auto-created and linked to category during import',
       validate: (value, record, allRecords, masterData) => {
         if (!value || !record.Category) return false;
         
         const category = record.Category.toString().trim();
         const range = value.toString().trim();
         
-        // If we have category-to-ranges mapping, use it
+        // If we have category-to-ranges mapping, use it for existing ranges
         if (masterData?.categoryToRanges) {
           // Find the category in a case-insensitive way
           const categoryKey = Object.keys(masterData.categoryToRanges).find(
@@ -623,14 +786,18 @@ export class MediaSufficiencyValidator {
           // Get valid ranges for this category
           const validRanges = categoryKey ? masterData.categoryToRanges[categoryKey] || [] : [];
           
-          // Check if range is valid for category (works for both self-referential and normal cases)
-          return validRanges.some((m: string) => 
+          // Check if range already exists for category
+          const exists = validRanges.some((m: string) => 
             m.toLowerCase() === range.toLowerCase()
           );
+          
+          // Return false if range doesn't exist (to trigger warning highlight)
+          // Return true if range exists (no highlighting needed)
+          return exists;
         }
         
-        // If no mapping available, we can't validate this relationship
-        return true;
+        // If no mapping available, assume range doesn't exist (trigger warning)
+        return false;
       }
     });
     
@@ -723,12 +890,12 @@ export class MediaSufficiencyValidator {
       }
     });
     
-    // Budget equals sum of quarterly budgets validation
+    // Budget equals sum of monthly budgets validation
     this.rules.push({
       field: 'Total Budget',
       type: 'consistency',
       severity: 'critical',
-      message: 'Total Budget should equal the sum of Q1, Q2, Q3, and Q4 budgets',
+      message: 'Total Budget should equal the sum of monthly budgets (Jan-Dec)',
       validate: (value, record) => {
         if (!value) return true; // Skip if no budget
         
@@ -736,26 +903,40 @@ export class MediaSufficiencyValidator {
         const budget = this.parseNumber(value);
         if (budget === null) return true; // Skip if invalid budget
         
-        // Parse quarterly budgets
-        const q1 = this.parseNumber(record['Q1 Budget'] || 0) || 0;
-        const q2 = this.parseNumber(record['Q2 Budget'] || 0) || 0;
-        const q3 = this.parseNumber(record['Q3 Budget'] || 0) || 0;
-        const q4 = this.parseNumber(record['Q4 Budget'] || 0) || 0;
+        // Parse monthly budgets with flexible field names
+        const jan = this.parseNumber(record['Jan'] || record['Jan Budget'] || record['January'] || 0) || 0;
+        const feb = this.parseNumber(record['Feb'] || record['Feb Budget'] || record['February'] || 0) || 0;
+        const mar = this.parseNumber(record['Mar'] || record['Mar Budget'] || record['March'] || 0) || 0;
+        const apr = this.parseNumber(record['Apr'] || record['Apr Budget'] || record['April'] || 0) || 0;
+        const may = this.parseNumber(record['May'] || record['May Budget'] || 0) || 0;
+        const jun = this.parseNumber(record['Jun'] || record['Jun Budget'] || record['June'] || 0) || 0;
+        const jul = this.parseNumber(record['Jul'] || record['Jul Budget'] || record['July'] || 0) || 0;
+        const aug = this.parseNumber(record['Aug'] || record['Aug Budget'] || record['August'] || 0) || 0;
+        const sep = this.parseNumber(record['Sep'] || record['Sep Budget'] || record['September'] || 0) || 0;
+        const oct = this.parseNumber(record['Oct'] || record['Oct Budget'] || record['October'] || 0) || 0;
+        const nov = this.parseNumber(record['Nov'] || record['Nov Budget'] || record['November'] || 0) || 0;
+        const dec = this.parseNumber(record['Dec'] || record['Dec Budget'] || record['December'] || 0) || 0;
         
         // Calculate sum
-        const sum = q1 + q2 + q3 + q4;
+        const sum = jan + feb + mar + apr + may + jun + jul + aug + sep + oct + nov + dec;
         
-        // Special case: If only one quarterly budget is provided and it equals the total budget,
+        // Check if we have any monthly budget data
+        const monthlyBudgets = [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec];
+        const hasMonthlyData = monthlyBudgets.some(month => month > 0);
+        
+        // If no monthly data is provided, skip this validation (allow total budget only)
+        if (!hasMonthlyData) {
+          return true;
+        }
+        
+        // Special case: If only one month has budget and it equals the total budget,
         // consider it valid (common pattern in media planning)
-        const nonZeroQuarters = [q1, q2, q3, q4].filter(q => q > 0).length;
-        const singleQuarterMatchesTotal = nonZeroQuarters === 1 && [
-          Math.abs(q1 - budget) < 0.01,
-          Math.abs(q2 - budget) < 0.01,
-          Math.abs(q3 - budget) < 0.01,
-          Math.abs(q4 - budget) < 0.01
-        ].some(match => match);
+        const nonZeroMonths = monthlyBudgets.filter(m => m > 0).length;
+        const singleMonthMatchesTotal = nonZeroMonths === 1 && monthlyBudgets.some(month => 
+          Math.abs(month - budget) < 0.01
+        );
         
-        if (singleQuarterMatchesTotal) {
+        if (singleMonthMatchesTotal) {
           return true;
         }
         
@@ -765,10 +946,11 @@ export class MediaSufficiencyValidator {
         
         console.log('Budget validation:', {
           budget,
-          q1, q2, q3, q4,
+          monthlyBudgets: { jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec },
           sum,
-          nonZeroQuarters,
-          singleQuarterMatchesTotal,
+          hasMonthlyData,
+          nonZeroMonths,
+          singleMonthMatchesTotal,
           isEqual
         });
         
@@ -776,12 +958,12 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Media Type validation
+    // Media validation
     this.rules.push({
-      field: 'Media Type',
+      field: 'Media',
       type: 'relationship',
       severity: 'critical',
-      message: 'Media Type must be a valid media type from the database',
+      message: 'Media must be a valid media type from the database',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -814,12 +996,12 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Media Type validation (alternative field name)
+    // Media validation (backward compatibility for old field name)
     this.rules.push({
       field: 'Media Type',
       type: 'relationship',
       severity: 'critical',
-      message: 'Media Type must be a valid media type from the database',
+      message: 'Media Type field detected - please rename to Media for consistency',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -859,7 +1041,7 @@ export class MediaSufficiencyValidator {
       severity: 'critical',
       message: 'Media Subtype must be valid for the selected Media',
       validate: (value, record, allRecords, masterData) => {
-        // Check for both 'Media' and 'Media Type' field names
+        // Check for both 'Media' and 'Media Type' field names (backward compatibility)
         const mediaField = record.Media || record['Media Type'];
         if (!value || !mediaField) return false; // Critical - require both fields
         
@@ -944,11 +1126,12 @@ export class MediaSufficiencyValidator {
       field: 'End Date',
       type: 'relationship',
       severity: 'warning',
-      message: 'End Date should be after Start Date',
+      message: 'End Date should be after Initial Date',
       validate: (value, record) => {
-        if (!value || !record['Start Date']) return true; // Not critical
+        const initialDate = record['Initial Date'] || record['Start Date'];
+        if (!value || !initialDate) return true; // Not critical
         
-        const startDate = this.parseDate(record['Start Date']);
+        const startDate = this.parseDate(initialDate);
         const endDate = this.parseDate(value);
         
         if (!startDate || !endDate) return true; // Can't validate
@@ -975,7 +1158,7 @@ export class MediaSufficiencyValidator {
           mediaSubType: record['Media Subtype'] ? record['Media Subtype'].toString().trim() : '',
           pmType: record['PM Type'] ? record['PM Type'].toString().trim() : '',
           businessUnit: record['Business Unit'] ? record['Business Unit'].toString().trim() : '',
-          startDate: record['Start Date'] ? this.formatDate(this.parseDate(record['Start Date'])) : '',
+          startDate: (record['Initial Date'] || record['Start Date']) ? this.formatDate(this.parseDate(record['Initial Date'] || record['Start Date'])) : '',
           endDate: record['End Date'] ? this.formatDate(this.parseDate(record['End Date'])) : ''
         };
         
@@ -996,7 +1179,7 @@ export class MediaSufficiencyValidator {
             mediaSubType: otherRecord['Media Subtype'] ? otherRecord['Media Subtype'].toString().trim() : '',
             pmType: otherRecord['PM Type'] ? otherRecord['PM Type'].toString().trim() : '',
             businessUnit: otherRecord['Business Unit'] ? otherRecord['Business Unit'].toString().trim() : '',
-            startDate: otherRecord['Start Date'] ? this.formatDate(this.parseDate(otherRecord['Start Date'])) : '',
+            startDate: (otherRecord['Initial Date'] || otherRecord['Start Date']) ? this.formatDate(this.parseDate(otherRecord['Initial Date'] || otherRecord['Start Date'])) : '',
             endDate: otherRecord['End Date'] ? this.formatDate(this.parseDate(otherRecord['End Date'])) : ''
           };
           
@@ -1078,7 +1261,7 @@ export class MediaSufficiencyValidator {
           return true; // Empty TRPs is fine
         }
         
-        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaType = record['Media'] || record['Media Type']?.toString().trim();
         const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
         
         // Check if it's a TV media type
@@ -1108,7 +1291,7 @@ export class MediaSufficiencyValidator {
       message: 'Invalid PM Type for the selected Media Subtype',
       validate: (value, record, allRecords, masterData) => {
         const pmType = value?.toString().trim();
-        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaType = record['Media'] || record['Media Type']?.toString().trim();
         const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
         
         if (!pmType || !mediaSubtype) {
@@ -1265,12 +1448,12 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Range validation - check if range exists and is linked to category
+    // Range validation - check if range exists and is linked to category (governance-aware)
     this.rules.push({
       field: 'Range',
       type: 'relationship', 
-      severity: 'critical',
-      message: 'Range must exist in the database and be linked to the specified Category',
+      severity: 'warning', // Changed from critical to warning to allow auto-creation
+      message: 'Range does not exist in database and will be auto-created and linked to category',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         const rangeName = value.toString().trim();
@@ -1282,32 +1465,41 @@ export class MediaSufficiencyValidator {
           range.toLowerCase() === rangeName.toLowerCase()
         );
         
+        // If range doesn't exist, return false to trigger warning (will be auto-created)
         if (!rangeExists) return false;
         
-        // Check if range is linked to category
+        // If range exists, check if it's linked to category
         const categoryToRanges = masterData?.categoryToRanges || {};
         const categoryRanges = categoryName ? (categoryToRanges[categoryName] || []) : [];
-        return categoryRanges.some((range: string) => 
+        const isLinked = categoryRanges.some((range: string) => 
           range.toLowerCase() === rangeName.toLowerCase()
         );
+        
+        // Return false if not linked (will trigger warning about linking during import)
+        // Return true if properly linked (no warning needed)
+        return isLinked;
       }
     });
 
-    // Campaign validation - check if campaign exists
+    // Campaign validation - check if campaign exists (governance-aware)
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
-      severity: 'critical', 
-      message: 'Campaign must exist in the database',
+      severity: 'warning', // Changed from critical to warning to allow auto-creation
+      message: 'Campaign does not exist in database and will be auto-created during import',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         const campaignName = value.toString().trim();
         const campaigns = masterData?.campaigns || [];
         // Handle both string and object formats for campaigns
-        return campaigns.some((campaign: string | { name: string }) => {
+        const exists = campaigns.some((campaign: string | { name: string }) => {
           const cName = typeof campaign === 'string' ? campaign : campaign.name;
           return cName.toLowerCase() === campaignName.toLowerCase();
         });
+        
+        // Return false if campaign doesn't exist (to trigger warning highlight)
+        // Return true if campaign exists (no highlighting needed)
+        return exists;
       }
     });
 
@@ -1320,7 +1512,7 @@ export class MediaSufficiencyValidator {
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         const subtypeName = value.toString().trim();
-        // Check for both 'Media' and 'Media Type' field names
+        // Check for both 'Media' and 'Media Type' field names (backward compatibility)
         const mediaTypeName = (record.Media || record['Media Type'])?.toString().trim();
         
         // Check if subtype exists (mediaSubTypes are returned as array of strings)
@@ -1370,7 +1562,7 @@ export class MediaSufficiencyValidator {
       message: 'Total R1+ is mandatory for Digital, Open TV and OOH media types',
       validate: (value, record, allRecords, masterData) => {
         // Check if this is a digital media type
-        const mediaType = record['Media Type'] || record['Media']?.toString().trim();
+        const mediaType = record['Media'] || record['Media Type']?.toString().trim();
         const mediaSubtype = record['Media Subtype'] || record['Media Sub Type']?.toString().trim();
         
         // Check if it's digital media
@@ -1468,6 +1660,30 @@ export class MediaSufficiencyValidator {
         }
       }
     });
+
+    // Campaign Archetype validation
+    this.rules.push({
+      field: 'Campaign Archetype',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Campaign Archetype must be a valid type from the predefined list',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value) return false;
+        
+        // Check against predefined campaign archetype values
+        const archetypeInput = value.toString().trim();
+        const validArchetypes = [
+          'Innovation',
+          'Base Business (Maintenance)',
+          'Range Extension'
+        ];
+        
+        // Case-insensitive search
+        return validArchetypes.some(archetype => 
+          archetype.toLowerCase() === archetypeInput.toLowerCase()
+        );
+      }
+    });
   }
   
   // Helper method to check if a record is completely empty
@@ -1488,11 +1704,71 @@ export class MediaSufficiencyValidator {
     if (this.isRecordEmpty(record)) {
       return [];
     }
+
+    // First check if ALL expected columns are present (only check on first record to avoid duplicates)
+    if (index === 0) {
+      const allExpectedColumns = [
+        'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst',
+        'Media', 'Media Subtype', 'Initial Date', 'End Date', 'Total Weeks', 'Total Budget',
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Total WOA', 'Total WOFF', 'Total R1+ (%)', 'Total R3+ (%)'
+      ];
+
+      const presentColumns = Object.keys(record);
+      const missingColumns = allExpectedColumns.filter(col => {
+        // Check with flexible naming
+        if (col === 'Media') {
+          return !presentColumns.includes('Media') && !presentColumns.includes('Media Type');
+        } else if (col === 'Media Subtype') {
+          return !presentColumns.includes('Media Subtype') && !presentColumns.includes('Media Sub Type');
+        } else if (col === 'Initial Date') {
+          return !presentColumns.includes('Initial Date') && !presentColumns.includes('Start Date');
+        } else if (col === 'Total Budget') {
+          return !presentColumns.includes('Total Budget') && !presentColumns.includes('Budget');
+        } else if (col === 'Total WOA') {
+          return !presentColumns.includes('Total WOA') && !presentColumns.includes('Weeks Off Air') && !presentColumns.includes('Total WOFF');
+        } else if (col === 'Total WOFF') {
+          return !presentColumns.includes('Total WOFF') && !presentColumns.includes('W Off Air') && !presentColumns.includes('Total WOA');
+        } else if (col === 'Total R1+ (%)') {
+          return !presentColumns.includes('Total R1+ (%)') && !presentColumns.includes('Total R1+') && !presentColumns.includes('R1+');
+        } else if (col === 'Total R3+ (%)') {
+          return !presentColumns.includes('Total R3+ (%)') && !presentColumns.includes('Total R3+') && !presentColumns.includes('R3+');
+        } else {
+          return !presentColumns.includes(col);
+        }
+      });
+
+      // Add critical issues for missing columns
+      missingColumns.forEach(col => {
+        issues.push({
+          rowIndex: index,
+          columnName: col,
+          severity: 'critical',
+          message: `Missing required column '${col}' in CSV file - ALL columns must be present`,
+          currentValue: undefined
+        });
+      });
+    }
     
     // Apply each validation rule
     for (const rule of this.rules) {
-      // Skip if field doesn't exist in record
-      if (!(rule.field in record)) continue;
+      // For required field validation, we need to check even if field doesn't exist
+      // For other validations, skip if field doesn't exist in record
+      if (!(rule.field in record)) {
+        // Only continue with validation if this is a required field rule
+        if (rule.type === 'required' && rule.severity === 'critical') {
+          // Field is completely missing from CSV - this is a critical error
+          const issue: ValidationIssue = {
+            rowIndex: index,
+            columnName: rule.field,
+            severity: 'critical',
+            message: `Missing required column '${rule.field}' in CSV file`,
+            currentValue: undefined
+          };
+          issues.push(issue);
+        }
+        continue;
+      }
       
       const value = record[rule.field];
       

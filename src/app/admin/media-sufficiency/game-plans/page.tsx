@@ -20,22 +20,43 @@ export default function GamePlansAdmin() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [selectedImportBatch, setSelectedImportBatch] = useState<string | null>(null);
+  const [availableImportBatches, setAvailableImportBatches] = useState<any[]>([]);
   
   // Load game plans data
   useEffect(() => {
     const fetchGamePlans = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/admin/media-sufficiency/game-plans');
+        let url = '/api/admin/media-sufficiency/game-plans';
+        if (selectedImportBatch === 'all') {
+          url += '?showAll=true';
+        } else if (selectedImportBatch) {
+          url += `?lastUpdateId=${selectedImportBatch}`;
+        }
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error(`Error fetching game plans: ${response.status}`);
         }
         
         const data = await response.json();
-        setGamePlans(data);
-        setFilteredGamePlans(data);
-        setTotalPages(Math.ceil(data.length / rowsPerPage));
+        
+        // Handle new API response format
+        const gamePlansData = data.gamePlans || data; // Fallback for backward compatibility
+        const availableUpdates = data.availableUpdates || [];
+        
+        setGamePlans(gamePlansData);
+        setFilteredGamePlans(gamePlansData);
+        setTotalPages(Math.ceil(gamePlansData.length / rowsPerPage));
+        setAvailableImportBatches(availableUpdates);
+        
+        // Set default selected import batch if not already set
+        if (!selectedImportBatch && data.currentFilter) {
+          setSelectedImportBatch(data.currentFilter.toString());
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error('Failed to fetch game plans:', err);
@@ -45,7 +66,7 @@ export default function GamePlansAdmin() {
     };
     
     fetchGamePlans();
-  }, [rowsPerPage, refreshTrigger]);
+  }, [rowsPerPage, refreshTrigger, selectedImportBatch]);
   
   // Filter game plans based on search term
   useEffect(() => {
@@ -212,6 +233,21 @@ export default function GamePlansAdmin() {
                     placeholder="Search game plans..."
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
+                </div>
+                <div className="ml-4">
+                  <select
+                    value={selectedImportBatch || ''}
+                    onChange={(e) => setSelectedImportBatch(e.target.value || null)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Latest Import</option>
+                    <option value="all">All Data (No Filter)</option>
+                    {availableImportBatches.map((batch) => (
+                      <option key={batch.last_update_id} value={batch.last_update_id}>
+                        {batch.lastUpdate?.name || `Import ${batch.last_update_id}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="ml-4">
                   <select

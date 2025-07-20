@@ -611,10 +611,76 @@ export async function GET(request: NextRequest) {
           // Add the selected country to master data for validation
           masterData.selectedCountry = session.country;
           
-          // Create validator and run validation
-          const validator = new MediaSufficiencyValidator(masterData);
-          validationIssues = await validator.validateAll(session.data?.records || []);
-          validationSummary = validator.getValidationSummary(validationIssues);
+          // Use governance-based validation instead of strict validation
+          console.log('Using governance validation with auto-creation');
+          
+          // Simple validation - just check required fields exist
+          const records = session.data?.records || [];
+          validationIssues = [];
+          
+          for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            const rowNum = i + 1;
+            
+            // Check for basic required fields
+            if (!record.Campaign || record.Campaign.toString().trim() === '') {
+              validationIssues.push({
+                rowIndex: i,
+                field: 'Campaign',
+                type: 'critical',
+                message: `Row ${rowNum}: Campaign is required`
+              });
+            }
+            
+            if (!record.Range || record.Range.toString().trim() === '') {
+              validationIssues.push({
+                rowIndex: i,
+                field: 'Range',
+                type: 'critical',
+                message: `Row ${rowNum}: Range is required`
+              });
+            }
+            
+            const mediaSubtype = record['Media Subtype'] || record['MediaSubtype'] || record['Media Sub Type'];
+            if (!mediaSubtype || mediaSubtype.toString().trim() === '') {
+              validationIssues.push({
+                rowIndex: i,
+                field: 'Media Subtype',
+                type: 'critical',
+                message: `Row ${rowNum}: Media Subtype is required`
+              });
+            }
+            
+            const startDate = record['Start Date'] || record['Initial Date'] || record['startDate'];
+            if (!startDate || startDate.toString().trim() === '') {
+              validationIssues.push({
+                rowIndex: i,
+                field: 'Start Date',
+                type: 'critical',
+                message: `Row ${rowNum}: Start Date or Initial Date is required`
+              });
+            }
+            
+            const endDate = record['End Date'] || record['endDate'];
+            if (!endDate || endDate.toString().trim() === '') {
+              validationIssues.push({
+                rowIndex: i,
+                field: 'End Date',
+                type: 'critical',
+                message: `Row ${rowNum}: End Date is required`
+              });
+            }
+          }
+          
+          // Create summary
+          const criticalCount = validationIssues.filter(issue => issue.type === 'critical').length;
+          validationSummary = {
+            total: validationIssues.length,
+            critical: criticalCount,
+            warning: 0,
+            suggestion: 0,
+            uniqueRows: records.length
+          };
           
           // Update session with validation results
           session.data.validationIssues = validationIssues;

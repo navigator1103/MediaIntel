@@ -35,7 +35,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
         let parsedValue = editValue;
         
         // Convert to appropriate type based on field
-        if (['totalBudget', 'q1Budget', 'q2Budget', 'q3Budget', 'q4Budget', 'trps', 'reach1Plus', 'reach3Plus', 'totalWoa', 'weeksOffAir'].includes(field)) {
+        if (['totalBudget', 'janBudget', 'febBudget', 'marBudget', 'aprBudget', 'mayBudget', 'junBudget', 'julBudget', 'augBudget', 'sepBudget', 'octBudget', 'novBudget', 'decBudget', 'totalTrps', 'totalR1Plus', 'totalR3Plus', 'totalWoa', 'totalWoff', 'weeksOffAir', 'totalWeeks'].includes(field)) {
           parsedValue = parseFloat(editValue) || 0 as any; // Cast to any to avoid type error
         } else if (['year', 'burst'].includes(field)) {
           parsedValue = parseInt(editValue) || 0 as any;
@@ -238,27 +238,37 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
               </div>
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Burst</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Type</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Sub Type</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PM Type</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Range</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Playbook ID</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign Archetype</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Burst</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Media Subtype</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Initial Date</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Weeks</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Budget</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q1 Budget</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2 Budget</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3 Budget</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4 Budget</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TRPs</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach 1+</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach 3+</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jan</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feb</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mar</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Apr</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">May</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jun</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jul</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aug</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sep</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Oct</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nov</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dec</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total WOA</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weeks Off Air</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total WOFF</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total TRPs</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total R1+ (%)</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total R3+ (%)</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Update</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -276,21 +286,18 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.campaign?.range?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.campaign?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'playbook_id', row.playbook_id, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.campaignArchetype?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'burst', row.burst, 'text')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.mediaType?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.mediaSubType?.name || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.name || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.pmType?.name || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'year', row.year, 'text')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'playbook_id', row.playbook_id, 'text')}
-                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'startDate', row.startDate, 'date')}
                 </td>
@@ -298,40 +305,69 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                   {renderEditableCell(row, 'endDate', row.endDate, 'date')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'totalWeeks', row.totalWeeks, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'totalBudget', row.totalBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'q1Budget', row.q1Budget, 'currency')}
+                  {renderEditableCell(row, 'janBudget', row.janBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'q2Budget', row.q2Budget, 'currency')}
+                  {renderEditableCell(row, 'febBudget', row.febBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'q3Budget', row.q3Budget, 'currency')}
+                  {renderEditableCell(row, 'marBudget', row.marBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'q4Budget', row.q4Budget, 'currency')}
+                  {renderEditableCell(row, 'aprBudget', row.aprBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'trps', row.trps, 'text')}
+                  {renderEditableCell(row, 'mayBudget', row.mayBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'reach1Plus', row.reach1Plus, 'text')}
+                  {renderEditableCell(row, 'junBudget', row.junBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'reach3Plus', row.reach3Plus, 'text')}
+                  {renderEditableCell(row, 'julBudget', row.julBudget, 'currency')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'augBudget', row.augBudget, 'currency')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'sepBudget', row.sepBudget, 'currency')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'octBudget', row.octBudget, 'currency')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'novBudget', row.novBudget, 'currency')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'decBudget', row.decBudget, 'currency')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {renderEditableCell(row, 'totalWoa', row.totalWoa, 'text')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {renderEditableCell(row, 'weeksOffAir', row.weeksOffAir, 'text')}
+                  {renderEditableCell(row, 'totalWoff', row.totalWoff, 'text')}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'totalTrps', row.totalTrps, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'totalR1Plus', row.totalR1Plus, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {renderEditableCell(row, 'totalR3Plus', row.totalR3Plus, 'text')}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.lastUpdate?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={23} className="px-6 py-4 text-center text-sm text-gray-500">
+              <td colSpan={32} className="px-6 py-4 text-center text-sm text-gray-500">
                 No game plans found
               </td>
             </tr>

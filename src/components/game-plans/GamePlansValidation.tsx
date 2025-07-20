@@ -38,7 +38,9 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
   const [validator, setValidator] = useState<MediaSufficiencyValidator | null>(null);
 
   useEffect(() => {
-    loadValidationData();
+    if (sessionId) {
+      loadValidationData();
+    }
   }, [sessionId]);
 
   // Initialize validator when validation data loads
@@ -77,6 +79,11 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
   const loadValidationData = async () => {
     try {
       setLoading(true);
+      
+      if (!sessionId) {
+        throw new Error('Session ID is required but not provided');
+      }
+      
       console.log('Loading validation data for session:', sessionId);
       
       const response = await fetch(`/api/admin/media-sufficiency/upload?sessionId=${sessionId}&includeRecords=true`);
@@ -822,7 +829,55 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
             </div>
             
             <div className="space-y-3">
-              {/* Check for actual structural issues - missing columns */}
+              {/* Display actual critical validation issues */}
+              {validationData.validationIssues && (() => {
+                const criticalIssues = validationData.validationIssues.filter((issue: any) => issue.severity === 'critical');
+                
+                if (criticalIssues.length > 0) {
+                  // Group issues by field and message for better display
+                  const groupedIssues: { [key: string]: any[] } = {};
+                  criticalIssues.forEach((issue: any) => {
+                    const key = `${issue.columnName}: ${issue.message}`;
+                    if (!groupedIssues[key]) {
+                      groupedIssues[key] = [];
+                    }
+                    groupedIssues[key].push(issue);
+                  });
+                  
+                  return [(
+                    <div key="critical_issues" className="bg-white border border-red-200 rounded-lg p-4">
+                      <h4 className="font-medium text-red-900 mb-2">🔴 Critical Validation Issues</h4>
+                      <div className="space-y-2">
+                        {Object.entries(groupedIssues).map(([key, issues], idx) => {
+                          const [field, message] = key.split(': ', 2);
+                          const rowCount = issues.length;
+                          const sampleRows = issues.slice(0, 5).map((issue: any) => issue.rowIndex + 1);
+                          
+                          return (
+                            <div key={idx} className="text-sm text-red-800">
+                              <div className="font-medium">{field}:</div>
+                              <div className="ml-4 text-red-700">
+                                {message}
+                                <div className="text-xs text-red-600 mt-1">
+                                  Affects {rowCount} row{rowCount > 1 ? 's' : ''}: 
+                                  {rowCount <= 5 ? 
+                                    ` ${sampleRows.join(', ')}` : 
+                                    ` ${sampleRows.join(', ')} and ${rowCount - 5} more`
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )];
+                }
+                
+                return [];
+              })()}
+              
+              {/* Check for structural issues - missing columns */}
               {(() => {
                 const structuralIssues = [];
                 
@@ -832,50 +887,162 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
                   const presentColumns = Object.keys(firstRecord);
                   console.log('Present columns:', presentColumns);
                   
-                  // Check against the expected columns from the template
-                  const expectedColumns = [
-                    'Year', 'Country', 'Sub Region', 'Category', 'Range', 'Campaign', 
-                    'Business Unit', 'Media Type', 'Media Subtype', 'PM Type', 'Burst', 
-                    'Start Date', 'End Date', 'Total Budget', 'Q1 Budget', 'Q2 Budget', 
-                    'Q3 Budget', 'Q4 Budget', 'Total TRPs', 'Total R1+', 'Total R3+', 
-                    'Total WOA', 'Weeks Off Air', 'NS vs WM', 'Playbook ID'
+                  // Only columns that MUST be present in CSV (not auto-populated)
+                  const requiredColumns = [
+                    // Core identification fields (required in CSV)
+                    'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst',
+                    
+                    // Media fields (required in CSV)
+                    'Media', 'Media Subtype',
+                    
+                    // Date fields (required in CSV)
+                    'Initial Date', 'End Date',
+                    
+                    // Budget fields (required in CSV)
+                    'Total Weeks', 'Total Budget', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+                    
+                    // Performance fields (required in CSV)
+                    'Total WOA', 'Total WOFF', 'Total R1+ (%)', 'Total R3+ (%)'
                   ];
                   
-                  const missingColumns = expectedColumns.filter(col => !presentColumns.includes(col));
-                  const unexpectedColumns = presentColumns.filter(col => !expectedColumns.includes(col));
+                  // Check for required columns with flexible naming
+                  const missingRequired: string[] = [];
                   
-                  console.log('Missing columns:', missingColumns);
-                  console.log('Unexpected columns:', unexpectedColumns);
-                  
-                  if (missingColumns.length > 0) {
-                    structuralIssues.push({
-                      type: 'missing_columns',
-                      message: `Missing required columns: ${missingColumns.join(', ')}`
-                    });
+                  for (const col of requiredColumns) {
+                    let found = false;
+                    
+                    // Check with flexible naming for backward compatibility
+                    if (col === 'Media Subtype') {
+                      found = presentColumns.includes('Media Subtype') || presentColumns.includes('Media Sub Type');
+                    } else if (col === 'Initial Date') {
+                      found = presentColumns.includes('Initial Date') || presentColumns.includes('Start Date');
+                    } else if (col === 'Total Budget') {
+                      found = presentColumns.includes('Total Budget') || presentColumns.includes('Budget');
+                    } else if (col === 'Media') {
+                      found = presentColumns.includes('Media') || presentColumns.includes('Media Type');
+                    } else if (col === 'TRP') {
+                      found = presentColumns.includes('TRP') || presentColumns.includes('Total TRPs') || presentColumns.includes('TRPs');
+                    } else if (col === 'Reach R1+') {
+                      found = presentColumns.includes('Reach R1+') || presentColumns.includes('Total R1+') || presentColumns.includes('R1+');
+                    } else if (col === 'Reach R3+') {
+                      found = presentColumns.includes('Reach R3+') || presentColumns.includes('Total R3+') || presentColumns.includes('R3+');
+                    } else {
+                      found = presentColumns.includes(col);
+                    }
+                    
+                    if (!found) {
+                      missingRequired.push(col);
+                    }
                   }
                   
-                  if (unexpectedColumns.length > 0) {
+                  console.log('Missing required columns:', missingRequired);
+                  
+                  if (missingRequired.length > 0) {
+                    // Separate truly critical columns from governance-manageable ones
+                    const trulyMissing = [];
+                    const governanceManageable = [];
+                    
+                    for (const col of missingRequired) {
+                      // These columns can be auto-populated or auto-created by governance
+                      if (['Campaign', 'Range', 'Category'].includes(col)) {
+                        governanceManageable.push(col);
+                      } else {
+                        trulyMissing.push(col);
+                      }
+                    }
+                    
+                    // Only show critical error for truly missing essential columns
+                    if (trulyMissing.length > 0) {
+                      structuralIssues.push({
+                        type: 'missing_columns',
+                        severity: 'critical',
+                        message: `Missing essential columns: ${trulyMissing.join(', ')}`
+                      });
+                    }
+                    
+                    // Show warning for governance-manageable columns
+                    if (governanceManageable.length > 0) {
+                      structuralIssues.push({
+                        type: 'governance_manageable',
+                        severity: 'warning',
+                        message: `⚠️ These columns can be auto-created: ${governanceManageable.join(', ')}`
+                      });
+                    }
+                  }
+                  
+                  // Show helpful message about supported formats
+                  const hasMonthlyBudgets = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].some(month => presentColumns.includes(month));
+                  
+                  if (hasMonthlyBudgets && missingRequired.length === 0) {
                     structuralIssues.push({
-                      type: 'unexpected_columns', 
-                      message: `Unexpected columns found: ${unexpectedColumns.join(', ')}`
+                      type: 'info',
+                      message: `✅ New monthly budget format detected (Jan-Dec). This is supported!`
                     });
                   }
                 }
                 
                 if (structuralIssues.length > 0) {
-                  return [(
-                    <div key="structural_issues" className="bg-white border border-red-200 rounded-lg p-4">
-                      <h4 className="font-medium text-red-900 mb-2">🔴 Structural Issues</h4>
-                      <ul className="space-y-1">
-                        {structuralIssues.map((issue, idx) => (
-                          <li key={idx} className="text-sm text-red-800 flex items-start">
-                            <span className="text-red-500 mr-2">•</span>
-                            <span>{issue.message}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )];
+                  const criticalIssues = structuralIssues.filter(issue => issue.severity === 'critical');
+                  const warningIssues = structuralIssues.filter(issue => issue.severity === 'warning');
+                  const infoIssues = structuralIssues.filter(issue => issue.type === 'info');
+                  
+                  const elements = [];
+                  
+                  // Critical issues (red)
+                  if (criticalIssues.length > 0) {
+                    elements.push(
+                      <div key="critical_issues" className="bg-white border border-red-200 rounded-lg p-4">
+                        <h4 className="font-medium text-red-900 mb-2">🔴 Critical Structural Issues</h4>
+                        <ul className="space-y-1">
+                          {criticalIssues.map((issue, idx) => (
+                            <li key={idx} className="text-sm text-red-800 flex items-start">
+                              <span className="text-red-500 mr-2">•</span>
+                              <span>{issue.message}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+                  
+                  // Warning issues (orange/yellow)
+                  if (warningIssues.length > 0) {
+                    elements.push(
+                      <div key="warning_issues" className="bg-white border border-orange-200 rounded-lg p-4 mt-4">
+                        <h4 className="font-medium text-orange-900 mb-2">⚠️ Governance Notifications</h4>
+                        <ul className="space-y-1">
+                          {warningIssues.map((issue, idx) => (
+                            <li key={idx} className="text-sm text-orange-800 flex items-start">
+                              <span className="text-orange-500 mr-2">•</span>
+                              <span>{issue.message}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-xs text-orange-700 mt-2">
+                          ℹ️ Import can proceed - missing entities will be auto-created during import.
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  // Info issues (blue/green)
+                  if (infoIssues.length > 0) {
+                    elements.push(
+                      <div key="info_issues" className="bg-white border border-green-200 rounded-lg p-4 mt-4">
+                        <h4 className="font-medium text-green-900 mb-2">ℹ️ Information</h4>
+                        <ul className="space-y-1">
+                          {infoIssues.map((issue, idx) => (
+                            <li key={idx} className="text-sm text-green-800 flex items-start">
+                              <span className="text-green-500 mr-2">•</span>
+                              <span>{issue.message}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+                  
+                  return elements;
                 }
                 
                 return [];
@@ -1052,7 +1219,7 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
                   
                   <div className="mt-4 flex space-x-3">
                     <button
-                      onClick={() => window.location.href = '/admin/game-plans'}
+                      onClick={() => window.location.href = '/admin/media-sufficiency/game-plans'}
                       className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                     >
                       View Game Plans

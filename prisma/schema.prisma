@@ -216,23 +216,44 @@ model Campaign {
   @@map("campaigns")
 }
 
+model CampaignArchetype {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique(map: "sqlite_autoindex_campaign_archetypes_1")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
+  gamePlans GamePlan[]
+
+  @@map("campaign_archetypes")
+}
+
 model GamePlan {
   id               Int          @id @default(autoincrement())
-  campaignId       Int          @map("campaign_id")
-  mediaSubTypeId   Int          @map("media_sub_type_id")
-  pmTypeId         Int?         @map("pm_type_id")
-  burst            Int          @default(1)
+  campaignId           Int                @map("campaign_id")
+  mediaSubTypeId       Int                @map("media_sub_type_id")
+  pmTypeId             Int?               @map("pm_type_id")
+  campaignArchetypeId  Int?               @map("campaign_archetype_id")
+  burst                Int
   startDate        String       @map("start_date")
   endDate          String       @map("end_date")
   totalBudget      Float        @map("total_budget")
-  q1Budget         Float?       @map("q1_budget")
-  q2Budget         Float?       @map("q2_budget")
-  q3Budget         Float?       @map("q3_budget")
-  q4Budget         Float?       @map("q4_budget")
+  janBudget        Float?       @map("jan_budget")
+  febBudget        Float?       @map("feb_budget")
+  marBudget        Float?       @map("mar_budget")
+  aprBudget        Float?       @map("apr_budget")
+  mayBudget        Float?       @map("may_budget")
+  junBudget        Float?       @map("jun_budget")
+  julBudget        Float?       @map("jul_budget")
+  augBudget        Float?       @map("aug_budget")
+  sepBudget        Float?       @map("sep_budget")
+  octBudget        Float?       @map("oct_budget")
+  novBudget        Float?       @map("nov_budget")
+  decBudget        Float?       @map("dec_budget")
   totalTrps        Float?       @map("total_trps")
   totalR1Plus      Float?       @map("total_r1_plus")
   totalR3Plus      Float?       @map("total_r3_plus")
   totalWoa         Float?       @map("total_woa")
+  totalWoff        Float?       @map("total_woff")
+  totalWeeks       Float?       @map("total_weeks")
   weeksOffAir      Float?       @map("weeks_off_air")
   nsVsWm           String?      @map("ns_vs_wm")
   createdAt        String       @default("CURRENT_TIMESTAMP") @map("created_at")
@@ -247,12 +268,13 @@ model GamePlan {
   last_update_id   Int?
   playbook_id      String?
   weeksLive        Float?       @map("weeks_live")
-  campaign         Campaign     @relation(fields: [campaignId], references: [id])
-  mediaSubType     MediaSubType @relation(fields: [mediaSubTypeId], references: [id])
-  pmType           PMType?      @relation(fields: [pmTypeId], references: [id])
-  country          Country?     @relation(fields: [countryId], references: [id])
-  lastUpdate       LastUpdate?  @relation(fields: [last_update_id], references: [id])
-  category         Category?    @relation(fields: [category_id], references: [id])
+  campaign         Campaign           @relation(fields: [campaignId], references: [id])
+  mediaSubType     MediaSubType       @relation(fields: [mediaSubTypeId], references: [id])
+  pmType           PMType?            @relation(fields: [pmTypeId], references: [id])
+  campaignArchetype CampaignArchetype? @relation(fields: [campaignArchetypeId], references: [id])
+  country          Country?           @relation(fields: [countryId], references: [id])
+  lastUpdate       LastUpdate?        @relation(fields: [last_update_id], references: [id])
+  category         Category?          @relation(fields: [category_id], references: [id])
 
   @@map("game_plans")
 }

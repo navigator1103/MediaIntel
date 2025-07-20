@@ -59,6 +59,7 @@ export async function preValidateImportData(
 
     // Additional validations
     validateRequiredFields(records, result);
+    // validateRequiredColumns is already handled by validateRequiredFields
     
     console.log(`✅ Pre-validation completed:`);
     console.log(`   - Valid: ${result.isValid}`);
@@ -106,13 +107,18 @@ function validateRecord(
 ): string[] {
   const errors: string[] = [];
 
-  // Check required fields with flexible column name handling for Media Subtype
+  // Check required fields with flexible column name handling
+  // Note: Country and Year are not required here as they can be auto-populated
   const requiredFields = [
-    { field: 'Campaign', getValue: (r: any) => r.Campaign },
+    { field: 'Category', getValue: (r: any) => r.Category },
     { field: 'Range', getValue: (r: any) => r.Range },
+    { field: 'Campaign', getValue: (r: any) => r.Campaign },
+    { field: 'Campaign Archetype', getValue: (r: any) => r['Campaign Archetype'] },
+    { field: 'Media', getValue: (r: any) => r.Media || r['Media Type'] },
     { field: 'Media Subtype', getValue: (r: any) => r['Media Subtype'] || r['Media Sub Type'] },
-    { field: 'Start Date', getValue: (r: any) => r['Start Date'] },
+    { field: 'Initial Date', getValue: (r: any) => r['Initial Date'] || r['Start Date'] },
     { field: 'End Date', getValue: (r: any) => r['End Date'] },
+    { field: 'Total Budget', getValue: (r: any) => r['Total Budget'] || r.Budget },
     { field: 'Burst', getValue: (r: any) => r.Burst }
   ];
   
@@ -138,11 +144,12 @@ function validateRecord(
   // Note: Categories can be new, so we don't validate their existence
   // They will be created during import if they don't exist
 
-  // Validate date formats
-  if (record['Start Date']) {
-    const startDate = parseDate(record['Start Date']);
+  // Validate date formats  
+  const initialDate = record['Initial Date'] || record['Start Date'];
+  if (initialDate) {
+    const startDate = parseDate(initialDate);
     if (!startDate) {
-      errors.push(`Row ${rowNumber}: Invalid start date format '${record['Start Date']}'`);
+      errors.push(`Row ${rowNumber}: Invalid initial date format '${initialDate}'`);
     }
   }
 
@@ -154,11 +161,12 @@ function validateRecord(
   }
 
   // Validate date range
-  if (record['Start Date'] && record['End Date']) {
-    const startDate = parseDate(record['Start Date']);
+  const initialDateValue = record['Initial Date'] || record['Start Date'];
+  if (initialDateValue && record['End Date']) {
+    const startDate = parseDate(initialDateValue);
     const endDate = parseDate(record['End Date']);
     if (startDate && endDate && startDate >= endDate) {
-      errors.push(`Row ${rowNumber}: Start date must be before end date`);
+      errors.push(`Row ${rowNumber}: Initial date must be before end date`);
     }
   }
 
@@ -219,7 +227,7 @@ function validateRecord(
       
       if (requiresR1Plus) {
         // Check for Total R1+ field with various possible column names
-        const totalR1Plus = record['Total R1+'] || record['Total R1 Plus'] || record['TotalR1+'] || 
+        const totalR1Plus = record['Total R1+'] || record['Total R1+ (%)'] || record['Total R1 Plus'] || record['TotalR1+'] || 
                            record['Total_R1_Plus'] || record['TOTALR1+'] || record['totalr1+'];
         
         if (!totalR1Plus || totalR1Plus.toString().trim() === '') {
@@ -307,186 +315,88 @@ function validateRequiredFields(records: any[], result: ValidationResult): void 
     return;
   }
 
-  // Define all expected columns based on GamePlan model (required and optional)
-  // Required columns for game plan creation
-  const requiredColumns = ['Campaign', 'Range', 'Media Subtype', 'Start Date', 'End Date', 'Burst'];
-  
-  // Optional columns that map to GamePlan fields
-  const optionalColumns = [
-    // Core fields
-    'Country',           // maps to countryId
-    'Category',          // maps to category_id  
-    'PM Type',           // maps to pmTypeId
-    'Year',              // maps to year
-    'Playbook ID',       // maps to playbook_id
-    'Burst',             // maps to burst
-    
-    // Budget fields
-    'Total Budget',      // maps to totalBudget
-    'Q1 Budget',         // maps to q1Budget
-    'Q2 Budget',         // maps to q2Budget
-    'Q3 Budget',         // maps to q3Budget
-    'Q4 Budget',         // maps to q4Budget
-    
-    // Reach and performance fields
-    'Total TRPs',        // maps to totalTrps
-    'Total R1+',         // maps to totalR1Plus
-    'Total R3+',         // maps to totalR3Plus
-    'Total WOA',         // maps to totalWoa
-    'Weeks Off Air',     // maps to weeksOffAir (also accepts 'W Off Air')
-    'W Off Air',         // alternative for weeksOffAir
-    'NS vs WM',          // maps to nsVsWm
-    
-    // Reference fields
-    'Business Unit',     // maps to business_unit_id
-    'Region',            // maps to region_id
-    'Sub Region',        // maps to sub_region_id
-    'Financial Cycle',   // maps to last_update_id
-    
-    // Alternative column name variations that are accepted
-    'Q1', 'Q2', 'Q3', 'Q4',                    // Alternative budget columns
-    'Media Type',                               // Used to lookup Media Subtype
-    'Media Sub Type',                           // Alternative to Media Subtype
-    'Last Update',                              // Alternative to Financial Cycle
-    'Range ID', 'Campaign ID', 'Country ID'    // Alternative ID references
+  // Define the exact allowed columns as specified by the user
+  const allowedColumns = [
+    'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst',
+    'Media', 'Media Subtype', 'Initial Date', 'End Date', 'Total Weeks', 'Total Budget',
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Total WOA', 'Total WOFF', 'Total R1+ (%)', 'Total R3+ (%)',
+    // Optional fields (conditional or auto-populated)
+    'Total TRPs', 'Country', 'Last Update', 'Year', 'PM Type'
   ];
+
+  // Define accepted variations for column names
+  const columnVariations: Record<string, string[]> = {
+    'Media': ['Media', 'Media Type'],
+    'Media Subtype': ['Media Subtype', 'Media Sub Type'],
+    'Initial Date': ['Initial Date', 'Start Date'],
+    'Total WOA': ['Total WOA', 'Weeks Off Air', 'Total WOFF'],
+    'Total WOFF': ['Total WOFF', 'W Off Air', 'Total WOA'],
+    'Total TRPs': ['Total TRPs', 'TRPs'],
+    'Total R1+ (%)': ['Total R1+ (%)', 'Total R1+', 'R1+'],
+    'Total R3+ (%)': ['Total R3+ (%)', 'Total R3+', 'R3+']
+  };
   
   const firstRecord = records[0];
   const actualColumns = Object.keys(firstRecord);
   const missingColumns: string[] = [];
   const extraColumns: string[] = [];
   
-  // Check for missing required columns with flexible handling
-  for (const column of requiredColumns) {
-    let columnFound = false;
+  // Check for missing required columns with flexible handling for known variations
+  for (const column of allowedColumns) {
+    // Skip optional fields (auto-populated or conditional)
+    if (['Total TRPs', 'Country', 'Last Update', 'Year', 'PM Type'].includes(column)) {
+      continue;
+    }
     
-    if (column === 'Media Subtype') {
-      // Accept both variations
-      columnFound = 'Media Subtype' in firstRecord || 'Media Sub Type' in firstRecord;
-    } else {
-      columnFound = column in firstRecord;
+    let columnFound = false;
+    const variations = columnVariations[column] || [column];
+    
+    for (const variation of variations) {
+      if (variation in firstRecord) {
+        columnFound = true;
+        break;
+      }
     }
     
     if (!columnFound) {
-      // Check for common variations and provide helpful suggestions
-      let suggestion = '';
-      
-      if (column === 'Media Subtype') {
-        // Check for other variations
-        if ('MediaSubtype' in firstRecord) {
-          suggestion = ` (Found 'MediaSubtype' - please rename to 'Media Subtype')`;
-        } else if ('Media_Subtype' in firstRecord) {
-          suggestion = ` (Found 'Media_Subtype' - please rename to 'Media Subtype')`;
-        } else if ('SubType' in firstRecord) {
-          suggestion = ` (Found 'SubType' - please rename to 'Media Subtype')`;
-        }
-      } else if (column === 'Start Date') {
-        if ('StartDate' in firstRecord) {
-          suggestion = ` (Found 'StartDate' - please rename to 'Start Date')`;
-        } else if ('Start_Date' in firstRecord) {
-          suggestion = ` (Found 'Start_Date' - please rename to 'Start Date')`;
-        }
-      } else if (column === 'End Date') {
-        if ('EndDate' in firstRecord) {
-          suggestion = ` (Found 'EndDate' - please rename to 'End Date')`;
-        } else if ('End_Date' in firstRecord) {
-          suggestion = ` (Found 'End_Date' - please rename to 'End Date')`;
-        }
-      } else if (column === 'Total Budget') {
-        if ('TotalBudget' in firstRecord) {
-          suggestion = ` (Found 'TotalBudget' - please rename to 'Total Budget')`;
-        } else if ('Budget' in firstRecord) {
-          suggestion = ` (Found 'Budget' - please rename to 'Total Budget')`;
-        }
-      }
-      
-      missingColumns.push(`'${column}'${suggestion}`);
+      missingColumns.push(`'${column}'`);
       result.isValid = false;
     }
   }
   
-  // Check for unexpected/extra columns
-  const allExpectedColumns = [...requiredColumns, ...optionalColumns];
-  const criticalErrors: string[] = [];
-  const minorErrors: string[] = [];
-  
+  // Check for extra columns that are not allowed
   for (const actualColumn of actualColumns) {
-    // Check if the column is not in expected columns (case-sensitive first)
-    if (!allExpectedColumns.includes(actualColumn)) {
-      // Try case-insensitive match to provide better suggestions
-      const matchedColumn = allExpectedColumns.find(
-        expected => expected.toLowerCase() === actualColumn.toLowerCase()
-      );
-      
-      if (matchedColumn) {
-        // Minor error - just capitalization issue
-        minorErrors.push(`'${actualColumn}' (should be '${matchedColumn}' - check capitalization)`);
-      } else {
-        // Check for close matches and provide specific suggestions
-        let closeSuggestion = '';
-        let isCloseMatch = false;
-        const lowerColumn = actualColumn.toLowerCase();
-        
-        if (lowerColumn.includes('subtype') || lowerColumn.includes('sub type')) {
-          closeSuggestion = ` (did you mean 'Media Subtype'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('budget') && !actualColumn.includes('Q')) {
-          closeSuggestion = ` (should this be 'Total Budget' or a quarterly budget like 'Q1 Budget'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('date') && lowerColumn.includes('start')) {
-          closeSuggestion = ` (did you mean 'Start Date'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('date') && lowerColumn.includes('end')) {
-          closeSuggestion = ` (did you mean 'End Date'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('reach')) {
-          closeSuggestion = ` (should this be 'Reach 1+' or 'Reach 3+'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('trp')) {
-          closeSuggestion = ` (did you mean 'TRPs'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('woa') || lowerColumn.includes('weeks off air')) {
-          closeSuggestion = ` (did you mean 'Total WOA' or 'Weeks Off Air'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('pm') && lowerColumn.includes('type')) {
-          closeSuggestion = ` (did you mean 'PM Type'?)`;
-          isCloseMatch = true;
-        } else if (lowerColumn.includes('playbook')) {
-          closeSuggestion = ` (did you mean 'Playbook ID'?)`;
-          isCloseMatch = true;
-        }
-        
-        if (isCloseMatch) {
-          // Close match - treat as recoverable error
-          minorErrors.push(`'${actualColumn}'${closeSuggestion}`);
-        } else {
-          // Completely unrecognized column - critical error
-          criticalErrors.push(`'${actualColumn}' (unrecognized column - please remove or rename)`);
+    let isAllowed = false;
+    
+    // Check if column is directly allowed
+    if (allowedColumns.includes(actualColumn)) {
+      isAllowed = true;
+    } else {
+      // Check if column matches any variation
+      for (const [standardName, variations] of Object.entries(columnVariations)) {
+        if (variations.includes(actualColumn)) {
+          isAllowed = true;
+          break;
         }
       }
     }
+    
+    if (!isAllowed) {
+      extraColumns.push(`'${actualColumn}'`);
+      result.isValid = false;
+    }
   }
-  
-  // Add all errors to extraColumns for reporting
-  extraColumns.push(...criticalErrors, ...minorErrors);
   
   // Report missing columns
   if (missingColumns.length > 0) {
     result.errors.push(`Missing required columns: ${missingColumns.join(', ')}`);
   }
   
-  // Report extra columns as errors to prevent data loss
+  // Report extra columns
   if (extraColumns.length > 0) {
-    result.errors.push(`Invalid columns found: ${extraColumns.join(', ')}`);
-    result.errors.push(`Expected columns are: ${requiredColumns.join(', ')} (required) and ${optionalColumns.join(', ')} (optional)`);
-    result.isValid = false;
-  }
-  
-  // If there are issues, show what was found
-  if (missingColumns.length > 0 || extraColumns.length > 0) {
-    console.log('Columns found in CSV:', actualColumns.join(', '));
-    console.log('Required columns:', requiredColumns.join(', '));
-    console.log('Optional columns:', optionalColumns.join(', '));
+    result.errors.push(`Extra columns not allowed: ${extraColumns.join(', ')}`);
+    result.errors.push(`Only these columns are allowed: ${allowedColumns.join(', ')}`);
   }
 }
 

@@ -23,16 +23,16 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
   async validateOrCreateCampaign(campaignName: string, importSource?: string): Promise<{ id: number; name: string; created: boolean }> {
     const cleanName = campaignName.toString().trim();
     
-    // First check if campaign exists
-    let campaign = await prisma.campaign.findFirst({
+    // First check if campaign exists - use toLowerCase() instead of mode: 'insensitive'
+    const cleanNameLower = cleanName.toLowerCase();
+    let campaigns = await prisma.campaign.findMany({
       where: { 
-        name: {
-          equals: cleanName,
-          mode: 'insensitive'
-        },
         status: { not: 'archived' } // Don't use archived campaigns
       }
     });
+    
+    // Filter manually for case-insensitive match
+    const campaign = campaigns.find(c => c.name.toLowerCase() === cleanNameLower);
     
     if (campaign) {
       return { id: campaign.id, name: campaign.name, created: false };
@@ -50,7 +50,7 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
     }
     
     // Auto-create campaign with pending status
-    campaign = await prisma.campaign.create({
+    const newCampaign = await prisma.campaign.create({
       data: {
         name: cleanName,
         status: 'pending_review',
@@ -62,27 +62,27 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
     
     // Track the creation
     this.autoCreatedEntities.add(sessionKey);
-    const result = { id: campaign.id, name: campaign.name, created: true };
+    const result = { id: newCampaign.id, name: newCampaign.name, created: true };
     this.createdInSession.push({ campaign: result });
     
-    console.log(`🆕 Auto-created campaign: "${cleanName}" (ID: ${campaign.id})`);
+    console.log(`🆕 Auto-created campaign: "${cleanName}" (ID: ${newCampaign.id})`);
     
     return result;
   }
 
-  async validateOrCreateRange(rangeName: string, importSource?: string): Promise<{ id: number; name: string; created: boolean }> {
+  async validateOrCreateRange(rangeName: string, importSource?: string, categoryName?: string): Promise<{ id: number; name: string; created: boolean }> {
     const cleanName = rangeName.toString().trim();
     
-    // First check if range exists
-    let range = await prisma.range.findFirst({
+    // First check if range exists - use toLowerCase() instead of mode: 'insensitive'
+    const cleanNameLower = cleanName.toLowerCase();
+    let ranges = await prisma.range.findMany({
       where: { 
-        name: {
-          equals: cleanName,
-          mode: 'insensitive'
-        },
         status: { not: 'archived' } // Don't use archived ranges
       }
     });
+    
+    // Filter manually for case-insensitive match
+    const range = ranges.find(r => r.name.toLowerCase() === cleanNameLower);
     
     if (range) {
       return { id: range.id, name: range.name, created: false };
@@ -100,7 +100,7 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
     }
     
     // Auto-create range with pending status
-    range = await prisma.range.create({
+    const newRange = await prisma.range.create({
       data: {
         name: cleanName,
         status: 'pending_review',
@@ -110,12 +110,50 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
       }
     });
     
+    // If categoryName is provided, link the range to the category
+    if (categoryName) {
+      try {
+        // Find the category
+        const category = await prisma.category.findFirst({
+          where: {
+            name: {
+              equals: categoryName,
+              mode: 'insensitive'
+            }
+          }
+        });
+        
+        if (category) {
+          // Create the CategoryToRange relationship if it doesn't exist
+          await prisma.categoryToRange.upsert({
+            where: {
+              categoryId_rangeId: {
+                categoryId: category.id,
+                rangeId: newRange.id
+              }
+            },
+            update: {}, // No update needed if it exists
+            create: {
+              categoryId: category.id,
+              rangeId: newRange.id
+            }
+          });
+          
+          console.log(`🔗 Linked range "${cleanName}" to category "${categoryName}"`);
+        } else {
+          console.warn(`⚠️ Could not find category "${categoryName}" to link with range "${cleanName}"`);
+        }
+      } catch (error) {
+        console.error(`❌ Error linking range "${cleanName}" to category "${categoryName}":`, error);
+      }
+    }
+    
     // Track the creation
     this.autoCreatedEntities.add(sessionKey);
-    const result = { id: range.id, name: range.name, created: true };
+    const result = { id: newRange.id, name: newRange.name, created: true };
     this.createdInSession.push({ range: result });
     
-    console.log(`🆕 Auto-created range: "${cleanName}" (ID: ${range.id})`);
+    console.log(`🆕 Auto-created range: "${cleanName}" (ID: ${newRange.id})`);
     
     return result;
   }

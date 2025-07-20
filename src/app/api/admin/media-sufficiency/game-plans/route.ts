@@ -3,10 +3,43 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const lastUpdateId = searchParams.get('lastUpdateId');
+    const showAll = searchParams.get('showAll') === 'true';
+    
+    // If no specific lastUpdateId is provided, get the most recent one
+    let whereClause: any = {};
+    
+    if (showAll) {
+      // Show all data regardless of lastUpdateId
+      whereClause = {};
+    } else if (lastUpdateId) {
+      whereClause.last_update_id = parseInt(lastUpdateId);
+    } else {
+      // Get the most recent lastUpdateId from game plans
+      const mostRecentGamePlan = await prisma.gamePlan.findFirst({
+        where: {
+          last_update_id: { not: null }
+        },
+        orderBy: {
+          id: 'desc'
+        }
+      });
+      
+      if (mostRecentGamePlan?.last_update_id) {
+        whereClause.last_update_id = mostRecentGamePlan.last_update_id;
+      }
+    }
+    
     // Fetch game plans with related data
     const gamePlans = await prisma.gamePlan.findMany({
+      where: whereClause,
       include: {
-        campaign: true,
+        campaign: {
+          include: {
+            range: true
+          }
+        },
         mediaSubType: {
           include: {
             mediaType: true
@@ -14,6 +47,8 @@ export async function GET(request: NextRequest) {
         },
         country: true,
         pmType: true,
+        campaignArchetype: true,
+        lastUpdate: true,
         // Use a type assertion to handle the category relation
         // that might not be fully recognized in the TypeScript types yet
         ...({
@@ -47,7 +82,26 @@ export async function GET(request: NextRequest) {
       return plan;
     }));
 
-    return NextResponse.json(enhancedGamePlans);
+    // Get available lastUpdateIds for filtering
+    const availableUpdates = await prisma.gamePlan.findMany({
+      where: {
+        last_update_id: { not: null }
+      },
+      select: {
+        last_update_id: true,
+        lastUpdate: true
+      },
+      distinct: ['last_update_id'],
+      orderBy: {
+        last_update_id: 'desc'
+      }
+    });
+
+    return NextResponse.json({
+      gamePlans: enhancedGamePlans,
+      availableUpdates: availableUpdates.filter(u => u.last_update_id !== null),
+      currentFilter: whereClause.last_update_id || null
+    });
   } catch (error) {
     console.error('Error fetching game plans data:', error);
     return NextResponse.json(
@@ -80,14 +134,24 @@ export async function PUT(request: NextRequest) {
         startDate,
         endDate,
         totalBudget,
-        q1Budget,
-        q2Budget,
-        q3Budget,
-        q4Budget,
-        trps,
-        reach1Plus,
-        reach3Plus,
+        janBudget,
+        febBudget,
+        marBudget,
+        aprBudget,
+        mayBudget,
+        junBudget,
+        julBudget,
+        augBudget,
+        sepBudget,
+        octBudget,
+        novBudget,
+        decBudget,
+        totalTrps,
+        totalR1Plus,
+        totalR3Plus,
         totalWoa,
+        totalWoff,
+        totalWeeks,
         weeksOffAir,
         year,
         playbook_id,
@@ -104,14 +168,24 @@ export async function PUT(request: NextRequest) {
             startDate,
             endDate,
             totalBudget,
-            q1Budget,
-            q2Budget,
-            q3Budget,
-            q4Budget,
-            trps,
-            reach1Plus,
-            reach3Plus,
+            janBudget,
+            febBudget,
+            marBudget,
+            aprBudget,
+            mayBudget,
+            junBudget,
+            julBudget,
+            augBudget,
+            sepBudget,
+            octBudget,
+            novBudget,
+            decBudget,
+            totalTrps,
+            totalR1Plus,
+            totalR3Plus,
             totalWoa,
+            totalWoff,
+            totalWeeks,
             weeksOffAir,
             year,
             playbook_id,
