@@ -16,42 +16,36 @@ const FIELD_MAPPING = {
   'Category': 'category',
   'Range': 'range',
   'Campaign': 'campaign',
-  'Franchise NS (Actual or Projected)': 'franchiseNs',
-  'Franchise NS': 'franchiseNs', // Support actual CSV header
-  'Campaign Socio-Demo Target': 'campaignSocioDemoTarget',
-  'Total Country Population On Target (Abs)': 'totalCountryPopulationOnTarget',
-  'Total Country Population On Target': 'totalCountryPopulationOnTarget', // Support actual CSV header
+  // TV Demographics & Targeting
+  'TV Demo Gender': 'tvDemoGender',
+  'TV Demo Min. Age': 'tvDemoMinAge',
+  'TV Demo Max. Age': 'tvDemoMaxAge',
+  'TV SEL': 'tvSel',
+  'Final TV Target (don\'t fill)': 'finalTvTarget',
+  'TV Target Size': 'tvTargetSize',
   'TV Copy Length': 'tvCopyLength',
-  'TV Target Size (Abs)': 'tvTargetSize',
-  'TV Target Size': 'tvTargetSize', // Support actual CSV header
-  'WOA Open TV': 'woaOpenTv',
-  'WOA Paid TV': 'woaPaidTv',
-  'Total TRPs': 'totalTrps',
-  'TV R1+ (Total)': 'tvR1Plus',
-  'TV R1+': 'tvR1Plus', // Support actual CSV header
-  'TV R3+ (Total)': 'tvR3Plus',
-  'TV R3+': 'tvR3Plus', // Support actual CSV header
-  'TV IDEAL Reach': 'tvIdealReach',
-  'TV Ideal Reach': 'tvIdealReach', // Support actual CSV header
+  // TV Performance Metrics
+  'Total TV Planned R1+ (%)': 'tvPlannedR1Plus',
+  'Total TV Planned R3+ (%)': 'tvPlannedR3Plus',
+  'TV Potential R1+': 'tvPotentialR1Plus',
   'CPP 2024': 'cpp2024',
   'CPP 2025': 'cpp2025',
-  'Digital Target': 'digitalTarget',
-  'Digital Target Size (Abs)': 'digitalTargetSize',
-  'Digital Target Size': 'digitalTargetSize', // Support actual CSV header
-  'WOA PM & FF': 'woaPmFf',
-  'WOA PM FF': 'woaPmFf', // Support actual CSV header
-  'WOA Influencers (Amplification)': 'woaInfluencersAmplification',
-  'WOA Influencers Amplification': 'woaInfluencersAmplification', // Support actual CSV header
-  'Digital R1+ (Total)': 'digitalR1Plus',
-  'Digital R1+': 'digitalR1Plus', // Support actual CSV header
-  'Digital IDEAL Reach': 'digitalIdealReach',
-  'Digital Ideal Reach': 'digitalIdealReach', // Support actual CSV header
+  'CPP 2026': 'cpp2026',
+  'Reported Currency': 'reportedCurrency',
+  // Digital Demographics & Targeting
+  'Is Digital target the same than TV?': 'isDigitalTargetSameAsTv',
+  'Digital Demo Gender': 'digitalDemoGender',
+  'Digital Demo Min. Age': 'digitalDemoMinAge',
+  'Digital Demo Max. Age': 'digitalDemoMaxAge',
+  'Digital SEL': 'digitalSel',
+  'Final Digital Target (don\'t fill)': 'finalDigitalTarget',
+  'Digital Target Size (Abs)': 'digitalTargetSizeAbs',
+  // Digital Performance Metrics
+  'Total Digital Planned R1+': 'digitalPlannedR1Plus',
+  'Total Digital Potential R1+': 'digitalPotentialR1Plus',
+  // Combined Metrics
   'Planned Combined Reach': 'plannedCombinedReach',
-  'Combined IDEAL Reach': 'combinedIdealReach',
-  'Combined Ideal Reach': 'combinedIdealReach', // Support actual CSV header
-  'Digital Reach Level Check': 'digitalReachLevelCheck',
-  'TV Reach Level Check': 'tvReachLevelCheck',
-  'Combined Reach Level Check': 'combinedReachLevelCheck'
+  'Combined Potential Reach': 'combinedPotentialReach'
 };
 
 function parseNumber(value: any): number | null {

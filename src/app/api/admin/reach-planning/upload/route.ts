@@ -9,37 +9,15 @@ const SESSION_PREFIX = 'reach-planning-';
 
 // Expected fields for MediaSufficiency table
 const EXPECTED_FIELDS = [
-  'Last Update',
-  'Sub Region', 
-  'Country',
-  'BU',
-  'Category',
-  'Range',
-  'Campaign',
-  'Franchise NS (Actual or Projected)',
-  'Campaign Socio-Demo Target',
-  'Total Country Population On Target (Abs)',
-  'TV Copy Length',
-  'TV Target Size (Abs)',
-  'WOA Open TV',
-  'WOA Paid TV',
-  'Total TRPs',
-  'TV R1+ (Total)',
-  'TV R3+ (Total)',
-  'TV IDEAL Reach',
-  'CPP 2024',
-  'CPP 2025',
-  'Digital Target',
-  'Digital Target Size (Abs)',
-  'WOA PM & FF',
-  'WOA Influencers (Amplification)',
-  'Digital R1+ (Total)',
-  'Digital IDEAL Reach',
-  'Planned Combined Reach',
-  'Combined IDEAL Reach',
-  'Digital Reach Level Check',
-  'TV Reach Level Check',
-  'Combined Reach Level Check'
+  'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
+  'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
+  'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
+  'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
+  'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
+  'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
+  'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)',
+  'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
+  'Planned Combined Reach', 'Combined Potential Reach'
 ];
 
 function generateSessionId(): string {

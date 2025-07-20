@@ -93,12 +93,14 @@ model Cluster {
 }
 
 model Category {
-  id        Int               @id @default(autoincrement())
-  name      String            @unique(map: "sqlite_autoindex_categories_1")
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at")
-  ranges    CategoryToRange[]
-  gamePlans GamePlan[]
+  id             Int               @id @default(autoincrement())
+  name           String            @unique(map: "sqlite_autoindex_categories_1")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at")
+  businessUnitId Int?              @map("business_unit_id")
+  businessUnit   BusinessUnit?     @relation(fields: [businessUnitId], references: [id])
+  ranges         CategoryToRange[]
+  gamePlans      GamePlan[]
 
   @@map("categories")
 }
@@ -189,10 +191,11 @@ model PMTypeToMediaSubType {
 }
 
 model BusinessUnit {
-  id        Int      @id @default(autoincrement())
-  name      String?  @unique(map: "sqlite_autoindex_business_units_1")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  id         Int        @id @default(autoincrement())
+  name       String?    @unique(map: "sqlite_autoindex_business_units_1")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @default(now()) @updatedAt @map("updated_at")
+  categories Category[]
 
   @@map("business_units")
 }
@@ -295,36 +298,23 @@ model MediaSufficiency {
   rangeId                        Int?     @map("range_id")
   campaign                       String?
   campaignId                     Int?     @map("campaign_id")
-  franchiseNs                    String?  @map("franchise_ns")
-  campaignSocioDemoTarget        String?  @map("campaign_socio_demo_target")
-  totalCountryPopulationOnTarget String?  @map("total_country_population_on_target")
-  tvCopyLength                   String?  @map("tv_copy_length")
-  tvTargetSize                   String?  @map("tv_target_size")
-  totalTrps                      Float?   @map("total_trps")
-  tvR1Plus                       String?  @map("tv_r1_plus")
-  tvR3Plus                       String?  @map("tv_r3_plus")
-  tvIdealReach                   String?  @map("tv_ideal_reach")
-  cpp2024                        Float?   @map("cpp_2024")
-  cpp2025                        Float?   @map("cpp_2025")
-  digitalTarget                  String?  @map("digital_target")
-  digitalTargetSize              String?  @map("digital_target_size")
-  digitalR1Plus                  String?  @map("digital_r1_plus")
-  digitalIdealReach              String?  @map("digital_ideal_reach")
-  plannedCombinedReach           String?  @map("planned_combined_reach")
-  combinedIdealReach             String?  @map("combined_ideal_reach")
-  digitalReachLevelCheck         String?  @map("digital_reach_level_check")
-  tvReachLevelCheck              String?  @map("tv_reach_level_check")
-  combinedReachLevelCheck        String?  @map("combined_reach_level_check")
-  uploadedBy                     String?  @map("uploaded_by")
-  uploadSession                  String?  @map("upload_session")
-  // NEW FIELDS - Missing from Excel template
+  // TV Demographics & Targeting
   tvDemoGender                   String?  @map("tv_demo_gender")
   tvDemoMinAge                   Int?     @map("tv_demo_min_age")
   tvDemoMaxAge                   Int?     @map("tv_demo_max_age")
   tvSel                          String?  @map("tv_sel")
   finalTvTarget                  String?  @map("final_tv_target")
+  tvTargetSize                   String?  @map("tv_target_size")
+  tvCopyLength                   String?  @map("tv_copy_length")
+  // TV Performance Metrics
+  tvPlannedR1Plus                String?  @map("tv_planned_r1_plus")
+  tvPlannedR3Plus                String?  @map("tv_planned_r3_plus")
+  tvPotentialR1Plus              String?  @map("tv_potential_r1_plus")
+  cpp2024                        Float?   @map("cpp_2024")
+  cpp2025                        Float?   @map("cpp_2025")
   cpp2026                        Float?   @map("cpp_2026")
   reportedCurrency               String?  @map("reported_currency")
+  // Digital Demographics & Targeting
   isDigitalTargetSameAsTv        Boolean? @map("is_digital_target_same_as_tv")
   digitalDemoGender              String?  @map("digital_demo_gender")
   digitalDemoMinAge              Int?     @map("digital_demo_min_age")
@@ -332,6 +322,15 @@ model MediaSufficiency {
   digitalSel                     String?  @map("digital_sel")
   finalDigitalTarget             String?  @map("final_digital_target")
   digitalTargetSizeAbs           String?  @map("digital_target_size_abs")
+  // Digital Performance Metrics
+  digitalPlannedR1Plus           String?  @map("digital_planned_r1_plus")
+  digitalPotentialR1Plus         String?  @map("digital_potential_r1_plus")
+  // Combined Metrics
+  plannedCombinedReach           String?  @map("planned_combined_reach")
+  combinedPotentialReach         String?  @map("combined_potential_reach")
+  // System Fields
+  uploadedBy                     String?  @map("uploaded_by")
+  uploadSession                  String?  @map("upload_session")
   createdAt                      DateTime @default(now()) @map("created_at")
   updatedAt                      DateTime @updatedAt @map("updated_at")
 

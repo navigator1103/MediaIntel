@@ -110,40 +110,36 @@ export async function POST(request: NextRequest) {
           category: category,
           range: range,
           campaign: campaign,
-          franchiseNs: '', // To be filled manually
-          campaignSocioDemoTarget: '', // To be filled manually
-          totalCountryPopulationOnTarget: '', // To be filled manually
+          // TV Demographics & Targeting
           tvDemoGender: '', // To be filled manually
           tvDemoMinAge: '', // To be filled manually
           tvDemoMaxAge: '', // To be filled manually
           tvSel: '', // To be filled manually
           finalTvTarget: '', // To be filled manually
-          tvCopyLength: '', // To be filled manually
           tvTargetSize: '', // To be filled manually
-          totalTrps: '', // To be filled manually
-          tvR1Plus: '', // To be filled manually
-          tvR3Plus: '', // To be filled manually
-          tvIdealReach: '', // To be filled manually
+          tvCopyLength: '', // To be filled manually
+          // TV Performance Metrics
+          tvPlannedR1Plus: '', // To be filled manually
+          tvPlannedR3Plus: '', // To be filled manually
+          tvPotentialR1Plus: '', // To be filled manually
           cpp2024: '', // To be filled manually
           cpp2025: '', // To be filled manually
           cpp2026: '', // To be filled manually
           reportedCurrency: '', // To be filled manually
+          // Digital Demographics & Targeting
           isDigitalTargetSameAsTv: '', // To be filled manually
           digitalDemoGender: '', // To be filled manually
           digitalDemoMinAge: '', // To be filled manually
           digitalDemoMaxAge: '', // To be filled manually
           digitalSel: '', // To be filled manually
           finalDigitalTarget: '', // To be filled manually
-          digitalTarget: '', // To be filled manually
-          digitalTargetSize: '', // To be filled manually
           digitalTargetSizeAbs: '', // To be filled manually
-          digitalR1Plus: '', // To be filled manually
-          digitalIdealReach: '', // To be filled manually
+          // Digital Performance Metrics
+          digitalPlannedR1Plus: '', // To be filled manually
+          digitalPotentialR1Plus: '', // To be filled manually
+          // Combined Metrics
           plannedCombinedReach: '', // To be filled manually
-          combinedIdealReach: '', // To be filled manually
-          digitalReachLevelCheck: '', // To be filled manually
-          tvReachLevelCheck: '', // To be filled manually
-          combinedReachLevelCheck: '', // To be filled manually
+          combinedPotentialReach: '', // To be filled manually
           // Store metadata about source game plans
           _sourceBursts: [plan.burst || 1],
           _sourceGamePlans: [plan.id]
@@ -174,14 +170,14 @@ export async function POST(request: NextRequest) {
     // Generate CSV content
     const headers = [
       'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
-      'Franchise NS', 'Campaign Socio-Demo Target', 'Total Country Population On Target',
-      'TV Demo Gender', 'TV Demo Min Age', 'TV Demo Max Age', 'TV SEL', 'Final TV Target',
-      'TV Copy Length', 'TV Target Size', 'Total TRPs', 'TV R1+', 'TV R3+', 'TV Ideal Reach',
-      'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency', 'Is Digital Target Same As TV',
-      'Digital Demo Gender', 'Digital Demo Min Age', 'Digital Demo Max Age', 'Digital SEL',
-      'Final Digital Target', 'Digital Target', 'Digital Target Size', 'Digital Target Size Abs',
-      'Digital R1+', 'Digital Ideal Reach', 'Planned Combined Reach', 'Combined Ideal Reach',
-      'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check'
+      'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
+      'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
+      'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
+      'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
+      'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
+      'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)',
+      'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
+      'Planned Combined Reach', 'Combined Potential Reach'
     ];
 
     const csvRows = [
@@ -194,20 +190,16 @@ export async function POST(request: NextRequest) {
         item.category,
         item.range,
         item.campaign,
-        item.franchiseNs,
-        item.campaignSocioDemoTarget,
-        item.totalCountryPopulationOnTarget,
         item.tvDemoGender,
         item.tvDemoMinAge,
         item.tvDemoMaxAge,
         item.tvSel,
         item.finalTvTarget,
-        item.tvCopyLength,
         item.tvTargetSize,
-        item.totalTrps,
-        item.tvR1Plus,
-        item.tvR3Plus,
-        item.tvIdealReach,
+        item.tvCopyLength,
+        item.tvPlannedR1Plus,
+        item.tvPlannedR3Plus,
+        item.tvPotentialR1Plus,
         item.cpp2024,
         item.cpp2025,
         item.cpp2026,
@@ -218,16 +210,11 @@ export async function POST(request: NextRequest) {
         item.digitalDemoMaxAge,
         item.digitalSel,
         item.finalDigitalTarget,
-        item.digitalTarget,
-        item.digitalTargetSize,
         item.digitalTargetSizeAbs,
-        item.digitalR1Plus,
-        item.digitalIdealReach,
+        item.digitalPlannedR1Plus,
+        item.digitalPotentialR1Plus,
         item.plannedCombinedReach,
-        item.combinedIdealReach,
-        item.digitalReachLevelCheck,
-        item.tvReachLevelCheck,
-        item.combinedReachLevelCheck
+        item.combinedPotentialReach
       ].map(field => `"${field}"`).join(','))
     ];
 

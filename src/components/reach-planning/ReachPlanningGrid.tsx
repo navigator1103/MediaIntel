@@ -33,13 +33,14 @@ interface ReachPlanningGridProps {
 // Standard template columns
 const TEMPLATE_COLUMNS = [
   'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
-  'Franchise NS', 'Campaign Socio-Demo Target', 'Total Country Population On Target',
-  'TV Copy Length', 'TV Target Size', 'WOA Open TV', 'WOA Paid TV', 'Total TRPs',
-  'TV R1+', 'TV R3+', 'TV Ideal Reach', 'CPP 2024', 'CPP 2025', 'Digital Target',
-  'Digital Target Size', 'WOA PM FF', 'WOA Influencers Amplification', 'Digital R1+',
-  'Digital R3+', 'Digital Ideal Reach', 'Planned Combined Reach', 'Combined Ideal Reach',
-  'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check',
-  'Media', 'Media Sub Type'
+  'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
+  'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
+  'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
+  'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
+  'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
+  'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)',
+  'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
+  'Planned Combined Reach', 'Combined Potential Reach'
 ];
 
 export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps) {
@@ -147,9 +148,14 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
   };
 
   const isTemplateColumn = (columnName: string): boolean => {
-    return TEMPLATE_COLUMNS.some(templateCol => 
-      templateCol.toLowerCase() === columnName.toLowerCase()
-    );
+    // Normalize both strings by removing extra spaces, punctuation, and making lowercase
+    const normalize = (str: string) => str.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
+    const normalizedColumn = normalize(columnName);
+    
+    return TEMPLATE_COLUMNS.some(templateCol => {
+      const normalizedTemplate = normalize(templateCol);
+      return normalizedTemplate === normalizedColumn;
+    });
   };
 
 
@@ -343,6 +349,52 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
         </div>
       )}
 
+
+      {/* Detailed Issues List */}
+      {sessionData.validationIssues && sessionData.validationIssues.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Detailed Validation Issues</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              All validation issues found in your uploaded data. Critical issues must be fixed before import.
+            </p>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {sessionData.validationIssues.map((issue: ValidationIssue, index: number) => (
+                <div 
+                  key={index} 
+                  className={`flex items-start p-3 rounded-lg border ${
+                    issue.severity === 'critical' 
+                      ? 'bg-red-50 border-red-200' 
+                      : issue.severity === 'warning'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-blue-50 border-blue-200'
+                  }`}
+                >
+                  <div className="flex-shrink-0 mr-3 mt-0.5">
+                    {getSeverityIcon(issue.severity)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      {getSeverityBadge(issue.severity)}
+                      <span className="text-sm font-medium text-gray-900">
+                        Row {issue.rowIndex + 1}, Column "{issue.columnName}"
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{issue.message}</p>
+                    {issue.currentValue && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Current value: "{issue.currentValue}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Data Preview with Validation Issues */}
       <div className="bg-white rounded-lg shadow border border-gray-200">
