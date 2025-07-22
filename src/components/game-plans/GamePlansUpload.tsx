@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FiUpload, FiFile, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import ModernDropdown from '../ui/ModernDropdown';
 
 interface GamePlansUploadProps {
   onUploadComplete: (sessionId: string) => void;
@@ -190,58 +191,32 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
   return (
     <div className="space-y-6">
       {/* Financial Cycle Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Financial Cycle
-        </label>
-        <div className="relative">
-          <select
-            value={selectedLastUpdateId}
-            onChange={(e) => setSelectedLastUpdateId(e.target.value)}
-            disabled={isLoadingLastUpdates}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Choose a financial cycle...</option>
-            {lastUpdates.map((update) => (
-              <option key={update.id} value={update.id.toString()}>
-                {update.name}
-              </option>
-            ))}
-          </select>
-          {isLoadingLastUpdates && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            </div>
-          )}
-        </div>
-      </div>
+      <ModernDropdown
+        label="Financial Cycle"
+        options={lastUpdates.map(update => ({
+          value: update.id.toString(),
+          label: update.name
+        }))}
+        value={selectedLastUpdateId}
+        onChange={setSelectedLastUpdateId}
+        placeholder="Choose a financial cycle..."
+        loading={isLoadingLastUpdates}
+        searchable={true}
+      />
 
       {/* Country Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Country
-        </label>
-        <div className="relative">
-          <select
-            value={selectedCountry}
-            onChange={(e) => setSelectedCountry(e.target.value)}
-            disabled={isLoadingCountries}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Choose a country...</option>
-            {countries.map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </select>
-          {isLoadingCountries && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-            </div>
-          )}
-        </div>
-      </div>
+      <ModernDropdown
+        label="Country"
+        options={countries.map(country => ({
+          value: country,
+          label: country
+        }))}
+        value={selectedCountry}
+        onChange={setSelectedCountry}
+        placeholder="Choose a country..."
+        loading={isLoadingCountries}
+        searchable={true}
+      />
 
       {/* File Upload Area */}
       <div

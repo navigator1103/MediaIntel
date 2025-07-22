@@ -608,7 +608,8 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
             <select
               value={filterSeverity}
               onChange={(e) => setFilterSeverity(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              style={{ backgroundColor: 'white', color: '#111827' }}
             >
               <option value="all">All Severities</option>
               <option value="critical">Critical Only</option>

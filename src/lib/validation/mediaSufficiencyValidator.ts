@@ -318,6 +318,74 @@ export class MediaSufficiencyValidator {
       }
     });
 
+    // Business unit validation is handled at the data model level, not in the validation grid
+
+    // Add range-to-category validation (without business unit checks)
+    this.rules.push({
+      field: 'Range',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Range must be compatible with the selected Category',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !masterData) return true;
+        
+        const rangeName = value.toString().trim();
+        const categoryName = record['Category']?.toString().trim();
+        
+        // Check if range belongs to category
+        const categoryToRanges = masterData.categoryToRanges || {};
+        const validRangesForCategory = categoryName ? (categoryToRanges[categoryName] || []) : [];
+        
+        if (categoryName && validRangesForCategory.length > 0) {
+          const isValidRangeForCategory = validRangesForCategory.some((validRange: string) => 
+            validRange.toLowerCase() === rangeName.toLowerCase()
+          );
+          
+          if (!isValidRangeForCategory) {
+            return {
+              isValid: false,
+              message: `Range '${rangeName}' is not valid for Category '${categoryName}'. Valid ranges: ${validRangesForCategory.join(', ')}`
+            };
+          }
+        }
+        
+        return true;
+      }
+    });
+
+    // Add campaign-to-range validation (without business unit checks)
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Campaign must be compatible with the selected Range',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !masterData) return true;
+        
+        const campaignName = value.toString().trim();
+        const rangeName = record['Range']?.toString().trim();
+        
+        // Check if campaign belongs to range
+        const rangeToCampaigns = masterData.rangeToCampaigns || {};
+        const validCampaignsForRange = rangeName ? (rangeToCampaigns[rangeName] || []) : [];
+        
+        if (rangeName && validCampaignsForRange.length > 0) {
+          const isValidCampaignForRange = validCampaignsForRange.some((validCampaign: string) => 
+            validCampaign.toLowerCase() === campaignName.toLowerCase()
+          );
+          
+          if (!isValidCampaignForRange) {
+            return {
+              isValid: false,
+              message: `Campaign '${campaignName}' is not valid for Range '${rangeName}'. Valid campaigns: ${validCampaignsForRange.slice(0, 5).join(', ')}${validCampaignsForRange.length > 5 ? '...' : ''}`
+            };
+          }
+        }
+        
+        return true;
+      }
+    });
+
     // Year format validation - make it warning since year can be derived from dates
     this.rules.push({
       field: 'Year',
