@@ -103,10 +103,8 @@ export async function POST(request: NextRequest) {
       if (!consolidatedMap.has(key)) {
         // First occurrence - create consolidated entry
         consolidatedMap.set(key, {
-          lastUpdate: lastUpdate.name, // Use actual financial cycle name
-          subRegion: countryWithRegion?.subRegion?.name || '', // Use actual sub region
+          // Remove lastUpdate, subRegion, and bu as they are auto-populated during import
           country: country,
-          bu: '', // To be filled manually  
           category: category,
           range: range,
           campaign: campaign,
@@ -167,9 +165,9 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    // Generate CSV content
+    // Generate CSV content - only required reach planning fields
     const headers = [
-      'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
+      'Category', 'Range', 'Campaign',
       'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
       'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
       'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
@@ -183,38 +181,34 @@ export async function POST(request: NextRequest) {
     const csvRows = [
       headers.join(','),
       ...consolidatedData.map(item => [
-        item.lastUpdate,
-        item.subRegion,
-        item.country,
-        item.bu,
         item.category,
         item.range,
         item.campaign,
-        item.tvDemoGender,
-        item.tvDemoMinAge,
-        item.tvDemoMaxAge,
-        item.tvSel,
-        item.finalTvTarget,
-        item.tvTargetSize,
-        item.tvCopyLength,
-        item.tvPlannedR1Plus,
-        item.tvPlannedR3Plus,
-        item.tvPotentialR1Plus,
-        item.cpp2024,
-        item.cpp2025,
-        item.cpp2026,
-        item.reportedCurrency,
-        item.isDigitalTargetSameAsTv,
-        item.digitalDemoGender,
-        item.digitalDemoMinAge,
-        item.digitalDemoMaxAge,
-        item.digitalSel,
-        item.finalDigitalTarget,
-        item.digitalTargetSizeAbs,
-        item.digitalPlannedR1Plus,
-        item.digitalPotentialR1Plus,
-        item.plannedCombinedReach,
-        item.combinedPotentialReach
+        '', // TV Demo Gender - empty for user to fill
+        '', // TV Demo Min. Age - empty for user to fill
+        '', // TV Demo Max. Age - empty for user to fill
+        '', // TV SEL - empty for user to fill
+        '', // Final TV Target (don't fill) - empty
+        '', // TV Target Size - empty for user to fill
+        '', // TV Copy Length - empty for user to fill
+        '', // Total TV Planned R1+ (%) - empty for user to fill
+        '', // Total TV Planned R3+ (%) - empty for user to fill
+        '', // TV Potential R1+ - empty for user to fill
+        '', // CPP 2024 - empty for user to fill
+        '', // CPP 2025 - empty for user to fill
+        '', // CPP 2026 - empty for user to fill
+        '', // Reported Currency - empty for user to fill
+        '', // Is Digital target the same than TV? - empty for user to fill
+        '', // Digital Demo Gender - empty for user to fill
+        '', // Digital Demo Min. Age - empty for user to fill
+        '', // Digital Demo Max. Age - empty for user to fill
+        '', // Digital SEL - empty for user to fill
+        '', // Final Digital Target (don't fill) - empty
+        '', // Digital Target Size (Abs) - empty for user to fill
+        '', // Total Digital Planned R1+ - empty for user to fill
+        '', // Total Digital Potential R1+ - empty for user to fill
+        '', // Planned Combined Reach - empty for user to fill
+        '' // Combined Potential Reach - empty for user to fill
       ].map(field => `"${field}"`).join(','))
     ];
 

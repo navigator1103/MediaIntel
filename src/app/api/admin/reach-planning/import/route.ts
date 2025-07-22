@@ -8,11 +8,8 @@ const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
 const SESSION_PREFIX = 'reach-planning-';
 
 // Field mapping for MediaSufficiency table - supports both template format and actual CSV format
+// Note: Last Update, Sub Region, Country, and BU are auto-populated during import, not from CSV
 const FIELD_MAPPING = {
-  'Last Update': 'lastUpdate',
-  'Sub Region': 'subRegion', 
-  'Country': 'country',
-  'BU': 'bu',
   'Category': 'category',
   'Range': 'range',
   'Campaign': 'campaign',
@@ -57,6 +54,18 @@ function parseNumber(value: any): number | null {
   return isNaN(parsed) ? null : parsed;
 }
 
+function parseBoolean(value: any): boolean | null {
+  if (value === undefined || value === null || value === '' || value === '-') return null;
+  
+  if (typeof value === 'boolean') return value;
+  
+  const stringValue = value.toString().toLowerCase().trim();
+  if (stringValue === 'yes' || stringValue === 'true' || stringValue === '1') return true;
+  if (stringValue === 'no' || stringValue === 'false' || stringValue === '0') return false;
+  
+  return null;
+}
+
 async function transformRecord(record: any, sessionData: any): Promise<any> {
   const transformed: any = {};
   
@@ -68,17 +77,31 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
   transformed.lastUpdateId = lastUpdateId;
   transformed.countryId = countryId;
   
-  // Look up sub region by name (case-insensitive using contains)
-  if (record['Sub Region']) {
-    const subRegion = await prisma.subRegion.findFirst({
-      where: {
-        name: {
-          contains: record['Sub Region'],
-        }
-      }
+  // Look up and set the actual string values
+  if (lastUpdateId) {
+    const lastUpdate = await prisma.lastUpdate.findUnique({
+      where: { id: lastUpdateId }
     });
-    transformed.subRegionId = subRegion?.id || null;
-    transformed.subRegion = record['Sub Region']; // Keep the text value too
+    transformed.lastUpdate = lastUpdate?.name || null;
+  }
+  
+  if (countryId) {
+    const country = await prisma.country.findUnique({
+      where: { id: countryId }
+    });
+    transformed.country = country?.name || null;
+  }
+  
+  // Auto-populate sub region from country relationship
+  if (countryId) {
+    const countryWithRegion = await prisma.country.findUnique({
+      where: { id: countryId },
+      include: { subRegion: true }
+    });
+    if (countryWithRegion?.subRegion) {
+      transformed.subRegionId = countryWithRegion.subRegion.id;
+      transformed.subRegion = countryWithRegion.subRegion.name;
+    }
   }
   
   // Look up category by name (case-insensitive using contains)
@@ -120,31 +143,27 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
     transformed.campaign = record['Campaign'];
   }
   
-  // Look up BU by name (case-insensitive using contains)
-  if (record['BU']) {
-    const bu = await prisma.businessUnit.findFirst({
-      where: {
-        name: {
-          contains: record['BU'],
-        }
-      }
-    });
-    transformed.buId = bu?.id || null;
-    transformed.bu = record['BU'];
-  }
+  // BU can be auto-populated from business logic or left empty
+  // For now, leave as null since it's not required and can be set later
+  transformed.buId = null;
+  transformed.bu = null;
   
   // Map other fields
   Object.entries(FIELD_MAPPING).forEach(([csvField, dbField]) => {
-    // Skip fields we've already handled
-    if (['lastUpdate', 'subRegion', 'country', 'category', 'range', 'campaign', 'bu'].includes(dbField)) {
+    // Skip fields we've already handled (now only category, range, campaign as others are auto-populated)
+    if (['category', 'range', 'campaign'].includes(dbField)) {
       return;
     }
     
     const value = record[csvField];
     
     // Handle numeric fields
-    if (['woaOpenTv', 'woaPaidTv', 'totalTrps', 'cpp2024', 'cpp2025', 'woaPmFf', 'woaInfluencersAmplification'].includes(dbField)) {
+    if (['woaOpenTv', 'woaPaidTv', 'totalTrps', 'cpp2024', 'cpp2025', 'cpp2026', 'woaPmFf', 'woaInfluencersAmplification', 'tvDemoMinAge', 'tvDemoMaxAge', 'digitalDemoMinAge', 'digitalDemoMaxAge'].includes(dbField)) {
       transformed[dbField] = parseNumber(value);
+    }
+    // Handle boolean fields
+    else if (['isDigitalTargetSameAsTv'].includes(dbField)) {
+      transformed[dbField] = parseBoolean(value);
     } else {
       // Handle string fields - convert empty strings to null
       transformed[dbField] = value && value.toString().trim() !== '' ? value.toString().trim() : null;
@@ -203,6 +222,35 @@ export async function POST(request: NextRequest) {
     
     const records = sessionData.records || [];
     console.log(`Importing ${records.length} records to MediaSufficiency table`);
+    
+    // DELETE EXISTING DATA for this country/lastUpdate combination
+    // This ensures complete replacement rather than addition
+    const countryId = sessionData.countryId;
+    const lastUpdateId = sessionData.lastUpdateId;
+    
+    if (countryId && lastUpdateId) {
+      console.log(`Deleting existing MediaSufficiency records for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}`);
+      
+      // Check how many records exist before deletion
+      const existingCount = await prisma.mediaSufficiency.count({
+        where: {
+          countryId: countryId,
+          lastUpdateId: lastUpdateId
+        }
+      });
+      console.log(`Found ${existingCount} existing MediaSufficiency records to delete`);
+      
+      // Delete existing records for this specific country and financial cycle
+      const deleteResult = await prisma.mediaSufficiency.deleteMany({
+        where: {
+          countryId: countryId,
+          lastUpdateId: lastUpdateId
+        }
+      });
+      console.log(`Successfully deleted ${deleteResult.count} existing MediaSufficiency records`);
+    } else {
+      console.log('Skipping deletion - missing countryId or lastUpdateId in session data');
+    }
     
     const importResults = [];
     let successCount = 0;

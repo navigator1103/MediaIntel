@@ -9,6 +9,7 @@ const SESSION_PREFIX = 'reach-planning-';
 
 // Field mapping for MediaSufficiency table (excluding auto-filled fields)
 const FIELD_MAPPING = {
+  // Auto-populated fields removed: Last Update, Sub Region, Country, BU
   'Category': 'category',
   'Range': 'range',
   'Campaign': 'campaign',
@@ -63,25 +64,24 @@ interface ValidationIssue {
 const FIELD_VALIDATIONS = {
   // String fields - should contain only text/letters/spaces
   stringFields: [
-    'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
-    'Franchise NS', 'Campaign Socio-Demo Target', 'TV Copy Length', 'Digital Target',
-    'Media', 'Media Sub Type'
+    'Category', 'Range', 'Campaign', 'TV Copy Length'
   ],
   
   // Numeric fields - should be valid numbers (can include commas)
   numericFields: [
     'Total Country Population On Target', 'TV Target Size', 'WOA Open TV', 'WOA Paid TV', 
-    'Total TRPs', 'CPP 2024', 'CPP 2025', 'Digital Target Size', 'WOA PM FF', 'WOA Influencers Amplification'
+    'Total TRPs', 'CPP 2024', 'CPP 2025', 'CPP 2026', 'Digital Target Size (Abs)', 'WOA PM FF', 'WOA Influencers Amplification',
+    'TV Demo Min. Age', 'TV Demo Max. Age', 'Digital Demo Min. Age', 'Digital Demo Max. Age'
   ],
   
   // Percentage fields - should be 0-100% or 0-1 decimal
   percentageFields: [
-    'TV R1+', 'TV R3+', 'TV Ideal Reach', 'Digital R1+', 'Digital R3+', 'Digital Ideal Reach',
-    'Planned Combined Reach', 'Combined Ideal Reach', 'Digital Reach Level Check', 'TV Reach Level Check', 'Combined Reach Level Check'
+    'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
+    'Planned Combined Reach', 'Combined Potential Reach'
   ],
   
   // Date fields - should be valid dates
-  dateFields: ['Start Date', 'End Date'],
+  dateFields: [],
   
   // Enum/Choice fields with allowed values (removed reach level fields as they are now percentage fields)
   reachLevelFields: {
@@ -102,9 +102,9 @@ const TV_FIELDS = [
 
 // Digital fields that must be validated against game plans
 const DIGITAL_FIELDS = [
-  'Digital Target Size',
-  'Digital R1+',
-  'Digital Ideal Reach'
+  'Digital Target Size (Abs)',
+  'Total Digital Planned R1+',
+  'Total Digital Potential R1+'
 ];
 
 // Cross-reference validation against game plans
@@ -558,49 +558,9 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
       }
     }
 
-    // Validate Media Type exists in database
-    const media = record['Media'];
-    if (media && masterData.mediaTypes) {
-      const mediaLower = media.toString().trim().toLowerCase();
-      const mediaExists = masterData.mediaTypes.some(m => m.toLowerCase() === mediaLower);
-      if (!mediaExists) {
-        issues.push({
-          rowIndex: index,
-          columnName: 'Media',
-          severity: 'critical',
-          message: `Media type "${media}" does not exist in the database`,
-          currentValue: media
-        });
-      }
-    }
+    // Media validation removed - not part of reach planning template
 
-    // Validate Media Sub Type exists and is compatible with Media Type
-    const mediaSubType = record['Media Sub Type'];
-    if (mediaSubType && media) {
-      const mediaSubTypeLower = mediaSubType.toString().trim().toLowerCase();
-      const mediaSubTypeExists = masterData.mediaSubTypes && masterData.mediaSubTypes.some(mst => mst.toLowerCase() === mediaSubTypeLower);
-      if (masterData.mediaSubTypes && !mediaSubTypeExists) {
-        issues.push({
-          rowIndex: index,
-          columnName: 'Media Sub Type',
-          severity: 'critical',
-          message: `Media Sub Type "${mediaSubType}" does not exist in the database`,
-          currentValue: mediaSubType
-        });
-      } else if (masterData.mediaToSubtypes) {
-        const validSubTypes = masterData.mediaToSubtypes[media.toString().trim()] || [];
-        const subTypeInMedia = validSubTypes.some(vst => vst.toLowerCase() === mediaSubTypeLower);
-        if (validSubTypes.length > 0 && !subTypeInMedia) {
-          issues.push({
-            rowIndex: index,
-            columnName: 'Media Sub Type',
-            severity: 'warning',
-            message: `Media Sub Type "${mediaSubType}" may not be compatible with Media type "${media}". Valid sub types: ${validSubTypes.join(', ')}`,
-            currentValue: mediaSubType
-          });
-        }
-      }
-    }
+    // Media Sub Type validation removed - not part of reach planning template
   }
   
   // Validate string fields
