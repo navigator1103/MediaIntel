@@ -225,22 +225,28 @@ export default function UserForm({
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               >
                 <option value="user">User</option>
-                <option value="admin">Admin</option>
+                <option value="admin">Admin (Restricted)</option>
+                <option value="super_admin">Super Admin (Full Access)</option>
               </select>
               {formData.role === 'admin' && (
                 <p className="mt-1 text-sm text-gray-500">
-                  Admins have full access to all pages and countries
+                  Admins have restricted access - configure page and country permissions below
+                </p>
+              )}
+              {formData.role === 'super_admin' && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Super Admins have full access to all pages and countries
                 </p>
               )}
             </div>
           </div>
         </div>
         
-        {/* Page Access - Only show for non-admin users */}
-        {formData.role !== 'admin' && (
+        {/* Page Access - Only show for non-super-admin users */}
+        {formData.role !== 'super_admin' && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Page Access</h3>
@@ -283,8 +289,8 @@ export default function UserForm({
           </div>
         )}
         
-        {/* Country Access - Only show for non-admin users */}
-        {formData.role !== 'admin' && (
+        {/* Country Access - Only show for non-super-admin users */}
+        {formData.role !== 'super_admin' && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Country Access</h3>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive, FiGlobe, FiTag, FiBox, FiTarget, FiCheckCircle } from 'react-icons/fi';
+import { createPermissionChecker } from '@/lib/auth/permissions';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -13,23 +14,46 @@ export default function AdminDashboard() {
     lastUpdated: '',
   });
   const [loading, setLoading] = useState(true);
+  const [userPermissions, setUserPermissions] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
+    // Initialize user permissions
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        const permissionChecker = createPermissionChecker(userData);
+        setUserPermissions(permissionChecker);
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+      }
+    }
+
     const fetchStats = async () => {
       try {
-        // Fetch media sufficiency dashboard statistics
+        // Get authorization token for API calls
+        const token = localStorage.getItem('token');
+        const headers: any = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Fetch media sufficiency dashboard statistics with country filtering
         const [gamePlansRes, usersRes, dashboardRes] = await Promise.all([
-          fetch('/api/admin/media-sufficiency/game-plans').catch(() => ({ json: () => Promise.resolve([]) })),
+          fetch('/api/admin/media-sufficiency/game-plans', { headers }).catch(() => ({ json: () => Promise.resolve([]) })),
           fetch('/api/admin/users').catch(() => ({ json: () => Promise.resolve([]) })),
-          fetch('/api/dashboard/media-sufficiency').catch(() => ({ json: () => Promise.resolve({}) }))
+          fetch('/api/dashboard/media-sufficiency', { headers }).catch(() => ({ json: () => Promise.resolve({}) }))
         ]);
 
-        const [gamePlans, users, dashboardData] = await Promise.all([
-          gamePlansRes.json ? gamePlansRes.json() : [],
+        const [gamePlansData, users, dashboardData] = await Promise.all([
+          gamePlansRes.json ? gamePlansRes.json() : {},
           usersRes.json ? usersRes.json() : [],
           dashboardRes.json ? dashboardRes.json() : {}
         ]);
+
+        // Handle game plans response structure (API returns {gamePlans: [...], ...})
+        const gamePlans = gamePlansData.gamePlans || gamePlansData || [];
 
         // Count unique campaigns from game plans
         const uniqueCampaigns = new Set();
@@ -57,7 +81,22 @@ export default function AdminDashboard() {
     fetchStats();
   }, [router]);
 
+  const canAccessPath = (path: string): boolean => {
+    if (!userPermissions) return false;
+    return userPermissions.canAccessPath(path);
+  };
+
+  const canAccessAnyPath = (paths: string[]): boolean => {
+    return paths.some(path => canAccessPath(path));
+  };
+
   const handleNavigate = (path: string) => {
+    // Check if user has permission to access this path
+    if (!canAccessPath(path)) {
+      alert('You do not have permission to access this page.');
+      return;
+    }
+
     // Check if the page is implemented
     const implementedPages = [
       '/admin',
@@ -107,6 +146,7 @@ export default function AdminDashboard() {
 
         {/* Key Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          {canAccessPath('/admin/media-sufficiency/game-plans') && (
           <div 
             className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-200"
             onClick={() => handleNavigate('/admin/media-sufficiency/game-plans')}
@@ -121,7 +161,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+          )}
           
+          {canAccessPath('/admin/media-sufficiency') && (
           <div 
             className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-200"
             onClick={() => handleNavigate('/admin/media-sufficiency')}
@@ -136,7 +178,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+          )}
           
+          {canAccessPath('/admin/users') && (
           <div 
             className="bg-white rounded-xl shadow-sm p-6 hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer border border-gray-200"
             onClick={() => handleNavigate('/admin/users')}
@@ -151,6 +195,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+          )}
 
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <div className="flex items-center justify-between">
@@ -168,12 +213,14 @@ export default function AdminDashboard() {
         </div>
 
         {/* Data Upload & Import */}
+        {canAccessAnyPath(['/admin/game-plans/upload', '/admin/reach-planning', '/admin/share-of-voice', '/admin/diminishing-returns']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiUploadCloud className="mr-3" style={{color: '#ECA400'}} />
             Data Upload & Import
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {canAccessPath('/admin/game-plans/upload') && (
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#ECA400'}}>
@@ -190,6 +237,7 @@ export default function AdminDashboard() {
                 Upload Game Plans
               </button>
             </div>
+            )}
 
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
@@ -243,14 +291,17 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Content Management */}
+        {canAccessAnyPath(['/admin/media-sufficiency/game-plans', '/admin/users', '/admin/governance']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiTarget className="mr-3" style={{color: '#785589'}} />
             Content Management
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {canAccessPath('/admin/media-sufficiency/game-plans') && (
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#785589'}}>
@@ -267,7 +318,9 @@ export default function AdminDashboard() {
                 Manage Plans
               </button>
             </div>
+            )}
 
+            {canAccessPath('/admin/users') && (
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#A04668'}}>
@@ -284,7 +337,9 @@ export default function AdminDashboard() {
                 Manage Users
               </button>
             </div>
+            )}
 
+            {canAccessPath('/admin/governance') && (
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#D3BCCC'}}>
@@ -301,10 +356,13 @@ export default function AdminDashboard() {
                 Review Entities
               </button>
             </div>
+            )}
           </div>
         </div>
+        )}
 
         {/* Configuration Management */}
+        {canAccessAnyPath(['/admin/countries', '/admin/categories', '/admin/ranges', '/admin/campaigns', '/admin/financial-cycles']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiGlobe className="mr-3" style={{color: '#E8D7F1'}} />
@@ -380,8 +438,10 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        )}
 
         {/* System Management */}
+        {canAccessAnyPath(['/admin/backups', '/admin/campaigns']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiHardDrive className="mr-3" style={{color: '#2E294E'}} />
@@ -423,6 +483,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">

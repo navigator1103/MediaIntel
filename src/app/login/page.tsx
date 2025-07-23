@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { trackLogin } from '@/lib/gtag';
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,10 +15,18 @@ export default function Login() {
   
   // Handle login form submission
   const handleLogin = async (type: 'user' | 'admin') => {
-    console.log('=== LOGIN ATTEMPT ===');
+    console.log('=== LOGIN ATTEMPT START ===');
     console.log('Login type clicked:', type);
     console.log('Email:', email);
     console.log('Password length:', password.length);
+    console.log('Current loading state:', isLoading);
+    
+    // Basic validation
+    if (!email || !password) {
+      console.log('Validation failed: missing email or password');
+      setError('Please enter both email and password');
+      return;
+    }
     
     setIsLoading(true);
     setError(''); // Clear any previous errors
@@ -57,12 +66,16 @@ export default function Login() {
       // Check for demo accounts and validate permissions
       let demoUser = null;
       
+      console.log('Checking for demo accounts...');
+      console.log('Email match check:', email === 'admin@example.com' || email.toLowerCase() === 'admin');
+      console.log('Password match check:', password === 'admin');
+      
       if ((email === 'admin@example.com' && password === 'admin') || (email.toLowerCase() === 'admin' && password === 'admin')) {
         demoUser = {
           id: 1,
           email: 'admin@example.com',
-          name: 'Admin User',
-          role: 'admin'
+          name: 'Super Admin User',
+          role: 'super_admin'
         };
       } else if ((email === 'user@example.com' && password === 'user') || (email.toLowerCase() === 'user' && password === 'user')) {
         demoUser = {
@@ -75,11 +88,11 @@ export default function Login() {
       
       if (demoUser) {
         console.log('Demo account detected:', demoUser.email);
-        console.log('Login type requested:', loginType);
+        console.log('Login type requested:', type);
         console.log('User role:', demoUser.role);
         
         // Validate permissions - check if user has required role for the requested login type
-        if (type === 'admin' && demoUser.role !== 'admin') {
+        if (type === 'admin' && !['super_admin', 'admin'].includes(demoUser.role)) {
           console.log('=== ADMIN ACCESS DENIED FOR DEMO ACCOUNT ===');
           console.log('Requested: admin, User role:', demoUser.role);
           console.log('Setting error state for demo account');
@@ -88,8 +101,21 @@ export default function Login() {
           return;
         }
         
+        // Prevent admin users from accessing user dashboard
+        if (type === 'user' && ['super_admin', 'admin'].includes(demoUser.role)) {
+          console.log('=== USER ACCESS DENIED FOR ADMIN DEMO ACCOUNT ===');
+          console.log('Requested: user dashboard, User role:', demoUser.role);
+          console.log('Admin users cannot access user dashboard');
+          setError('Admin users cannot access the user dashboard. Please use "Login as Admin" instead.');
+          setIsLoading(false);
+          return;
+        }
+        
         console.log('=== DEMO ACCOUNT PERMISSION CHECK PASSED ===');
         console.log('Using direct client-side authentication for demo account');
+        
+        // Track successful login
+        trackLogin(type);
         
         // Display success message
         const successMessage = document.createElement('div');
@@ -106,7 +132,7 @@ export default function Login() {
         document.body.appendChild(successMessage);
         
         // Store authentication data
-        const token = demoUser.role === 'admin' ? 'mock-admin-token' : 'mock-user-token';
+        const token = ['super_admin', 'admin'].includes(demoUser.role) ? 'mock-admin-token' : 'mock-user-token';
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(demoUser));
         localStorage.setItem('loginType', type || 'user');
@@ -114,7 +140,7 @@ export default function Login() {
         
         // Redirect based on login type and permissions
         setTimeout(() => {
-          if (type === 'admin' && demoUser.role === 'admin') {
+          if (type === 'admin' && ['super_admin', 'admin'].includes(demoUser.role)) {
             console.log('Redirecting to admin dashboard');
             const adminLink = document.createElement('a');
             adminLink.href = '/admin';
@@ -188,11 +214,11 @@ export default function Login() {
         if (data.user) {
           console.log('=== LOGIN SUCCESS ===');
           console.log('User data received:', data.user);
-          console.log('Login type from state:', loginType);
+          console.log('Login type from state:', type);
           console.log('User role from API:', data.user.role);
           
-          // CRITICAL: Double-check admin permissions on client side as additional security layer
-          if (type === 'admin' && data.user.role !== 'admin') {
+          // CRITICAL: Double-check permissions on client side as additional security layer
+          if (type === 'admin' && !['super_admin', 'admin'].includes(data.user.role)) {
             console.log('=== CLIENT-SIDE ADMIN ACCESS DENIED ===');
             console.log('Requested: admin, User role:', data.user.role);
             console.log('This should have been caught by the server, but blocking here as fallback');
@@ -208,7 +234,27 @@ export default function Login() {
             return;
           }
           
+          // CRITICAL: Prevent admin users from accessing user dashboard
+          if (type === 'user' && ['super_admin', 'admin'].includes(data.user.role)) {
+            console.log('=== CLIENT-SIDE USER ACCESS DENIED FOR ADMIN ===');
+            console.log('Requested: user dashboard, User role:', data.user.role);
+            console.log('Admin users cannot access user dashboard');
+            setError('Admin users cannot access the user dashboard. Please use "Login as Admin" instead.');
+            setIsLoading(false);
+            
+            // Clear any stored authentication data to prevent confusion
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('loginType');
+            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            
+            return;
+          }
+          
           console.log('=== PERMISSION CHECK PASSED ===');
+          
+          // Track successful login
+          trackLogin(type);
           
           // Store user data in localStorage
           localStorage.setItem('token', data.token);
@@ -237,7 +283,9 @@ export default function Login() {
         setIsLoading(false);
       }
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error('=== CRITICAL LOGIN ERROR ===');
+      console.error('Error details:', err);
+      console.error('Error stack:', err.stack);
       setError(err.message || 'Failed to login. Please try again.');
       setIsLoading(false);
     }

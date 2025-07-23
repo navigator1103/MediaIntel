@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
+import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
-
-// Simple hash function using Node.js built-in crypto module
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 // GET /api/admin/users - Get all users
 export async function GET() {
@@ -43,6 +38,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
+    console.log('Creating user with data:', JSON.stringify(data, null, 2));
     
     // Validate required fields
     if (!data.email || !data.password) {
@@ -64,8 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Hash the password
-    const hashedPassword = hashPassword(data.password);
+    // Hash the password using bcrypt (same as login)
+    const hashedPassword = await hash(data.password, 12);
     
     // Create the user
     const newUser = await prisma.user.create({
@@ -77,6 +73,7 @@ export async function POST(request: NextRequest) {
         accessibleCountries: data.accessibleCountries,
         accessibleBrands: data.accessibleBrands,
         accessiblePages: data.accessiblePages,
+        emailVerified: true, // Auto-verify admin-created users
       },
       select: {
         id: true,
@@ -95,7 +92,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Failed to create user', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

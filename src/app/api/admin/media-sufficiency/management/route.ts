@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getUserFromRequest, createCountryWhereClause } from '@/lib/auth/countryAccess';
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     console.log('[2025-07-22T18:28:59.622Z] Media Sufficiency Management API route loaded');
     
+    // Get user access information for country filtering
+    const userAccess = await getUserFromRequest(request);
+    console.log('Media Sufficiency Management API - User access:', userAccess);
+    
+    // Build where clause with country filtering
+    let whereClause: any = {};
+    if (userAccess) {
+      const countryFilter = createCountryWhereClause(userAccess);
+      Object.assign(whereClause, countryFilter);
+      console.log('Media Sufficiency Management API - Applied country filter:', countryFilter);
+    }
+    
     // Get all media sufficiency records with related data
     const mediaSufficiencyData = await prisma.mediaSufficiency.findMany({
+      where: whereClause,
       orderBy: {
         createdAt: 'desc'
       }
@@ -82,13 +96,26 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`Deleting media sufficiency records with IDs: ${ids.join(', ')}`);
 
-    // Delete the records
-    const deleteResult = await prisma.mediaSufficiency.deleteMany({
-      where: {
-        id: {
-          in: ids
-        }
+    // Get user access information for country filtering
+    const userAccess = await getUserFromRequest(request);
+    console.log('Media Sufficiency DELETE API - User access:', userAccess);
+    
+    // Build where clause with country filtering AND id filtering
+    let whereClause: any = {
+      id: {
+        in: ids
       }
+    };
+    
+    if (userAccess) {
+      const countryFilter = createCountryWhereClause(userAccess);
+      Object.assign(whereClause, countryFilter);
+      console.log('Media Sufficiency DELETE API - Applied country filter:', countryFilter);
+    }
+
+    // Delete the records (only those the user has access to)
+    const deleteResult = await prisma.mediaSufficiency.deleteMany({
+      where: whereClause
     });
 
     console.log(`Successfully deleted ${deleteResult.count} media sufficiency records`);

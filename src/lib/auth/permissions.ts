@@ -15,47 +15,62 @@ export class PermissionChecker {
     this.user = user;
   }
 
-  // Check if user is admin
+  // Check if user is super admin (full access to everything)
+  isSuperAdmin(): boolean {
+    return this.user.role === 'super_admin';
+  }
+
+  // Check if user is admin (restricted access)
   isAdmin(): boolean {
     return this.user.role === 'admin';
   }
 
+  // Check if user has any admin privileges (super_admin or admin)
+  hasAdminPrivileges(): boolean {
+    return this.isSuperAdmin() || this.isAdmin();
+  }
+
   // Check if user has access to a specific page by path
   canAccessPath(path: string): boolean {
-    // Admins have access to everything
-    if (this.isAdmin()) return true;
+    // Super admins have access to everything
+    if (this.isSuperAdmin()) return true;
 
     // Get page config
     const page = getPageByPath(path);
     if (!page) return true; // If page is not in config, allow access (for now)
 
-    // Check if page requires admin
-    if (page.requiresAdmin && !this.isAdmin()) return false;
+    // Check if page requires admin privileges
+    if (page.requiresAdmin && !this.hasAdminPrivileges()) return false;
 
-    // Check if user has specific page access
+    // For admins, check if they have specific page access
+    if (this.isAdmin()) {
+      return userHasPageAccess(this.user.accessiblePages, page.id);
+    }
+
+    // Regular users check their page access
     return userHasPageAccess(this.user.accessiblePages, page.id);
   }
 
   // Check if user has access to a specific page by ID
   canAccessPage(pageId: string): boolean {
-    // Admins have access to everything
-    if (this.isAdmin()) return true;
+    // Super admins have access to everything
+    if (this.isSuperAdmin()) return true;
 
     return userHasPageAccess(this.user.accessiblePages, pageId);
   }
 
   // Check if user has access to a specific country
   canAccessCountry(countryId: string): boolean {
-    // Admins have access to everything
-    if (this.isAdmin()) return true;
+    // Super admins have access to everything
+    if (this.isSuperAdmin()) return true;
 
     return userHasCountryAccess(this.user.accessibleCountries, countryId);
   }
 
   // Get list of accessible page IDs
   getAccessiblePageIds(): string[] {
-    if (this.isAdmin()) {
-      // Return all page IDs for admin
+    if (this.isSuperAdmin()) {
+      // Return all page IDs for super admin
       const { PAGES } = require('@/lib/config/pages');
       return PAGES.map((page: any) => page.id);
     }
@@ -66,7 +81,7 @@ export class PermissionChecker {
 
   // Get list of accessible country IDs
   getAccessibleCountryIds(): string[] {
-    if (this.isAdmin()) return []; // Empty array means all countries for admin
+    if (this.isSuperAdmin()) return []; // Empty array means all countries for super admin
 
     if (!this.user.accessibleCountries) return []; // Empty array means all countries if no restrictions
     return this.user.accessibleCountries.split(',').map(id => id.trim());

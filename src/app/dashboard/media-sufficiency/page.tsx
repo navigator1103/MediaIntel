@@ -232,7 +232,9 @@ export default function MediaSufficiencyDashboard() {
           const gamePlansResponse = await axios.get('/api/admin/media-sufficiency/game-plans');
           
           // Use the actual start and end date fields from the game plans table
-          const gamePlansWithDates = (gamePlansResponse.data || []).map((plan: GamePlan) => {
+          // Handle the API response structure which returns an object with gamePlans property
+          const gamePlansData = gamePlansResponse.data.gamePlans || gamePlansResponse.data || [];
+          const gamePlansWithDates = gamePlansData.map((plan: GamePlan) => {
             const year = parseInt(selectedYear);
             
             // Check if plan already has valid start and end dates

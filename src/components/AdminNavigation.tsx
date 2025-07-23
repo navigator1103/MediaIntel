@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { handleLogout } from '@/lib/auth';
 import { FiChevronDown, FiChevronRight, FiUploadCloud, FiTarget, FiGlobe, FiHardDrive } from 'react-icons/fi';
+import { createPermissionChecker } from '@/lib/auth/permissions';
+import { getPageByPath } from '@/lib/config/pages';
 
 interface NavItem {
   name: string;
@@ -23,12 +25,33 @@ const AdminNavigation = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
+  const [userPermissions, setUserPermissions] = useState<any>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'data-upload': true,
     'content-management': true,
     'configuration': true,
     'system-management': true
   });
+
+  // Initialize user permissions
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        const permissionChecker = createPermissionChecker(userData);
+        setUserPermissions(permissionChecker);
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+      }
+    }
+  }, []);
+
+  // Check if user can access a specific path
+  const canAccessPath = (path: string): boolean => {
+    if (!userPermissions) return true; // Default to true while permissions are loading
+    return userPermissions.canAccessPath(path);
+  };
   
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(path + '/');
@@ -234,6 +257,7 @@ const AdminNavigation = () => {
       <div className="flex-1 overflow-y-auto py-4 px-3">
         <nav className="space-y-1">
           {/* Dashboard - standalone item */}
+          {canAccessPath(dashboardItem.href) && (
           <a
             href={dashboardItem.href}
             onClick={(e) => {
@@ -251,12 +275,21 @@ const AdminNavigation = () => {
               {dashboardItem.name}
             </span>
           </a>
+          )}
 
           {/* Navigation Groups */}
           {navigationGroups.map((group, groupIndex) => {
             const groupKey = group.name.toLowerCase().replace(/\s+/g, '-').replace(/&/g, '');
             const isGroupExpanded = expandedGroups[groupKey];
             const hasActiveItem = group.items.some(item => isActive(item.href));
+
+            // Filter group items based on user permissions
+            const accessibleItems = group.items.filter(item => canAccessPath(item.href));
+            
+            // Don't show the group if no items are accessible
+            if (accessibleItems.length === 0) {
+              return null;
+            }
 
             return (
               <div key={groupIndex} className="space-y-1">
@@ -286,7 +319,7 @@ const AdminNavigation = () => {
                 {/* Group Items */}
                 {isGroupExpanded && expanded && (
                   <div className="ml-3 space-y-1 border-l-2 border-gray-100 pl-3">
-                    {group.items.map((item, itemIndex) => {
+                    {accessibleItems.map((item, itemIndex) => {
                       const isImplemented = [
                         '/admin',
                         '/admin/users',
@@ -311,8 +344,10 @@ const AdminNavigation = () => {
                           href={item.href}
                           onClick={(e) => {
                             e.preventDefault();
-                            if (isImplemented) {
+                            if (isImplemented && canAccessPath(item.href)) {
                               router.push(item.href);
+                            } else if (!canAccessPath(item.href)) {
+                              alert(`You do not have permission to access ${item.name}.`);
                             } else {
                               alert(`The ${item.name} page is not yet implemented.`);
                             }

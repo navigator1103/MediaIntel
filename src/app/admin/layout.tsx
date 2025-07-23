@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import AdminNavigation from '@/components/AdminNavigation';
+import { createPermissionChecker } from '@/lib/auth/permissions';
 
 export default function AdminLayout({
   children,
@@ -11,6 +12,8 @@ export default function AdminLayout({
 }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkAdminAuth = () => {
@@ -26,9 +29,10 @@ export default function AdminLayout({
         const userData = JSON.parse(user);
         console.log('User role:', userData.role);
         
-        if (userData.role !== 'admin') {
-          console.log('User is not admin, redirecting to user dashboard');
-          router.push('/dashboard/media-sufficiency');  // Direct redirect, don't go back to root
+        // Check if user has admin privileges (super_admin or admin)
+        if (!['super_admin', 'admin'].includes(userData.role)) {
+          console.log('User does not have admin privileges, redirecting to user dashboard');
+          router.push('/dashboard/media-sufficiency');
           return false;
         }
         return true;
@@ -42,7 +46,7 @@ export default function AdminLayout({
     if (checkAdminAuth()) {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, pathname]);
 
   if (loading) {
     return (

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserFromRequest, createCountryWhereClause } from '@/lib/auth/countryAccess';
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,12 +8,23 @@ export async function GET(request: NextRequest) {
     const lastUpdateId = searchParams.get('lastUpdateId');
     const showAll = searchParams.get('showAll') === 'true';
     
+    // Get user access information for country filtering
+    const userAccess = await getUserFromRequest(request);
+    console.log('Game Plans API - User access:', userAccess);
+    
     // If no specific lastUpdateId is provided, get the most recent one
     let whereClause: any = {};
     
+    // Add country filtering based on user access
+    if (userAccess) {
+      const countryFilter = createCountryWhereClause(userAccess);
+      Object.assign(whereClause, countryFilter);
+      console.log('Game Plans API - Applied country filter:', countryFilter);
+    }
+    
     if (showAll) {
-      // Show all data regardless of lastUpdateId
-      whereClause = {};
+      // Show all data regardless of lastUpdateId, but keep country filter
+      // Don't reset whereClause completely, just don't add lastUpdateId filter
     } else if (lastUpdateId) {
       whereClause.last_update_id = parseInt(lastUpdateId);
     } else {

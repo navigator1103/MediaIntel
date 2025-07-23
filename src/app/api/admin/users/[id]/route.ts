@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import crypto from 'crypto';
+import { hash } from 'bcrypt';
 
 const prisma = new PrismaClient();
-
-// Simple hash function using Node.js built-in crypto module
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
 
 // GET /api/admin/users/[id] - Get a specific user
 export async function GET(
@@ -97,7 +92,7 @@ export async function PUT(
     
     // Only update password if provided
     if (data.password) {
-      updateData.password = hashPassword(data.password);
+      updateData.password = await hash(data.password, 12);
     }
     
     // Update the user

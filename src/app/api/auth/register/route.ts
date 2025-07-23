@@ -12,10 +12,33 @@ export async function POST(request: NextRequest) {
     console.log('Request body:', { ...body, password: '[REDACTED]' });
     
     // Validate required fields
-    if (!body.email || !body.password || !body.name) {
+    if (!body.email || !body.password || !body.name || !body.countryId) {
       console.log('Validation failed: missing required fields');
       return NextResponse.json(
-        { error: 'Email, password, and name are required' },
+        { error: 'Email, password, name, and country are required' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate countryId is a valid number
+    const countryId = parseInt(body.countryId);
+    if (isNaN(countryId)) {
+      console.log('Validation failed: invalid country ID');
+      return NextResponse.json(
+        { error: 'Invalid country selection' },
+        { status: 400 }
+      );
+    }
+    
+    // Verify country exists
+    const country = await prisma.country.findUnique({
+      where: { id: countryId }
+    });
+    
+    if (!country) {
+      console.log('Validation failed: country not found');
+      return NextResponse.json(
+        { error: 'Selected country does not exist' },
         { status: 400 }
       );
     }
@@ -53,14 +76,20 @@ export async function POST(request: NextRequest) {
     
     console.log('Creating user in database...');
     // Create new user with email verification
+    // All new signups get admin role with specific page and country access
+    const restrictedAdminPages = 'media-sufficiency-upload,media-sufficiency-enhanced-upload,media-sufficiency-validate,media-sufficiency-review,media-sufficiency-game-plans,game-plans-upload';
+    
     const user = await prisma.user.create({
       data: {
         email: body.email.toLowerCase(),
         name: body.name,
         password: hashedPassword,
-        role: body.role || 'user',
+        role: 'admin', // All new signups get admin role
         emailVerified: false,
-        verificationToken
+        verificationToken,
+        accessibleCountries: countryId.toString(), // Single country access
+        accessiblePages: restrictedAdminPages, // Specific page access
+        accessibleBrands: null // No brand restrictions
       }
     });
     

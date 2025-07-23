@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Quicksand } from "next/font/google";
 import "./globals.css";
 import LayoutClientWrapper from "./LayoutClientWrapper";
+import Script from "next/script";
 
 const quicksand = Quicksand({
   variable: "--font-quicksand",
@@ -21,6 +22,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-G4P0N953RF"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-G4P0N953RF');
+          `}
+        </Script>
+      </head>
       <body
         className={`${quicksand.variable} font-quicksand antialiased bg-gray-50`}
       >

@@ -1,22 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { trackSignup } from '@/lib/gtag';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    countryId: ''
   });
+  
+  const [countries, setCountries] = useState<any[]>([]);
+  const [loadingCountries, setLoadingCountries] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Load countries for dropdown
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch('/api/admin/countries');
+        if (response.ok) {
+          const data = await response.json();
+          setCountries(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch countries:', error);
+      } finally {
+        setLoadingCountries(false);
+      }
+    };
+    
+    fetchCountries();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -38,6 +62,13 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
+    
+    // Validate country selection
+    if (!formData.countryId) {
+      setError('Please select your country');
+      setLoading(false);
+      return;
+    }
 
     try {
       console.log('Making API request to /api/auth/register');
@@ -49,7 +80,8 @@ export default function RegisterPage() {
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          countryId: parseInt(formData.countryId)
         }),
       });
 
@@ -62,6 +94,10 @@ export default function RegisterPage() {
       }
 
       console.log('Registration successful');
+      
+      // Track successful signup
+      trackSignup();
+      
       setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err);
@@ -192,6 +228,31 @@ export default function RegisterPage() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
               />
+            </div>
+            
+            <div>
+              <label htmlFor="countryId" className="block text-sm font-medium text-gray-700 mb-1">
+                Country
+              </label>
+              <select
+                id="countryId"
+                name="countryId"
+                required
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                value={formData.countryId}
+                onChange={handleChange}
+                disabled={loadingCountries}
+              >
+                <option value="">Select your country</option>
+                {countries.map((country) => (
+                  <option key={country.id} value={country.id}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+              {loadingCountries && (
+                <p className="text-xs text-gray-500 mt-1">Loading countries...</p>
+              )}
             </div>
           </div>
 

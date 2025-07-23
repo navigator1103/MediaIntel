@@ -19,15 +19,18 @@ export async function POST(request: Request) {
 
     // Check for demo accounts first (maintain backward compatibility)
     if (email === 'admin@example.com' && password === 'admin') {
-      const adminUser = {
+      const superAdminUser = {
         id: 1,
         email: 'admin@example.com',
-        name: 'Admin User',
-        role: 'admin',
+        name: 'Super Admin User',
+        role: 'super_admin',
+        accessibleCountries: null, // Full access
+        accessibleBrands: null,    // Full access
+        accessiblePages: null      // Full access
       };
       
       // Validate admin permissions on server side
-      if (loginType === 'admin' && adminUser.role !== 'admin') {
+      if (loginType === 'admin' && !['super_admin', 'admin'].includes(superAdminUser.role)) {
         return NextResponse.json(
           { error: 'You do not have admin privileges. Please login as a regular user.' },
           { status: 403 }
@@ -35,8 +38,31 @@ export async function POST(request: Request) {
       }
       
       return NextResponse.json({
-        token: 'demo-admin-token',
-        user: adminUser
+        token: 'demo-super-admin-token',
+        user: superAdminUser
+      });
+    } else if (email === 'restricted-admin@example.com' && password === 'admin') {
+      const restrictedAdminUser = {
+        id: 3,
+        email: 'restricted-admin@example.com',
+        name: 'Restricted Admin User',
+        role: 'admin',
+        accessibleCountries: '4,33', // Only access to Australia (4) and India (33)
+        accessibleBrands: null,     // Full brand access
+        accessiblePages: 'game-plans,reach-planning,dashboard' // Limited page access
+      };
+      
+      // Validate admin permissions on server side
+      if (loginType === 'admin' && !['super_admin', 'admin'].includes(restrictedAdminUser.role)) {
+        return NextResponse.json(
+          { error: 'You do not have admin privileges. Please login as a regular user.' },
+          { status: 403 }
+        );
+      }
+      
+      return NextResponse.json({
+        token: 'demo-restricted-admin-token',
+        user: restrictedAdminUser
       });
     } else if (email === 'user@example.com' && password === 'user') {
       const regularUser = {
@@ -93,7 +119,7 @@ export async function POST(request: Request) {
     }
 
     // Validate admin permissions for real users
-    if (loginType === 'admin' && user.role !== 'admin') {
+    if (loginType === 'admin' && !['super_admin', 'admin'].includes(user.role)) {
       console.log('Admin access denied for user:', email, 'Role:', user.role);
       return NextResponse.json(
         { error: 'You do not have admin privileges. Please login as a regular user.' },
@@ -121,7 +147,10 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
+        accessibleCountries: user.accessibleCountries,
+        accessibleBrands: user.accessibleBrands,
+        accessiblePages: user.accessiblePages
       }
     });
 
