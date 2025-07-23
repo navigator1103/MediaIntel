@@ -522,7 +522,7 @@ const DataPreviewGrid: React.FC<DataPreviewGridProps> = ({
             Rows per page:
           </span>
           <select
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1984c5] focus:border-[#1984c5] transition-all duration-200"
+            className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
             value={rowsPerPage}
             onChange={handleRowsPerPageChange}
           >

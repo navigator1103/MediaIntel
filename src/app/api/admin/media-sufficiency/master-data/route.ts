@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getUserFromRequest, filterCountriesByAccess } from '@/lib/auth/countryAccess';
 
 const prisma = new PrismaClient();
 
@@ -12,9 +13,29 @@ export async function GET(request: NextRequest) {
   try {
     console.log('Master data API endpoint called - fetching from database');
     
-    // Fetch all master data from the database
+    // Get user access information
+    const userAccess = await getUserFromRequest(request);
+    console.log('User access:', userAccess);
+    
+    // Fetch countries based on user access
+    let countries;
+    if (userAccess) {
+      countries = await filterCountriesByAccess(userAccess);
+      console.log(`Filtered countries for user (role: ${userAccess.role}): ${countries.length} countries`);
+    } else {
+      // If no user access info, fetch all countries (fallback)
+      countries = await prisma.country.findMany({
+        include: {
+          subRegion: true,
+          region: true,
+          cluster: true
+        }
+      });
+      console.log('No user access info - fetching all countries:', countries.length);
+    }
+    
+    // Fetch other master data (not filtered by user)
     const [
-      countries,
       subRegions,
       categories,
       ranges,
@@ -24,13 +45,6 @@ export async function GET(request: NextRequest) {
       campaigns,
       pmTypes
     ] = await Promise.all([
-      prisma.country.findMany({
-        include: {
-          subRegion: true,
-          region: true,
-          cluster: true
-        }
-      }),
       prisma.subRegion.findMany(),
       prisma.category.findMany(),
       prisma.range.findMany(),

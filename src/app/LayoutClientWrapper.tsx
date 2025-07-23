@@ -7,8 +7,9 @@ import DebugConsole from '@/components/DebugConsole';
 export default function LayoutClientWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  // Don't show header on login page
-  const showHeader = pathname !== '/login';
+  // Don't show header on auth pages
+  const authPages = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+  const showHeader = !authPages.includes(pathname);
   
   return (
     <>

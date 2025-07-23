@@ -61,7 +61,10 @@ model Country {
   shareOfVoice ShareOfVoice[]
   tvTargetAudiences TvTargetAudience[]
   tvDiminishingReturns TvDiminishingReturns[]
+  digitalTargetAudiences DigitalTargetAudience[]
   digitalDiminishingReturns DigitalDiminishingReturns[]
+  multimediaTargetAudiences MultimediaTargetAudience[]
+  multimediaDiminishingReturns MultimediaDiminishingReturns[]
 
   @@map("countries")
 }
@@ -201,7 +204,10 @@ model BusinessUnit {
   shareOfVoice ShareOfVoice[]
   tvTargetAudiences TvTargetAudience[]
   tvDiminishingReturns TvDiminishingReturns[]
+  digitalTargetAudiences DigitalTargetAudience[]
   digitalDiminishingReturns DigitalDiminishingReturns[]
+  multimediaTargetAudiences MultimediaTargetAudience[]
+  multimediaDiminishingReturns MultimediaDiminishingReturns[]
 
   @@map("business_units")
 }
@@ -396,6 +402,60 @@ model TvTargetAudience {
   @@map("tv_target_audiences")
 }
 
+model DigitalTargetAudience {
+  id                     Int      @id @default(autoincrement())
+  countryId              Int      @map("country_id")
+  businessUnitId         Int      @map("business_unit_id")
+  
+  // Target Demographics
+  gender                 String   // "F", "M", "BG"
+  minAge                 Int      @map("min_age")
+  maxAge                 Int      @map("max_age")
+  sel                    String?  // "ABC", etc.
+  finalTarget            String   @map("final_target") // "F 18-45 ABC", "M 25-45"
+  saturationPoint        Float    @map("saturation_point") // 77.7
+  saturationTrp          Int?     @map("saturation_trp") // TRP level where saturation occurs
+  
+  // System Fields
+  uploadedBy             String?  @map("uploaded_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  country                Country     @relation(fields: [countryId], references: [id])
+  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  
+  @@unique([countryId, businessUnitId, finalTarget])
+  @@map("digital_target_audiences")
+}
+
+model MultimediaTargetAudience {
+  id                     Int      @id @default(autoincrement())
+  countryId              Int      @map("country_id")
+  businessUnitId         Int      @map("business_unit_id")
+  
+  // Target Demographics
+  gender                 String   // "F", "M", "BG"
+  minAge                 Int      @map("min_age")
+  maxAge                 Int      @map("max_age")
+  sel                    String?  // "ABC", etc.
+  finalTarget            String   @map("final_target") // "F 18-45 ABC", "M 25-45"
+  saturationPoint        Float    @map("saturation_point") // 77.7
+  saturationTrp          Int?     @map("saturation_trp") // TRP level where saturation occurs
+  
+  // System Fields
+  uploadedBy             String?  @map("uploaded_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  country                Country     @relation(fields: [countryId], references: [id])
+  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  
+  @@unique([countryId, businessUnitId, finalTarget])
+  @@map("multimedia_target_audiences")
+}
+
 model TvDiminishingReturns {
   id                     Int      @id @default(autoincrement())
   countryId              Int      @map("country_id")
@@ -430,21 +490,18 @@ model DigitalDiminishingReturns {
   countryId              Int      @map("country_id")
   businessUnitId         Int      @map("business_unit_id")
   
-  // Target Demographics  
-  targetAudience         String   @map("target_audience") // "F 18-45", "M 20-60", "BG 18-45"
-  gender                 String   // "F", "M", "BG"
-  minAge                 Int      @map("min_age")
-  maxAge                 Int      @map("max_age")
-  saturationPoint        Float    @map("saturation_point") // 0.7768
+  // TRP Level
+  trp                    Int      // 100, 150, 200, etc.
   
-  // Digital Specific Metrics
-  budget                 Float    // 500000, 1000000, etc.
-  frequency              Float    // 1.5, 1.7, 2.0, etc.
-  reach                  Float    // 0.35, 0.4035, etc. (as percentage 35.0, 40.35)
+  // Reach values for up to 5 audiences (stored as JSON or separate columns)
+  audience1Reach         Float?   @map("audience1_reach")
+  audience2Reach         Float?   @map("audience2_reach") 
+  audience3Reach         Float?   @map("audience3_reach")
+  audience4Reach         Float?   @map("audience4_reach")
+  audience5Reach         Float?   @map("audience5_reach")
   
   // System Fields
   uploadedBy             String?  @map("uploaded_by")
-  uploadSession          String?  @map("upload_session")
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
   
@@ -452,7 +509,36 @@ model DigitalDiminishingReturns {
   country                Country     @relation(fields: [countryId], references: [id])
   businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
   
-  // Unique constraint for curve points
-  @@unique([countryId, businessUnitId, targetAudience, budget])
+  // Unique constraint for TRP per country/business unit
+  @@unique([countryId, businessUnitId, trp])
   @@map("digital_diminishing_returns")
+}
+
+model MultimediaDiminishingReturns {
+  id                     Int      @id @default(autoincrement())
+  countryId              Int      @map("country_id")
+  businessUnitId         Int      @map("business_unit_id")
+  
+  // TRP Level
+  trp                    Int      // 100, 150, 200, etc.
+  
+  // Reach values for up to 5 audiences (stored as JSON or separate columns)
+  audience1Reach         Float?   @map("audience1_reach")
+  audience2Reach         Float?   @map("audience2_reach") 
+  audience3Reach         Float?   @map("audience3_reach")
+  audience4Reach         Float?   @map("audience4_reach")
+  audience5Reach         Float?   @map("audience5_reach")
+  
+  // System Fields
+  uploadedBy             String?  @map("uploaded_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  country                Country     @relation(fields: [countryId], references: [id])
+  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  
+  // Unique constraint for TRP per country/business unit
+  @@unique([countryId, businessUnitId, trp])
+  @@map("multimedia_diminishing_returns")
 }

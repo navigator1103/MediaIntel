@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiSearch, FiRefreshCw, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi';
+import { FiSearch, FiRefreshCw, FiChevronLeft, FiChevronRight, FiTrash2, FiDownload } from 'react-icons/fi';
+import { createPermissionChecker } from '@/lib/auth/permissions';
 
 export default function MediaSufficiencyManagement() {
   const router = useRouter();
@@ -18,13 +19,34 @@ export default function MediaSufficiencyManagement() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [userPermissions, setUserPermissions] = useState<any>(null);
   
+  // Initialize user permissions
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        const permissionChecker = createPermissionChecker(userData);
+        setUserPermissions(permissionChecker);
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+      }
+    }
+  }, []);
+
   // Load media sufficiency data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/admin/media-sufficiency/management');
+        const token = localStorage.getItem('token');
+        const headers: any = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch('/api/admin/media-sufficiency/management', { headers });
         
         if (!response.ok) {
           throw new Error(`Error fetching media sufficiency data: ${response.status}`);
@@ -107,11 +129,17 @@ export default function MediaSufficiencyManagement() {
     
     setDeleting(true);
     try {
+      const token = localStorage.getItem('token');
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/admin/media-sufficiency/management', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ ids: Array.from(selectedRows) }),
       });
       
@@ -139,6 +167,73 @@ export default function MediaSufficiencyManagement() {
     } finally {
       setDeleting(false);
     }
+  };
+  
+  // Handle CSV download
+  const handleDownloadCSV = () => {
+    if (selectedRows.size === 0) {
+      alert('Please select rows to download');
+      return;
+    }
+    
+    // Get selected data
+    const selectedData = filteredData.filter(item => selectedRows.has(item.id));
+    
+    // Convert to CSV
+    const headers = [
+      'ID', 'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
+      'TV Demo Gender', 'TV Demo Min Age', 'TV Demo Max Age', 'TV Target Size', 'TV R1+ (%)', 'TV R3+ (%)', 'TV Potential R1+',
+      'Digital Demo Gender', 'Digital Demo Min Age', 'Digital Demo Max Age', 'Digital Target Size', 'Digital R1+ (%)', 'Digital Potential R1+',
+      'Combined Reach (%)', 'Combined Potential (%)', 'CPP 2024', 'CPP 2025', 'CPP 2026', 'Currency', 'Created At'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...selectedData.map(item => [
+        item.id,
+        item.lastUpdate || '',
+        item.subRegion || '',
+        item.country || '',
+        item.bu || '',
+        item.category || '',
+        item.range || '',
+        item.campaign || '',
+        item.tvDemoGender || '',
+        item.tvDemoMinAge || '',
+        item.tvDemoMaxAge || '',
+        item.tvTargetSize || '',
+        item.tvPlannedR1Plus || '',
+        item.tvPlannedR3Plus || '',
+        item.tvPotentialR1Plus || '',
+        item.digitalDemoGender || '',
+        item.digitalDemoMinAge || '',
+        item.digitalDemoMaxAge || '',
+        item.digitalTargetSizeAbs || '',
+        item.digitalPlannedR1Plus || '',
+        item.digitalPotentialR1Plus || '',
+        item.plannedCombinedReach || '',
+        item.combinedPotentialReach || '',
+        item.cpp2024 || '',
+        item.cpp2025 || '',
+        item.cpp2026 || '',
+        item.reportedCurrency || '',
+        new Date(item.createdAt).toLocaleString()
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `media_sufficiency_data_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clear selection after download
+    setSelectedRows(new Set());
   };
   
   // Pagination handlers
@@ -178,15 +273,27 @@ export default function MediaSufficiencyManagement() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Media Sufficiency Management</h1>
         <div className="flex items-center space-x-4">
-          {selectedRows.size > 0 && (
-            <button 
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-red-400 transition-colors"
-            >
-              <FiTrash2 className="mr-2" />
-              {deleting ? 'Deleting...' : `Delete (${selectedRows.size})`}
-            </button>
+          {selectedRows.size > 0 && userPermissions && (
+            <>
+              {userPermissions.isSuperAdmin() ? (
+                <button 
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-red-400 transition-colors"
+                >
+                  <FiTrash2 className="mr-2" />
+                  {deleting ? 'Deleting...' : `Delete (${selectedRows.size})`}
+                </button>
+              ) : (
+                <button 
+                  onClick={handleDownloadCSV}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                >
+                  <FiDownload className="mr-2" />
+                  Download CSV ({selectedRows.size})
+                </button>
+              )}
+            </>
           )}
           <button 
             onClick={handleRefresh}

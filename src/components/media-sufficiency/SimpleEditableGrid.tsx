@@ -1,15 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FiEdit, FiCheck, FiX, FiSave } from 'react-icons/fi';
+import { FiEdit, FiCheck, FiX, FiSave, FiDownload } from 'react-icons/fi';
 
 interface SimpleEditableGridProps {
   data: any[];
   onSave?: (updatedData: any[]) => void;
   onDelete?: (deletedIds: number[]) => void;
+  userPermissions?: any;
 }
 
-const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, onDelete }) => {
+const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, onDelete, userPermissions }) => {
   const [gridData, setGridData] = useState<any[]>([]);
   const [editingCell, setEditingCell] = useState<{ rowId: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -74,6 +75,75 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
       setSelectedRows(gridData.map(item => item.id));
     }
     setSelectAll(!selectAll);
+  };
+  
+  // Handle CSV download
+  const handleDownloadCSV = () => {
+    if (selectedRows.length === 0) {
+      alert('Please select rows to download');
+      return;
+    }
+    
+    // Get selected data
+    const selectedData = gridData.filter(item => selectedRows.includes(item.id));
+    
+    // Convert to CSV
+    const headers = [
+      'ID', 'Campaign', 'Media Sub Type', 'Country', 'Category', 'PM Type', 'Start Date', 'End Date',
+      'Total Budget', 'Jan Budget', 'Feb Budget', 'Mar Budget', 'Apr Budget', 'May Budget', 'Jun Budget',
+      'Jul Budget', 'Aug Budget', 'Sep Budget', 'Oct Budget', 'Nov Budget', 'Dec Budget',
+      'Total TRPs', 'Total R1+', 'Total R3+', 'Total WOA', 'Total WOFF', 'Total Weeks', 'Weeks Off Air', 'Year'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...selectedData.map(item => [
+        item.id,
+        item.campaign?.name || '',
+        item.mediaSubType?.name || '',
+        item.country?.name || '',
+        item.category?.name || '',
+        item.pmType?.name || '',
+        item.startDate || '',
+        item.endDate || '',
+        item.totalBudget || 0,
+        item.janBudget || 0,
+        item.febBudget || 0,
+        item.marBudget || 0,
+        item.aprBudget || 0,
+        item.mayBudget || 0,
+        item.junBudget || 0,
+        item.julBudget || 0,
+        item.augBudget || 0,
+        item.sepBudget || 0,
+        item.octBudget || 0,
+        item.novBudget || 0,
+        item.decBudget || 0,
+        item.totalTrps || 0,
+        item.totalR1Plus || 0,
+        item.totalR3Plus || 0,
+        item.totalWoa || 0,
+        item.totalWoff || 0,
+        item.totalWeeks || 0,
+        item.weeksOffAir || 0,
+        item.year || new Date().getFullYear()
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `game_plans_data_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clear selection after download
+    setSelectedRows([]);
+    setSelectAll(false);
   };
   
   // Handle delete selected rows
@@ -215,13 +285,25 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
           </div>
         )}
         
-        {selectedRows.length > 0 && (
-          <button
-            onClick={handleDeleteSelected}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center whitespace-nowrap"
-          >
-            Delete Selected ({selectedRows.length})
-          </button>
+        {selectedRows.length > 0 && userPermissions && (
+          <>
+            {userPermissions.isSuperAdmin() ? (
+              <button
+                onClick={handleDeleteSelected}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center whitespace-nowrap"
+              >
+                Delete Selected ({selectedRows.length})
+              </button>
+            ) : (
+              <button
+                onClick={handleDownloadCSV}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center whitespace-nowrap"
+              >
+                <FiDownload className="mr-2" />
+                Download CSV ({selectedRows.length})
+              </button>
+            )}
+          </>
         )}
       </div>
       <table className="min-w-full divide-y divide-gray-200">

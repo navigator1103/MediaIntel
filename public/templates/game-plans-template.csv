@@ -1,7 +1,3 @@
-Year,Country,Sub Region,Category,Range,Campaign,Business Unit,Media Type,Media Subtype,PM Type,Burst,Start Date,End Date,Total Budget,Q1 Budget,Q2 Budget,Q3 Budget,Q4 Budget,Total TRPs,Total R1+,Total R3+,Total WOA,Weeks Off Air,NS vs WM,Playbook ID
-2025,India,INDIA,Hand Body,Soft,Campaign A,Nivea,Traditional,Paid TV,GR Only,1,2025-01-01,2025-03-31,1000000,500000,300000,100000,100000,800,75,65,12,4,NS,GL005
-2025,India,INDIA,Hand Body,Soft,Campaign B,Nivea,Digital,PM & FF,GR Only,1,2025-02-01,2025-05-31,800000,200000,400000,200000,0,,80,70,8,2,WM,EM019
-2025,India,INDIA,Hand Body,Soft,Campaign C,Nivea,Digital,Influencers Amplification,GR Only,2,2025-04-01,2025-06-30,600000,0,300000,300000,0,,70,60,6,1,NS,EM015
-2025,India,INDIA,Hand Body,Aloe,Campaign D,Nivea,Digital,Other Digital,GR Only,1,2025-06-01,2025-08-31,500000,0,0,250000,250000,,65,55,4,0,WM,EM035
-2025,India,INDIA,Face Care,Luminous 630,Campaign E,Nivea,Traditional,Paid TV,Non PM,1,2025-03-01,2025-05-31,750000,225000,375000,150000,0,600,70,60,10,3,NS,GL079
-2025,India,INDIA,Hand Body,Milk,Campaign F,Nivea,Digital,Influencers,Non PM,1,2025-07-01,2025-09-30,400000,0,0,200000,200000,,60,50,5,1,WM,GL080
+Category,Campaign,Range,Campaign Archetype,Media,Playbook ID,Burst,Media Subtype,Initial Date,End Date,Total Weeks,Total Budget,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Total WOA,Total WOFF,Total TRPs,Total R1+ (%),Total R3+ (%)
+Hand Body,Body Milk 5 in 1,Body Milk,Innovation,Digital,EM014,1,PM & FF,01-Oct-26,15-Dec-26,11,10,1,1,1,1,1,1,1,1,1,1,0,0,8,3,,56%,
+Hand Body,Body Milk 5 in 1,Body Milk,Base Business (Maintenance),Traditional,EM014,1,Open TV,15-Jan-26,30-Jan-26,2,15,2,1,1,1,1,1,1,1,1,2,1,2,1,1,600000,44%,56%

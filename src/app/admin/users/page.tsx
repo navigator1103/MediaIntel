@@ -35,6 +35,7 @@ export default function UserManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const router = useRouter();
 
   // Available pages for access control
@@ -45,6 +46,22 @@ export default function UserManagementPage() {
   ];
 
   useEffect(() => {
+    // Get current user from localStorage
+    const userStr = localStorage.getItem('user');
+    const tokenStr = localStorage.getItem('token');
+    console.log('User string from localStorage:', userStr);
+    console.log('Token string from localStorage:', tokenStr);
+    
+    if (userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        console.log('Parsed user data:', userData);
+        setCurrentUser(userData);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -97,19 +114,37 @@ export default function UserManagementPage() {
     }
     
     try {
+      // Get token from localStorage for authentication
+      const token = localStorage.getItem('token');
+      console.log('Token from localStorage:', token);
+      console.log('Current user:', currentUser);
+      
+      // Set token as cookie for the request
+      if (token) {
+        document.cookie = `token=${token}; path=/`;
+      }
+      
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies
       });
       
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        const errorData = await response.json();
+        console.log('Error response:', errorData);
+        throw new Error(errorData.error || 'Failed to delete user');
       }
       
       // Remove the deleted user from the state
       setUsers(users.filter(user => user.id !== userId));
     } catch (err) {
-      console.error(err);
-      alert('Failed to delete user');
+      console.error('Delete error:', err);
+      alert(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -330,7 +365,7 @@ export default function UserManagementPage() {
                           </svg>
                           Edit
                         </button>
-                        {!['super_admin', 'admin'].includes(user.role) && (
+                        {(user.role === 'user' || (user.role === 'admin' && currentUser?.role === 'super_admin')) && (
                           <button
                             onClick={() => handleDeleteUser(user.id)}
                             className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 font-medium rounded-md text-xs transition-colors duration-200"

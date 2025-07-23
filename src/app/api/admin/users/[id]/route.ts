@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
+import { getUserFromToken } from '@/lib/getUserFromToken';
 
 const prisma = new PrismaClient();
 
@@ -137,6 +138,20 @@ export async function DELETE(
       );
     }
     
+    // Get current user from token
+    const currentUser = getUserFromToken(request);
+    console.log('Current user from token:', currentUser);
+    console.log('Authorization header:', request.headers.get('authorization'));
+    console.log('Cookie token:', request.cookies.get('token')?.value);
+    
+    if (!currentUser) {
+      console.log('No current user found, returning unauthorized');
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -149,10 +164,18 @@ export async function DELETE(
       );
     }
     
-    // Prevent deleting admin users
-    if (existingUser.role === 'admin') {
+    // Prevent deleting admin users unless current user is super_admin
+    if (existingUser.role === 'admin' && currentUser.role !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Cannot delete admin users' },
+        { error: 'Only super admin can delete admin users' },
+        { status: 403 }
+      );
+    }
+    
+    // Prevent deleting super_admin users
+    if (existingUser.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Cannot delete super admin users' },
         { status: 403 }
       );
     }

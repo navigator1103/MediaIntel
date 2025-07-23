@@ -201,7 +201,7 @@ export default function CampaignsAdmin() {
               value={newCampaign.name}
               onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
               placeholder="e.g., Summer Launch 2024"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             />
           </div>
@@ -213,7 +213,7 @@ export default function CampaignsAdmin() {
             <select
               value={newCampaign.rangeId}
               onChange={(e) => setNewCampaign({ ...newCampaign, rangeId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             >
               <option value="">Select Range</option>
@@ -295,7 +295,7 @@ export default function CampaignsAdmin() {
                         <select
                           value={editingCampaign.rangeId || ''}
                           onChange={(e) => setEditingCampaign({ ...editingCampaign, rangeId: e.target.value ? parseInt(e.target.value) : null })}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="">None</option>
                           {ranges.map(range => (

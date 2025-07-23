@@ -212,7 +212,7 @@ export default function CountriesAdmin() {
               value={newCountry.name}
               onChange={(e) => setNewCountry({ ...newCountry, name: e.target.value })}
               placeholder="e.g., Singapore"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             />
           </div>
@@ -224,7 +224,7 @@ export default function CountriesAdmin() {
             <select
               value={newCountry.regionId}
               onChange={(e) => setNewCountry({ ...newCountry, regionId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             >
               <option value="">Select Region</option>
@@ -241,7 +241,7 @@ export default function CountriesAdmin() {
             <select
               value={newCountry.subRegionId}
               onChange={(e) => setNewCountry({ ...newCountry, subRegionId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             >
               <option value="">Select Sub Region</option>
@@ -258,7 +258,7 @@ export default function CountriesAdmin() {
             <select
               value={newCountry.clusterId}
               onChange={(e) => setNewCountry({ ...newCountry, clusterId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
               disabled={isCreating}
             >
               <option value="">Select Cluster</option>
@@ -343,7 +343,7 @@ export default function CountriesAdmin() {
                         <select
                           value={editingCountry.regionId || ''}
                           onChange={(e) => setEditingCountry({ ...editingCountry, regionId: e.target.value ? parseInt(e.target.value) : null })}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="">None</option>
                           {regionData.regions.map(region => (
@@ -359,7 +359,7 @@ export default function CountriesAdmin() {
                         <select
                           value={editingCountry.subRegionId || ''}
                           onChange={(e) => setEditingCountry({ ...editingCountry, subRegionId: e.target.value ? parseInt(e.target.value) : null })}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="">None</option>
                           {regionData.subRegions.map(subRegion => (
@@ -375,7 +375,7 @@ export default function CountriesAdmin() {
                         <select
                           value={editingCountry.clusterId || ''}
                           onChange={(e) => setEditingCountry({ ...editingCountry, clusterId: e.target.value ? parseInt(e.target.value) : null })}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                         >
                           <option value="">None</option>
                           {regionData.clusters.map(cluster => (

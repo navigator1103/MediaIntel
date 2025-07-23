@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const BeiersdorfHeader = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -10,6 +10,7 @@ const BeiersdorfHeader = () => {
   const [userEmail, setUserEmail] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -107,9 +108,18 @@ const BeiersdorfHeader = () => {
                   </g>
                 </svg>
                 <div className="flex flex-col">
-                  <Link href="/dashboard" className="text-white font-bold text-xl font-quicksand hover:text-white/80 transition-colors">
-                    Beiersdorf Media Nebula
-                  </Link>
+                  {isLoggedIn ? (
+                    <Link 
+                      href={pathname?.startsWith('/admin') ? '/admin' : '/dashboard'} 
+                      className="text-white font-bold text-xl font-quicksand hover:text-white/80 transition-colors"
+                    >
+                      Beiersdorf Media Nebula
+                    </Link>
+                  ) : (
+                    <div className="text-white font-bold text-xl font-quicksand cursor-default">
+                      Beiersdorf Media Nebula
+                    </div>
+                  )}
                   <span className="text-white/70 text-xs font-medium tracking-wide">
                     Media Analytics Platform
                   </span>
@@ -150,7 +160,7 @@ const BeiersdorfHeader = () => {
                     </div>
                     <div className="py-2">
                       <Link
-                        href="/dashboard"
+                        href={pathname?.startsWith('/admin') ? '/admin' : '/dashboard'}
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >

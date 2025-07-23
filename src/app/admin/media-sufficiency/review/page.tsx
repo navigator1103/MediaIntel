@@ -353,7 +353,7 @@ export default function ReviewMediaSufficiency() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Campaign</label>
                 <input 
                   type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" 
                   value={editingItem.campaign}
                   onChange={(e) => setEditingItem({...editingItem, campaign: e.target.value})}
                 />
@@ -362,7 +362,7 @@ export default function ReviewMediaSufficiency() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <select 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   value={editingItem.country}
                   onChange={(e) => setEditingItem({...editingItem, country: e.target.value})}
                 >
@@ -380,7 +380,7 @@ export default function ReviewMediaSufficiency() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <select 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   value={editingItem.category}
                   onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
                 >
@@ -395,7 +395,7 @@ export default function ReviewMediaSufficiency() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Range</label>
                 <input 
                   type="text" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" 
                   value={editingItem.range}
                   onChange={(e) => setEditingItem({...editingItem, range: e.target.value})}
                 />
@@ -404,7 +404,7 @@ export default function ReviewMediaSufficiency() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Media</label>
                 <select 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   value={editingItem.media}
                   onChange={(e) => setEditingItem({...editingItem, media: e.target.value})}
                 >
@@ -418,7 +418,7 @@ export default function ReviewMediaSufficiency() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Media Subtype</label>
                 <select 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   value={editingItem.mediaSubtype}
                   onChange={(e) => setEditingItem({...editingItem, mediaSubtype: e.target.value})}
                 >
@@ -433,7 +433,7 @@ export default function ReviewMediaSufficiency() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                 <input 
                   type="date" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" 
                   value={editingItem.startDate}
                   onChange={(e) => setEditingItem({...editingItem, startDate: e.target.value})}
                 />
@@ -443,7 +443,7 @@ export default function ReviewMediaSufficiency() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
                 <input 
                   type="date" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" 
                   value={editingItem.endDate}
                   onChange={(e) => setEditingItem({...editingItem, endDate: e.target.value})}
                 />
@@ -453,7 +453,7 @@ export default function ReviewMediaSufficiency() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Budget</label>
                 <input 
                   type="number" 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md" 
+                  className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md" 
                   value={editingItem.budget}
                   onChange={(e) => setEditingItem({...editingItem, budget: Number(e.target.value)})}
                 />

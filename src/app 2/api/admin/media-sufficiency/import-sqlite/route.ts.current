@@ -1,0 +1,595 @@
+import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import { PrismaClient } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+
+// Function to log with timestamp
+function logWithTimestamp(message: string, data?: any) {
+  const timestamp = new Date().toISOString();
+  if (data) {
+    console.log(`[${timestamp}] ${message}`, data);
+  } else {
+    console.log(`[${timestamp}] ${message}`);
+  }
+}
+
+// Function to log errors with timestamp
+function logErrorWithTimestamp(message: string, error?: any) {
+  const timestamp = new Date().toISOString();
+  if (error) {
+    console.error(`[${timestamp}] ERROR: ${message}`, error);
+  } else {
+    console.error(`[${timestamp}] ERROR: ${message}`);
+  }
+}
+
+// Initialize Prisma client for SQLite operations
+const prisma = new PrismaClient();
+
+// Enhanced import route with detailed error logging
+export async function POST(request: NextRequest) {
+  logWithTimestamp('Import to SQLite API called');
+  let sessionId: string = '';
+  
+  try {
+    // Get the session ID from the request body
+    logWithTimestamp('Parsing request body...');
+    const body = await request.json();
+    sessionId = body.sessionId;
+    logWithTimestamp(`Session ID: ${sessionId}`);
+    
+    if (!sessionId) {
+      logErrorWithTimestamp('No session ID provided');
+      return NextResponse.json(
+        { error: 'No session ID provided' },
+        { status: 400 }
+      );
+    }
+    
+    // Get the session data
+    logWithTimestamp(`Getting session data for ID: ${sessionId}`);
+    const sessionDir = path.join(process.cwd(), 'data', 'sessions');
+    const sessionFilePath = path.join(sessionDir, `${sessionId}.json`);
+    
+    if (!fs.existsSync(sessionFilePath)) {
+      logErrorWithTimestamp(`Session file not found: ${sessionFilePath}`);
+      return NextResponse.json(
+        { error: 'Session not found. Please upload and validate a file first.' },
+        { status: 404 }
+      );
+    }
+    
+    // Read the session data
+    logWithTimestamp(`Reading session file: ${sessionFilePath}`);
+    const sessionDataRaw = fs.readFileSync(sessionFilePath, 'utf8');
+    const sessionData = JSON.parse(sessionDataRaw);
+    
+    // Check if the session has been validated
+    logWithTimestamp(`Checking if session has been validated...`);
+    if (sessionData.status !== 'validated') {
+      logErrorWithTimestamp(`Session not validated: ${sessionId}`);
+      return NextResponse.json(
+        { error: 'Session not validated. Please validate the file first.' },
+        { status: 400 }
+      );
+    }
+    
+    // Check if there are records to import
+    logWithTimestamp(`Checking if there are records to import...`);
+    const records = sessionData.records || [];
+    if (records.length === 0) {
+      logErrorWithTimestamp(`No records to import: ${sessionId}`);
+      return NextResponse.json(
+        { error: 'No records to import.' },
+        { status: 400 }
+      );
+    }
+    
+    // Update session status to importing
+    logWithTimestamp(`Updating session status to importing...`);
+    sessionData.status = 'importing';
+    sessionData.progress = 0;
+    sessionData.importErrors = [];
+    fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+    
+    // Return a response immediately to prevent timeout
+    logWithTimestamp('Returning initial response to client');
+    
+    // Function to update progress
+    function updateProgress(recordIndex: number, message: string = '') {
+      const progress = Math.round((recordIndex / records.length) * 100);
+      logWithTimestamp(`Updating progress: ${recordIndex}/${records.length} (${progress}%) - ${message}`);
+      
+      // Update session data with progress
+      sessionData.progress = progress;
+      sessionData.currentRecord = recordIndex;
+      sessionData.lastMessage = message;
+      sessionData.lastUpdated = new Date();
+      
+      // Write updated session data to file
+      fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+    }
+    
+    // Start the import process in the background
+    (async () => {
+      logWithTimestamp(`Starting import process for ${records.length} records to SQLite...`);
+      
+      // Track import results
+      const importResults = {
+        subRegionsCount: 0,
+        countriesCount: 0,
+        categoriesCount: 0,
+        rangesCount: 0,
+        mediaTypesCount: 0,
+        mediaSubtypesCount: 0,
+        businessUnitsCount: 0,
+        pmTypesCount: 0,
+        campaignsCount: 0,
+        campaignMediaCount: 0
+      };
+      
+      try {
+        // Update progress - starting import
+        updateProgress(0, 'Starting import process to SQLite');
+        
+        // Log the start of the import process
+        logWithTimestamp(`Starting direct import to SQLite for session: ${sessionId}`);
+        
+        // Process records with detailed logging
+        logWithTimestamp(`Beginning to process ${records.length} records...`);
+        const recordErrors: Array<{index: number, error: string}> = [];
+        
+        // Track unique entities to avoid duplicates
+        const processedEntities = {
+          subRegions: new Map<string, number>(),
+          countries: new Map<string, number>(),
+          categories: new Map<string, number>(),
+          ranges: new Map<string, number>(),
+          mediaTypes: new Map<string, number>(),
+          mediaSubtypes: new Map<string, number>(),
+          businessUnits: new Map<string, number>(),
+          pmTypes: new Map<string, number>(),
+          campaigns: new Map<string, number>(),
+        };
+        
+        // Process records in smaller batches for better reliability
+        const BATCH_SIZE = 10;
+        
+        for (let i = 0; i < records.length; i += BATCH_SIZE) {
+          try {
+            const batchEnd = Math.min(i + BATCH_SIZE, records.length);
+            logWithTimestamp(`Processing batch ${i + 1} to ${batchEnd} of ${records.length}`);
+            
+            // Update progress for this batch
+            updateProgress(batchEnd, `Processing batch ${i + 1} to ${batchEnd} of ${records.length}`);
+            
+            // Process each record in the batch
+            for (let j = i; j < batchEnd; j++) {
+              try {
+                const record = records[j];
+                
+                // 1. Process Sub Region
+                let subRegionId: number | undefined;
+                if (record.subRegion) {
+                  if (!processedEntities.subRegions.has(record.subRegion)) {
+                    // Check if sub-region exists
+                    const existingSubRegion = await prisma.subRegion.findFirst({
+                      where: { name: record.subRegion }
+                    });
+                    
+                    if (existingSubRegion) {
+                      subRegionId = existingSubRegion.id;
+                      processedEntities.subRegions.set(record.subRegion, existingSubRegion.id);
+                      logWithTimestamp(`Found existing sub-region: ${record.subRegion} (ID: ${existingSubRegion.id})`);
+                    } else {
+                      // Create new sub-region
+                      const newSubRegion = await prisma.subRegion.create({
+                        data: {
+                          name: record.subRegion
+                        }
+                      });
+                      
+                      subRegionId = newSubRegion.id;
+                      processedEntities.subRegions.set(record.subRegion, newSubRegion.id);
+                      importResults.subRegionsCount++;
+                      logWithTimestamp(`Created new sub-region: ${record.subRegion} (ID: ${newSubRegion.id})`);
+                    }
+                  } else {
+                    subRegionId = processedEntities.subRegions.get(record.subRegion);
+                    logWithTimestamp(`Using cached sub-region: ${record.subRegion} (ID: ${subRegionId})`);
+                  }
+                }
+                
+                // 2. Process Country
+                let countryId: number | undefined;
+                if (record.Country && subRegionId) {
+                  if (!processedEntities.countries.has(record.Country)) {
+                    // Check if country exists
+                    const existingCountry = await prisma.country.findFirst({
+                      where: { name: record.Country }
+                    });
+                    
+                    if (existingCountry) {
+                      countryId = existingCountry.id;
+                      processedEntities.countries.set(record.Country, existingCountry.id);
+                      logWithTimestamp(`Found existing country: ${record.Country} (ID: ${existingCountry.id})`);
+                    } else {
+                      // Create new country
+                      const newCountry = await prisma.country.create({
+                        data: {
+                          name: record.Country,
+                          regionId: 1, // Default region ID
+                          subRegionId: subRegionId
+                          // Removed cluster as it's not in the schema
+                        }
+                      });
+                      
+                      countryId = newCountry.id;
+                      processedEntities.countries.set(record.Country, newCountry.id);
+                      importResults.countriesCount++;
+                      logWithTimestamp(`Created new country: ${record.Country} (ID: ${newCountry.id})`);
+                    }
+                  } else {
+                    countryId = processedEntities.countries.get(record.Country);
+                    logWithTimestamp(`Using cached country: ${record.Country} (ID: ${countryId})`);
+                  }
+                }
+                
+                // 3. Process Category
+                let categoryId: number | undefined;
+                if (record.Category) {
+                  if (!processedEntities.categories.has(record.Category)) {
+                    // Check if category exists
+                    const existingCategory = await prisma.category.findFirst({
+                      where: { name: record.Category }
+                    });
+                    
+                    if (existingCategory) {
+                      categoryId = existingCategory.id;
+                      processedEntities.categories.set(record.Category, existingCategory.id);
+                      logWithTimestamp(`Found existing category: ${record.Category} (ID: ${existingCategory.id})`);
+                    } else {
+                      // Create new category
+                      const newCategory = await prisma.category.create({
+                        data: {
+                          name: record.Category
+                        }
+                      });
+                      
+                      categoryId = newCategory.id;
+                      processedEntities.categories.set(record.Category, newCategory.id);
+                      importResults.categoriesCount++;
+                      logWithTimestamp(`Created new category: ${record.Category} (ID: ${newCategory.id})`);
+                    }
+                  } else {
+                    categoryId = processedEntities.categories.get(record.Category);
+                    logWithTimestamp(`Using cached category: ${record.Category} (ID: ${categoryId})`);
+                  }
+                }
+                
+                // 4. Process Range
+                let rangeId: number | undefined;
+                if (record.Range) {
+                  if (!processedEntities.ranges.has(record.Range)) {
+                    // Check if range exists
+                    const existingRange = await prisma.range.findFirst({
+                      where: { name: record.Range }
+                    });
+                    
+                    if (existingRange) {
+                      rangeId = existingRange.id;
+                      processedEntities.ranges.set(record.Range, existingRange.id);
+                      logWithTimestamp(`Found existing range: ${record.Range} (ID: ${existingRange.id})`);
+                    } else {
+                      // Create new range
+                      const newRange = await prisma.range.create({
+                        data: {
+                          name: record.Range
+                        }
+                      });
+                      
+                      rangeId = newRange.id;
+                      processedEntities.ranges.set(record.Range, newRange.id);
+                      importResults.rangesCount++;
+                      logWithTimestamp(`Created new range: ${record.Range} (ID: ${newRange.id})`);
+                    }
+                  } else {
+                    rangeId = processedEntities.ranges.get(record.Range);
+                    logWithTimestamp(`Using cached range: ${record.Range} (ID: ${rangeId})`);
+                  }
+                }
+                
+                // 5. Link Category to Range if both exist
+                if (categoryId && rangeId) {
+                  const categoryRangeKey = `${categoryId}-${rangeId}`;
+                  
+                  // Check if the link already exists
+                  const existingLink = await prisma.categoryToRange.findUnique({
+                    where: {
+                      categoryId_rangeId: {
+                        categoryId: categoryId,
+                        rangeId: rangeId
+                      }
+                    }
+                  });
+                  
+                  if (!existingLink) {
+                    // Create the link
+                    await prisma.categoryToRange.create({
+                      data: {
+                        categoryId: categoryId,
+                        rangeId: rangeId
+                      }
+                    });
+                    logWithTimestamp(`Linked category ${categoryId} to range ${rangeId}`);
+                  }
+                }
+                
+                // 6. Process Media Type
+                let mediaTypeId: number | undefined;
+                if (record.Media) {
+                  if (!processedEntities.mediaTypes.has(record.Media)) {
+                    // Check if media type exists
+                    const existingMediaType = await prisma.mediaType.findFirst({
+                      where: { name: record.Media }
+                    });
+                    
+                    if (existingMediaType) {
+                      mediaTypeId = existingMediaType.id;
+                      processedEntities.mediaTypes.set(record.Media, existingMediaType.id);
+                      logWithTimestamp(`Found existing media type: ${record.Media} (ID: ${existingMediaType.id})`);
+                    } else {
+                      // Create new media type
+                      const newMediaType = await prisma.mediaType.create({
+                        data: {
+                          name: record.Media
+                        }
+                      });
+                      
+                      mediaTypeId = newMediaType.id;
+                      processedEntities.mediaTypes.set(record.Media, newMediaType.id);
+                      importResults.mediaTypesCount++;
+                      logWithTimestamp(`Created new media type: ${record.Media} (ID: ${newMediaType.id})`);
+                    }
+                  } else {
+                    mediaTypeId = processedEntities.mediaTypes.get(record.Media);
+                    logWithTimestamp(`Using cached media type: ${record.Media} (ID: ${mediaTypeId})`);
+                  }
+                }
+                
+                // 7. Process Media Subtype
+                let mediaSubtypeId: number | undefined;
+                if (record['Media Subtype'] && mediaTypeId) {
+                  const subtypeKey = `${record['Media Subtype']}-${mediaTypeId}`;
+                  
+                  if (!processedEntities.mediaSubtypes.has(subtypeKey)) {
+                    // Check if media subtype exists
+                    const existingMediaSubtype = await prisma.mediaSubType.findFirst({
+                      where: {
+                        name: record['Media Subtype'],
+                        mediaTypeId: mediaTypeId
+                      }
+                    });
+                    
+                    if (existingMediaSubtype) {
+                      mediaSubtypeId = existingMediaSubtype.id;
+                      processedEntities.mediaSubtypes.set(subtypeKey, existingMediaSubtype.id);
+                      logWithTimestamp(`Found existing media subtype: ${record['Media Subtype']} (ID: ${existingMediaSubtype.id})`);
+                    } else {
+                      // Create new media subtype
+                      const newMediaSubtype = await prisma.mediaSubType.create({
+                        data: {
+                          name: record['Media Subtype'],
+                          mediaTypeId: mediaTypeId
+                        }
+                      });
+                      
+                      mediaSubtypeId = newMediaSubtype.id;
+                      processedEntities.mediaSubtypes.set(subtypeKey, newMediaSubtype.id);
+                      importResults.mediaSubtypesCount++;
+                      logWithTimestamp(`Created new media subtype: ${record['Media Subtype']} (ID: ${newMediaSubtype.id})`);
+                    }
+                  } else {
+                    mediaSubtypeId = processedEntities.mediaSubtypes.get(subtypeKey);
+                    logWithTimestamp(`Using cached media subtype: ${record['Media Subtype']} (ID: ${mediaSubtypeId})`);
+                  }
+                }
+                
+                // 8. Process Business Unit
+                let businessUnitId: number | undefined;
+                if (record['Business Unit']) {
+                  if (!processedEntities.businessUnits.has(record['Business Unit'])) {
+                    // Check if business unit exists
+                    const existingBusinessUnit = await prisma.businessUnit.findFirst({
+                      where: { name: record['Business Unit'] }
+                    });
+                    
+                    if (existingBusinessUnit) {
+                      businessUnitId = existingBusinessUnit.id;
+                      processedEntities.businessUnits.set(record['Business Unit'], existingBusinessUnit.id);
+                      logWithTimestamp(`Found existing business unit: ${record['Business Unit']} (ID: ${existingBusinessUnit.id})`);
+                    } else {
+                      // Create new business unit
+                      const newBusinessUnit = await prisma.businessUnit.create({
+                        data: {
+                          name: record['Business Unit']
+                        }
+                      });
+                      
+                      businessUnitId = newBusinessUnit.id;
+                      processedEntities.businessUnits.set(record['Business Unit'], newBusinessUnit.id);
+                      importResults.businessUnitsCount++;
+                      logWithTimestamp(`Created new business unit: ${record['Business Unit']} (ID: ${newBusinessUnit.id})`);
+                    }
+                  } else {
+                    businessUnitId = processedEntities.businessUnits.get(record['Business Unit']);
+                    logWithTimestamp(`Using cached business unit: ${record['Business Unit']} (ID: ${businessUnitId})`);
+                  }
+                }
+                
+                // 9. Process PM Type
+                let pmTypeId: number | undefined;
+                if (record['PM Type']) {
+                  if (!processedEntities.pmTypes.has(record['PM Type'])) {
+                    // Check if PM type exists
+                    const existingPMType = await prisma.pMType.findFirst({
+                      where: { name: record['PM Type'] }
+                    });
+                    
+                    if (existingPMType) {
+                      pmTypeId = existingPMType.id;
+                      processedEntities.pmTypes.set(record['PM Type'], existingPMType.id);
+                      logWithTimestamp(`Found existing PM type: ${record['PM Type']} (ID: ${existingPMType.id})`);
+                    } else {
+                      // Create new PM type
+                      const newPMType = await prisma.pMType.create({
+                        data: {
+                          name: record['PM Type']
+                        }
+                      });
+                      
+                      pmTypeId = newPMType.id;
+                      processedEntities.pmTypes.set(record['PM Type'], newPMType.id);
+                      importResults.pmTypesCount++;
+                      logWithTimestamp(`Created new PM type: ${record['PM Type']} (ID: ${newPMType.id})`);
+                    }
+                  } else {
+                    pmTypeId = processedEntities.pmTypes.get(record['PM Type']);
+                    logWithTimestamp(`Using cached PM type: ${record['PM Type']} (ID: ${pmTypeId})`);
+                  }
+                }
+                
+                // 10. Process Campaign
+                if (record.Campaign && rangeId && record.Year) {
+                  const campaignKey = `${record.Campaign}-${rangeId}-${record.Year}`;
+                  
+                  if (!processedEntities.campaigns.has(campaignKey)) {
+                    try {
+                      // Create or update campaign directly in the campaigns table
+                      const newCampaign = await prisma.campaign.upsert({
+                        where: {
+                          name: record.Campaign
+                        },
+                        update: {
+                          rangeId: rangeId
+                        },
+                        create: {
+                          name: record.Campaign,
+                          rangeId: rangeId
+                        }
+                      });
+                      
+                      processedEntities.campaigns.set(campaignKey, newCampaign.id);
+                      importResults.campaignsCount++;
+                      logWithTimestamp(`Created/updated campaign: ${record.Campaign} (ID: ${newCampaign.id})`);
+                      
+                      // Store campaign media information in the game_plans table
+                      if (mediaSubtypeId && record['Start Date'] && record['End Date'] && record.Budget) {
+                        try {
+                          // Parse dates
+                          const startDate = new Date(record['Start Date']);
+                          const endDate = new Date(record['End Date']);
+                          
+                          // Extract year from start date
+                          const year = startDate.getFullYear();
+                          
+                          // Convert budget from thousands to actual value
+                          const totalBudget = parseFloat(record.Budget) * 1000;
+                          const q1Budget = record['Q1 Budget'] ? parseFloat(record['Q1 Budget']) * 1000 : null;
+                          const q2Budget = record['Q2 Budget'] ? parseFloat(record['Q2 Budget']) * 1000 : null;
+                          const q3Budget = record['Q3 Budget'] ? parseFloat(record['Q3 Budget']) * 1000 : null;
+                          const q4Budget = record['Q4 Budget'] ? parseFloat(record['Q4 Budget']) * 1000 : null;
+                          
+                          // Create game plan entry using raw SQL
+                          await prisma.$executeRaw`
+                            INSERT INTO game_plans (
+                              campaign_id, media_sub_type_id, pm_type_id, 
+                              year, start_date, end_date, 
+                              total_budget, q1_budget, q2_budget, q3_budget, q4_budget, 
+                              trps, reach_1_plus, reach_3_plus, created_at, updated_at
+                            ) VALUES (
+                              ${newCampaign.id}, ${mediaSubtypeId}, ${pmTypeId || null}, 
+                              ${year}, ${startDate.toISOString()}, ${endDate.toISOString()}, 
+                              ${totalBudget}, ${q1Budget}, ${q2Budget}, ${q3Budget}, ${q4Budget}, 
+                              ${record.TRPs ? parseFloat(record.TRPs) : null}, 
+                              ${record['Reach 1+'] ? parseFloat(record['Reach 1+']) : null}, 
+                              ${record['Reach 3+'] ? parseFloat(record['Reach 3+']) : null},
+                              ${new Date().toISOString()}, ${new Date().toISOString()}
+                            )
+                          `;
+                          
+                          importResults.campaignMediaCount++;
+                          logWithTimestamp(`Created game plan for campaign ${newCampaign.id}: Media Subtype: ${mediaSubtypeId}, Budget: ${totalBudget}, Start: ${startDate}, End: ${endDate}`);
+                        } catch (dateError) {
+                          logErrorWithTimestamp(`Error creating game plan: ${dateError}`);
+                          recordErrors.push({
+                            index: j,
+                            error: `Error creating game plan: ${dateError instanceof Error ? dateError.message : String(dateError)}`
+                          });
+                        }
+                      }
+                    } catch (campaignError) {
+                      logErrorWithTimestamp(`Error creating campaign: ${campaignError}`);
+                      recordErrors.push({
+                        index: j,
+                        error: `Error creating campaign: ${campaignError instanceof Error ? campaignError.message : String(campaignError)}`
+                      });
+                    }
+                  }
+                } catch (recordError) {
+                  logErrorWithTimestamp(`Error processing record ${j}: ${recordError}`);
+                  recordErrors.push({
+                    index: j,
+                    error: recordError instanceof Error ? recordError.message : String(recordError)
+                  });
+                }
+              }
+            } catch (batchError) {
+              logErrorWithTimestamp(`Error processing batch ${i} to ${Math.min(i + BATCH_SIZE, records.length)}: ${batchError}`);
+            }
+          }
+        }
+        
+        // Update final progress and status
+        updateProgress(records.length, 'Import completed');
+        
+        // Log the import status
+        logWithTimestamp(`Import completed with ${recordErrors.length} errors`);
+        
+        // Update session with results and errors
+        sessionData.status = 'completed';
+        sessionData.progress = 100;
+        sessionData.importResults = importResults;
+        sessionData.importErrors = recordErrors;
+        sessionData.importStatus = recordErrors.length > 0 ? 'completed_with_errors' : 'completed';
+        fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+        
+        logWithTimestamp('Import process completed successfully');
+        logWithTimestamp('Import results:', importResults);
+        
+      } catch (error) {
+        logErrorWithTimestamp('Error during import process:', error);
+        
+        // Update session with error
+        sessionData.status = 'error';
+        sessionData.error = error instanceof Error ? error.message : String(error);
+        fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+      }
+    })();
+    
+    // Return success response with session ID
+    return NextResponse.json({
+      success: true,
+      message: 'Import process started',
+      sessionId
+    });
+    
+  } catch (error) {
+    logErrorWithTimestamp('Unhandled error in import API:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
+      { status: 500 }
+    );
+  }
+}

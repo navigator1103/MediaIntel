@@ -37,37 +37,46 @@ gcloud artifacts repositories create golden-rules-repo \
     --description="Docker repository for Golden Rules app"
 ```
 
-## Step 3: Build and Push the Docker Image
+## Step 3: Deploy Using Cloud Build (Recommended)
 
-Authenticate Docker to GCP:
+Instead of manual Docker builds, we use **Cloud Build** for automated source-to-container deployment:
 
 ```bash
-gcloud auth configure-docker us-central1-docker.pkg.dev
+# Deploy directly from source code using Cloud Build
+gcloud builds submit --config cloudbuild.sqlite.yaml
 ```
 
-Build and tag your Docker image:
+This single command:
+- Builds the Docker image from source
+- Pushes to Google Container Registry (GCR) 
+- Deploys to Cloud Run with proper configuration
+- Mounts Cloud Storage for database persistence
+
+## Step 4: Alternative Manual Docker Deployment (Not Recommended)
+
+If you need manual control, you can still use traditional Docker commands:
 
 ```bash
-docker build -t us-central1-docker.pkg.dev/[PROJECT_ID]/golden-rules-repo/golden-rules-app:latest .
-```
+# Authenticate Docker to GCP
+gcloud auth configure-docker gcr.io
 
-Push the image to Artifact Registry:
+# Build and tag Docker image  
+docker build -t gcr.io/[PROJECT_ID]/golden-rules-app:latest .
 
-```bash
-docker push us-central1-docker.pkg.dev/[PROJECT_ID]/golden-rules-repo/golden-rules-app:latest
-```
+# Push to Container Registry
+docker push gcr.io/[PROJECT_ID]/golden-rules-app:latest
 
-## Step 4: Deploy to Cloud Run
-
-Deploy the application to Cloud Run:
-
-```bash
+# Deploy to Cloud Run
 gcloud run deploy golden-rules-app \
-    --image us-central1-docker.pkg.dev/[PROJECT_ID]/golden-rules-repo/golden-rules-app:latest \
+    --image gcr.io/[PROJECT_ID]/golden-rules-app:latest \
     --platform managed \
     --region us-central1 \
-    --allow-unauthenticated
+    --allow-unauthenticated \
+    --memory=512Mi \
+    --cpu=1
 ```
+
+**Note**: Manual deployment requires additional steps to configure Cloud Storage mounting and environment variables.
 
 ## Step 5: Set Up Environment Variables
 
@@ -113,6 +122,109 @@ gcloud run domain-mappings create \
 1. Connect your GitHub repository to Cloud Build
 2. Create a Cloud Build trigger to automatically deploy on code changes
 3. Configure the build steps in a `cloudbuild.yaml` file
+
+## Critical Database Fix for Production Deployment
+
+⚠️ **IMPORTANT**: Before deploying, you must handle the database schema synchronization issue.
+
+### The Problem
+The production environment may have an outdated SQLite database that's missing critical schema updates (such as the `campaign_archetype_id` column). This causes the application to crash with database errors.
+
+### The Solution
+Always upload your complete local database to Cloud Storage before deploying:
+
+```bash
+# Upload the complete local database with all schema updates
+gsutil cp prisma/golden_rules.db gs://goldenrulesnextjs-db/golden_rules.db
+```
+
+### Verification Commands
+Verify your local database has the required data before uploading:
+
+```bash
+# Check media types and subtypes
+sqlite3 prisma/golden_rules.db "SELECT COUNT(*) as media_types FROM media_types;"
+sqlite3 prisma/golden_rules.db "SELECT COUNT(*) as media_subtypes FROM media_sub_types;"
+
+# Check for critical columns
+sqlite3 prisma/golden_rules.db "PRAGMA table_info(game_plans);" | grep campaign_archetype_id
+```
+
+### Actual Deployment Method Used
+We use **Cloud Build** for automated source-to-container deployment, not manual Docker builds. Here's the exact process:
+
+#### Cloud Build Configuration
+The deployment uses `cloudbuild.sqlite.yaml` which handles:
+- Building the Docker container from source
+- Pushing to Google Container Registry (GCR)  
+- Deploying to Cloud Run with proper configuration
+
+#### Production Deployment Script
+This is the exact script used for successful deployment:
+
+```bash
+#!/bin/bash
+# Production deployment script - used successfully on 2025-07-22
+
+# Step 1: Upload complete local database to Cloud Storage
+echo "🔄 Uploading local database to Cloud Storage..."
+gsutil cp prisma/golden_rules.db gs://goldenrulesnextjs-db/golden_rules.db
+
+# Step 2: Verify database upload
+echo "✅ Verifying database upload..."
+gsutil ls -l gs://goldenrulesnextjs-db/golden_rules.db
+
+# Step 3: Deploy using Cloud Build (source-to-container)
+echo "🚀 Starting Cloud Build deployment..."
+gcloud builds submit --config cloudbuild.sqlite.yaml
+
+# Step 4: Get service URL
+echo "📊 Getting service URL..."
+echo "Service URL: https://golden-rules-app-434924699594.us-central1.run.app"
+```
+
+#### Cloud Run Service Details
+- **Service Name**: `golden-rules-app`
+- **Project ID**: `goldenrulesnextjs` 
+- **Project Number**: `434924699594`
+- **Region**: `us-central1`
+- **Platform**: `managed`
+- **Service URL**: `https://golden-rules-app-434924699594.us-central1.run.app`
+- **Memory**: `512Mi`
+- **CPU**: `1`
+- **Cloud Storage Bucket**: `goldenrulesnextjs-db`
+
+#### Key Configuration in cloudbuild.sqlite.yaml
+```yaml
+# Deploy container image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'golden-rules-app'
+    - '--image=gcr.io/$PROJECT_ID/golden-rules-app:latest'
+    - '--region=us-central1'
+    - '--platform=managed'
+    - '--allow-unauthenticated'
+    - '--memory=512Mi'
+    - '--cpu=1'
+    - '--set-env-vars=DATABASE_URL=file:./prisma/golden_rules.db,NODE_ENV=production'
+    - '--add-volume=name=db-volume,type=cloud-storage,bucket=goldenrulesnextjs-db'
+    - '--add-volume-mount=volume=db-volume,mount-path=/app/prisma'
+```
+
+#### Why Source Deployment vs Manual Docker
+- **Automated**: Single command deploys everything
+- **Consistent**: Same build environment every time
+- **Integrated**: Handles GCR push and Cloud Run deployment automatically
+- **Traceable**: Complete build logs in Cloud Console
+
+### Why This Fix is Critical
+- **Schema Synchronization**: Ensures production database matches your local development schema
+- **Feature Compatibility**: Prevents missing column errors that crash the application  
+- **Data Integrity**: Preserves all master data, relationships, and configurations
+- **Zero Downtime**: Avoids deployment rollbacks due to database issues
 
 ## Database Considerations
 

@@ -58,12 +58,29 @@ export default function EnhancedUpload() {
     const fetchCountries = async () => {
       setIsLoadingCountries(true);
       try {
-        const response = await fetch('/api/admin/media-sufficiency/master-data');
+        // Get user token from localStorage for authorization
+        const userStr = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        let headers: HeadersInit = {};
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch('/api/admin/media-sufficiency/master-data', {
+          headers
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch countries');
         }
         const data = await response.json();
         setCountries(data.countries || []);
+        
+        // Log access control info for debugging
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          console.log(`Countries loaded for user ${userData.email} (${userData.role}):`, data.countries?.length || 0, 'countries');
+        }
       } catch (err) {
         console.error('Error fetching countries:', err);
         setError('Failed to load countries. Please try refreshing the page.');
@@ -597,7 +614,7 @@ export default function EnhancedUpload() {
                         console.log('Financial cycle dropdown clicked');
                         e.stopPropagation(); // Prevent event bubbling
                       }}
-                      className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                      className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                     >
                       <option value="">Choose a financial cycle...</option>
                       {lastUpdates.map((update) => (
@@ -634,7 +651,7 @@ export default function EnhancedUpload() {
                         console.log('Country dropdown clicked');
                         e.stopPropagation(); // Prevent event bubbling
                       }}
-                      className="w-full px-4 py-4 bg-white border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                      className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                     >
                       <option value="">Choose a country...</option>
                       {countries.map((country) => (

@@ -187,8 +187,8 @@ export async function sendWelcomeEmail(email: string, name: string, verification
       </div>
       <div class="content">
         <h2>Hello ${name || 'there'}!</h2>
-        <p>Thank you for registering with Beiersdorf Media Nebula. We're excited to have you on board!</p>
-        <p>Please verify your email address by clicking the button below:</p>
+        <p>Thank you for creating your account with Beiersdorf Media Nebula. To complete your registration, please verify your email address.</p>
+        <p>Click the verification button below to activate your account:</p>
         <p style="text-align: center;">
           <a href="${verifyUrl}" class="button">Verify Email</a>
         </p>

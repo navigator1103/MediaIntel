@@ -1,0 +1,1757 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FiCheckCircle, FiAlertTriangle, FiArrowLeft, FiArrowRight, FiLoader } from 'react-icons/fi';
+
+interface MasterDataSummary {
+  subRegionsCount: number;
+  countriesCount: number;
+  categoriesCount: number;
+  rangesCount: number;
+  mediaTypesCount: number;
+  mediaSubtypesCount: number;
+  businessUnitsCount: number;
+  pmTypesCount?: number;
+}
+
+interface SessionData {
+  sessionId: string;
+  fileName: string;
+  fileSize: number;
+  recordCount: number;
+  timestamp: string;
+  status: string;
+  masterData: MasterDataSummary;
+}
+
+export default function ValidateMediaSufficiency() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('sessionId');
+  
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [masterDataDetails, setMasterDataDetails] = useState<any | null>(null);
+  const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
+  const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
+  const [importResults, setImportResults] = useState<any | null>(null);
+  const [editingConflict, setEditingConflict] = useState<any | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editedSubregion, setEditedSubregion] = useState<string>('');
+  const [currentClusterIndex, setCurrentClusterIndex] = useState(0);
+  const [clusteredConflicts, setClusteredConflicts] = useState<any[][]>([]);
+  
+  // Load data from API
+  useEffect(() => {
+    const loadSessionData = async () => {
+      if (!sessionId) {
+        setError('No session ID provided');
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Fetch session data from API
+        const response = await fetch(`/api/admin/media-sufficiency/session?sessionId=${sessionId}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch session data');
+        }
+        
+        const data = await response.json();
+        
+        // Check if the data has the expected structure
+        if (!data.sessionData || !data.records || !data.masterData) {
+          throw new Error('Invalid session data format');
+        }
+        
+        // Set session data
+        setSessionData({
+          sessionId: sessionId as string,
+          fileName: data.sessionData.fileName,
+          fileSize: data.sessionData.fileSize || 0,
+          recordCount: data.sessionData.recordCount,
+          timestamp: data.sessionData.uploadDate,
+          status: data.sessionData.status,
+          masterData: {
+            subRegionsCount: 0, // Will be updated after analysis
+            countriesCount: 0,
+            categoriesCount: 0,
+            rangesCount: 0,
+            mediaTypesCount: 0,
+            mediaSubtypesCount: 0,
+            businessUnitsCount: 0,
+            pmTypesCount: 0
+          }
+        });
+        
+        // Analyze the records to extract master data
+        const analyzedData = analyzeUploadedData(data.records, data.masterData);
+        
+        // Update the session data with the counts
+        setSessionData(prevData => {
+          if (!prevData) return null;
+          
+          return {
+            ...prevData,
+            masterData: {
+              subRegionsCount: analyzedData.subRegions.length,
+              countriesCount: analyzedData.countries.length,
+              categoriesCount: analyzedData.categories.length,
+              rangesCount: analyzedData.ranges.length,
+              mediaTypesCount: analyzedData.mediaTypes.length,
+              mediaSubtypesCount: analyzedData.mediaSubtypes.length,
+              businessUnitsCount: analyzedData.businessUnits.length,
+              pmTypesCount: analyzedData.pmTypes.length
+            }
+          };
+        });
+        
+        // Set the master data details
+        setMasterDataDetails(analyzedData);
+        
+        // Cluster similar validation issues
+        if (analyzedData.conflicts && analyzedData.conflicts.length > 0) {
+          const clusters = clusterSimilarIssues(analyzedData.conflicts);
+          setClusteredConflicts(clusters);
+          setCurrentClusterIndex(0);
+        }
+        
+        setLoading(false);
+        
+      } catch (error: any) {
+        console.error('Error loading session data:', error);
+        setError(error.message || 'Failed to load data. Please try again.');
+        setLoading(false);
+        
+        // If the error is that the session wasn't found, redirect to the upload page
+        if (error.message?.includes('Session not found')) {
+          setTimeout(() => {
+            router.push('/admin/media-sufficiency');
+          }, 3000);
+        }
+      }
+    };
+    
+    loadSessionData();
+  }, [sessionId]);
+  
+  // Function to capitalize first letter of each word
+  const capitalizeWords = (str: string) => {
+    if (!str) return '';
+    return str
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+  
+  // Function to analyze uploaded data
+  const analyzeUploadedData = (records: any[], masterData?: any) => {
+    // Log the master data to debug
+    console.log('Master data received:', masterData);
+    
+    // Use master data from database if available, otherwise use empty arrays
+    const existingSubRegions = masterData?.subRegions?.map((sr: any) => sr.name) || [];
+    const existingCountries = masterData?.countries || [];
+    const existingCategories = masterData?.categories?.map((c: any) => c.name) || [];
+    const existingRanges = masterData?.ranges || [];
+    const existingMediaTypes = masterData?.mediaTypes?.map((mt: any) => mt.name) || [];
+    const existingMediaSubtypes = masterData?.mediaSubtypes || [];
+    const existingPMTypes = masterData?.pmTypes?.map((pt: any) => pt.name) || [];
+    const existingBusinessUnits = masterData?.businessUnits?.map((bu: any) => bu.name) || [];
+    const existingClusters = masterData?.clusters?.map((c: any) => c.name) || [];
+    
+    // Get the maps for validation
+    const categoryRangesMap = masterData?.categoryRangesMap || {};
+    const rangeToCategoryMap = masterData?.rangeToCategoryMap || {};
+    const rangeToValidCategoriesMap = masterData?.rangeToValidCategoriesMap || {};
+    
+    // Log the extracted master data for debugging
+    console.log('Existing categories:', existingCategories);
+    console.log('Existing ranges sample:', existingRanges.slice(0, 5));
+    console.log('Range-to-category map sample:', Object.entries(rangeToCategoryMap).slice(0, 5));
+    
+    // Extract unique values from records
+    const extractedSubRegions = new Set<string>();
+    const extractedCountries = new Set<string>();
+    const extractedCategories = new Set<string>();
+    const extractedRanges = new Map<string, string>(); // name -> category
+    const extractedMediaTypes = new Set<string>();
+    const extractedMediaSubtypes = new Map<string, string>(); // name -> mediaType
+    const extractedPMTypes = new Set<string>();
+    const extractedBusinessUnits = new Set<string>();
+    
+    // Country to subregion mapping
+    const countrySubregions = new Map<string, string>();
+    
+    // Track conflicts
+    const conflicts: any[] = [];
+    
+    // Track records with missing required fields
+    const recordsWithMissingFields: any[] = [];
+    
+    // Define required fields with possible variations in field names
+    const requiredFieldsMap = {
+      'Year': ['Year', 'year'],
+      'Country': ['Country', 'country'],
+      'Category': ['Category', 'category'],
+      'Range': ['Range', 'range'],
+      'Campaign': ['Campaign', 'campaign'],
+      'Media': ['Media', 'media'],
+      'Media Subtype': ['Media Subtype', 'Media Subtype', 'media_subtype', 'MediaSubtype'],
+      'Start Date': ['Start Date', 'StartDate', 'start_date'],
+      'End Date': ['End Date', 'EndDate', 'end_date'],
+      'Budget': ['Budget', 'budget']
+    };
+    
+    // Flat list of all required fields for validation
+    const requiredFields = Object.keys(requiredFieldsMap);
+    
+    // Process records
+    records.forEach((record, index) => {
+      // Add row number (1-based for user-friendly display)
+      const rowNumber = index + 2; // Add 2 to account for 1-based indexing and header row
+      
+      // Log the record structure to help with debugging
+      if (index === 0) {
+        console.log('Record structure:', Object.keys(record));
+      }
+      
+      // Check for missing required fields using all possible field name variations
+      const missingFields = requiredFields.filter(fieldKey => {
+        // Get all possible variations of this field name
+        const fieldVariations = requiredFieldsMap[fieldKey];
+        
+        // Check if any variation of the field exists and has a value
+        const hasValue = fieldVariations.some(fieldName => {
+          return (
+            fieldName in record && 
+            record[fieldName] !== undefined && 
+            record[fieldName] !== null && 
+            record[fieldName].toString().trim() !== ''
+          );
+        });
+        
+        // If no variation has a value, the field is missing
+        return !hasValue;
+      });
+      
+      if (missingFields.length > 0) {
+        recordsWithMissingFields.push({
+          index,
+          record,
+          missingFields
+        });
+        
+        conflicts.push({
+          type: 'Record',
+          name: `Row ${index + 1}`,
+          issue: `Missing required fields: ${missingFields.join(', ')}`,
+          recommendedValue: 'Add missing fields',
+          severity: 'warning'
+        });
+      }
+      // Helper function to get field value using variations
+      const getFieldValue = (fieldKey) => {
+        if (!requiredFieldsMap[fieldKey]) {
+          // For fields not in the map, try direct access
+          return record[fieldKey];
+        }
+        
+        // Try each variation
+        for (const variation of requiredFieldsMap[fieldKey]) {
+          if (variation in record && record[variation] !== undefined && record[variation] !== null) {
+            return record[variation];
+          }
+        }
+        return null;
+      };
+      
+      // Extract subregion
+      const subRegion = record['Sub Region'] || record['sub_region'] || record['SubRegion'];
+      if (subRegion) {
+        extractedSubRegions.add(subRegion);
+      }
+      
+      // Helper function to normalize strings for comparison
+      const normalizeString = (str: string) => {
+        if (!str) return '';
+        // Convert to lowercase, trim whitespace, and remove special characters
+        return str.trim().toLowerCase()
+          .replace(/[&\/\\#,+()$~%.'":*?<>{}\-]/g, ' ') // Replace special chars with space
+          .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+      };
+      
+      // Helper function to check if a range-category combination is valid
+      const isValidRangeCategoryPair = (rangeName: string, categoryName: string) => {
+        // Normalize inputs
+        const normalizedRange = normalizeString(rangeName);
+        const normalizedCategory = normalizeString(categoryName);
+        
+        console.log(`\n==== CHECKING RANGE-CATEGORY PAIR: "${rangeName}" (${normalizedRange}) with "${categoryName}" (${normalizedCategory}) ====`);
+        
+        // Special handling for problematic ranges that can exist in multiple categories
+        const validCategoriesByRange = {
+          'deep': ['deo', 'hand body', 'men', 'men care'],
+          'q10': ['face care', 'hand body'],
+          'luminous 630': ['face care', 'hand body', 'face cleansing'],
+          'acne': ['face cleansing', 'men', 'men care']
+        };
+        
+        // If this is a known problematic range, check against its valid categories
+        if (validCategoriesByRange[normalizedRange]) {
+          console.log(`  Found special case range: "${normalizedRange}" with valid categories: ${validCategoriesByRange[normalizedRange].join(', ')}`);
+          
+          const isValid = validCategoriesByRange[normalizedRange].some(validCategory => {
+            const match = normalizeString(validCategory) === normalizedCategory;
+            console.log(`  Comparing with valid category: "${validCategory}" (${normalizeString(validCategory)}) -> ${match ? 'MATCH' : 'NO MATCH'}`);
+            return match;
+          });
+          
+          console.log(`  Final result: ${isValid ? 'VALID COMBINATION' : 'INVALID COMBINATION'}`);
+          return isValid;
+        }
+        
+        console.log(`  Not a special case range, returning false`);
+        // For other ranges, just do a direct match
+        return false;
+      };
+      
+      // Helper function to check if two categories are equivalent
+      const areCategoriesEquivalent = (cat1: string, cat2: string) => {
+        // Normalize both categories
+        const normalizedCat1 = normalizeString(cat1);
+        const normalizedCat2 = normalizeString(cat2);
+        
+        // Direct match
+        if (normalizedCat1 === normalizedCat2) return true;
+        
+        // Known equivalents (add more as needed)
+        const equivalentCategories = {
+          'men': ['men', 'men care'],
+          'men care': ['men', 'men care'],
+          'face cleansing': ['face cleansing', 'facial cleansing'],
+          'facial cleansing': ['face cleansing', 'facial cleansing'],
+          'hand body': ['hand body', 'hand and body', 'body care'],
+          'body care': ['hand body', 'hand and body', 'body care']
+        };
+        
+        // Check if categories are in the same equivalence group
+        return Object.values(equivalentCategories).some(group => 
+          group.includes(normalizedCat1) && group.includes(normalizedCat2)
+        );
+      };
+      
+      // Extract country and check subregion
+      const country = getFieldValue('Country');
+      if (country) {
+        extractedCountries.add(country);
+        
+        // Check if country exists with the correct subregion (case-insensitive)
+        const existingCountry = existingCountries.find(c => 
+          normalizeString(c.name) === normalizeString(country) && 
+          normalizeString(c.subRegion?.name) === normalizeString(subRegion)
+        );
+        
+        if (!existingCountry) {
+          // Check if country exists but with a different subregion (case-insensitive)
+          const countryWithDifferentSubregion = existingCountries.find(c => 
+            normalizeString(c.name) === normalizeString(country)
+          );
+          
+          if (countryWithDifferentSubregion) {
+            conflicts.push({
+              type: 'Country',
+              name: country,
+              issue: `Country exists but with different SubRegion: ${countryWithDifferentSubregion.subRegion?.name} (expected: ${subRegion})`,
+              recommendedValue: countryWithDifferentSubregion.subRegion?.name,
+              severity: 'warning'
+            });
+            countrySubregions.set(country, subRegion);
+          } else {
+            // Completely new country
+            conflicts.push({
+              type: 'Country',
+              name: country,
+              issue: 'New country',
+              recommendedValue: 'Create New Country',
+              severity: 'info'
+            });
+            
+            // Check if subregion is missing
+            if (!subRegion) {
+              conflicts.push({
+                type: 'Country',
+                name: country,
+                issue: 'Missing subregion',
+                recommendedValue: 'Add A Subregion',
+                severity: 'warning',
+                rowNumber: rowNumber
+              });
+            } else {
+              countrySubregions.set(country, subRegion);
+            }
+          }
+        } else {
+          countrySubregions.set(record['Country'], existingCountry.subRegion);
+        }
+      }
+      
+      // Extract category
+      const category = getFieldValue('Category');
+      if (category) {
+        extractedCategories.add(category);
+        
+        // Debug log for category validation
+        console.log(`Validating category: "${category}"`);
+        
+        // Check if category exists (case-insensitive)
+        const categoryExists = existingCategories.some(existingCategory => {
+          const normalized = normalizeString(existingCategory) === normalizeString(category);
+          console.log(`  Comparing with existing category: "${existingCategory}" -> ${normalized ? 'MATCH' : 'NO MATCH'}`);
+          return normalized;
+        });
+        
+        if (!categoryExists) {
+          console.log(`  Category "${category}" not found in master data`);
+          conflicts.push({
+            type: 'Category',
+            name: category,
+            issue: 'New category',
+            recommendedValue: 'Create New Category',
+            severity: 'info',
+            rowNumber: rowNumber
+          });
+        } else {
+          console.log(`  Category "${category}" found in master data`);
+        }
+      }
+      
+      // Extract range and check category
+      const range = getFieldValue('Range');
+      if (range && category) {
+        // Debug log for range validation
+        console.log(`Validating range: "${range}" for category: "${category}"`);
+        
+        // Check for category mismatch within the current upload
+        if (extractedRanges.has(range)) {
+          const existingCategory = extractedRanges.get(range);
+          console.log(`  Range "${range}" already exists in current upload with category: "${existingCategory}"`);
+          if (normalizeString(existingCategory) !== normalizeString(category)) {
+            console.log(`  CONFLICT: Range "${range}" has different categories in the upload: "${existingCategory}" vs "${category}"`);
+            conflicts.push({
+              type: 'Range',
+              name: range,
+              issue: 'Category mismatch',
+              category: category, // Store the current category for display
+              recommendedValue: existingCategory,
+              severity: 'warning',
+              rowNumber: rowNumber
+            });
+          }
+        } else {
+          console.log(`  Adding range "${range}" with category "${category}" to extracted ranges`);
+          extractedRanges.set(range, category);
+        }
+        
+        // Check if the range and category exist in the map
+        const normalizedCategory = normalizeString(category);
+        const normalizedRange = normalizeString(range);
+        
+        console.log(`  Validating range "${range}" for category "${category}"...`);
+        
+        // Special debugging for problematic ranges
+        const debugProblematicRanges = ['deep', 'q10', 'luminous 630'];
+        if (debugProblematicRanges.includes(normalizedRange)) {
+          console.log(`\n==== DETAILED DEBUG FOR PROBLEMATIC RANGE: ${range} ====`);
+          console.log(`  Original range: "${range}", normalized: "${normalizedRange}"`);
+          console.log(`  Original category: "${category}", normalized: "${normalizedCategory}"`);
+          console.log(`  Range exists in rangeToCategoryMap: ${rangeToCategoryMap[normalizedRange] ? 'YES' : 'NO'}`);
+          if (rangeToCategoryMap[normalizedRange]) {
+            console.log(`  Mapped category in database: "${rangeToCategoryMap[normalizedRange]}"`);
+          }
+          console.log(`  All keys in rangeToCategoryMap that contain this range:`);
+          Object.keys(rangeToCategoryMap)
+            .filter(key => key.includes(normalizedRange))
+            .forEach(key => console.log(`    "${key}" -> "${rangeToCategoryMap[key]}"`))
+          console.log(`==== END DETAILED DEBUG ====\n`);
+        }
+        
+        // First check if this is a special case range-category pair that we know is valid
+        console.log(`\n==== CHECKING SPECIAL CASE FOR: Range "${range}" with Category "${category}" ====`);
+        const isSpecialCaseValid = isValidRangeCategoryPair(range, category);
+        console.log(`  Special case check result: ${isSpecialCaseValid ? 'VALID' : 'INVALID'}`);
+        
+        if (isSpecialCaseValid) {
+          console.log(`  VALID SPECIAL CASE: Range "${range}" can belong to category "${category}" based on special rules`);
+          // Valid combination, no conflict to add
+          return; // Skip further validation
+        }
+        
+        // DIRECT OVERRIDE FOR KNOWN PROBLEMATIC RANGES
+        // These ranges are known to exist in multiple categories and should not be flagged
+        const problematicRanges = ['deep', 'q10', 'luminous 630', 'acne'];
+        const normalizedRangeName = normalizeString(range);
+        
+        if (problematicRanges.includes(normalizedRangeName)) {
+          // Skip validation for these problematic ranges
+          console.log(`  SKIPPING VALIDATION: Range "${range}" is a known problematic range that can exist in multiple categories`);
+          return; // Skip further validation
+        }
+        
+        // Check if this range exists in our valid categories map
+        if (rangeToValidCategoriesMap && rangeToValidCategoriesMap[normalizedRange]) {
+          const validCategories = rangeToValidCategoriesMap[normalizedRange];
+          console.log(`  Range "${range}" found in master data with valid categories: ${validCategories.join(', ')}`);
+          
+          // Check if the category in the CSV is one of the valid categories or an equivalent
+          const isCategoryValid = validCategories.some(validCategory => 
+            areCategoriesEquivalent(validCategory, category)
+          );
+          
+          if (isCategoryValid) {
+            console.log(`  VALID: Range "${range}" can belong to category "${category}" in master data`);
+            // Valid combination, no conflict to add
+          } else {
+            // Range exists but with different valid categories
+            console.log(`  CONFLICT: Range "${range}" doesn't belong to category "${category}" in master data`);
+            
+            // Get the primary category (first in the list) for standardized recommendation
+            const primaryCategory = validCategories[0];
+            const capitalizedRecommendation = capitalizeWords(primaryCategory);
+            
+            conflicts.push({
+              type: 'Range',
+              name: range,
+              issue: 'Category changed',
+              category: category, // Store the current category for display
+              recommendedValue: capitalizedRecommendation,
+              severity: 'warning',
+              rowNumber: rowNumber
+            });
+          }
+        } else {
+          // Range doesn't exist in the master data
+          console.log(`  Range "${range}" not found in master data`);
+          
+          // Check if the category exists
+          if (categoryRangesMap[normalizedCategory]) {
+            console.log(`  Category "${category}" exists but range "${range}" is new`);
+            conflicts.push({
+              type: 'Range',
+              name: range,
+              issue: 'New range',
+              recommendedValue: 'Create New Range',
+              severity: 'info',
+              rowNumber: rowNumber
+            });
+          } else {
+            // Both category and range don't exist
+            console.log(`  Both category "${category}" and range "${range}" not found in master data`);
+            conflicts.push({
+              type: 'Range',
+              name: range,
+              issue: 'New range for new category',
+              recommendedValue: 'Create new category and range',
+              severity: 'info'
+            });
+          }
+        }
+      }
+      
+      // Extract media type
+      const mediaType = getFieldValue('Media');
+      if (mediaType) {
+        extractedMediaTypes.add(mediaType);
+        
+        // Check if media type exists
+        if (!existingMediaTypes.includes(mediaType)) {
+          conflicts.push({
+            type: 'Media Type',
+            name: mediaType,
+            issue: 'New media type',
+            recommendedValue: 'Create new media type',
+            severity: 'info'
+          });
+        }
+      }
+      
+      // Extract media subtype and check media type
+      const mediaSubtype = getFieldValue('Media Subtype');
+      if (mediaSubtype && mediaType) {
+        // Check for media type mismatch (case-insensitive)
+        // First, check if we already have this subtype in our extracted list
+        const normalizedSubtype = normalizeString(mediaSubtype);
+        const existingSubtypeKey = Array.from(extractedMediaSubtypes.keys()).find(key => 
+          normalizeString(key) === normalizedSubtype
+        );
+        
+        if (existingSubtypeKey) {
+          const existingMediaType = extractedMediaSubtypes.get(existingSubtypeKey);
+          if (normalizeString(existingMediaType) !== normalizeString(mediaType)) {
+            conflicts.push({
+              type: 'Media Subtype',
+              name: mediaSubtype,
+              issue: 'Media type mismatch',
+              recommendedValue: existingMediaType,
+              severity: 'warning'
+            });
+          }
+        } else {
+          extractedMediaSubtypes.set(mediaSubtype, mediaType);
+        }
+        
+        // Using the normalizeString function defined earlier
+        
+        // Check if media subtype exists (with case-insensitive and whitespace-trimmed comparison)
+        const existingSubtype = existingMediaSubtypes.find((s: any) => 
+          normalizeString(s.name) === normalizeString(mediaSubtype)
+        );
+        
+        if (!existingSubtype) {
+          // Check if it's a common media subtype that might be missing from the database
+          const commonSubtypes = ['OOH', 'Paid TV', 'Digital', 'Social', 'Search', 'Display', 'Video'];
+          const isCommonSubtype = commonSubtypes.some(subtype => 
+            normalizeString(subtype) === normalizeString(mediaSubtype)
+          );
+          
+          // Only add as a conflict if it's not a common subtype
+          if (!isCommonSubtype) {
+            conflicts.push({
+              type: 'Media Subtype',
+              name: mediaSubtype,
+              issue: 'Not found in database',
+              recommendedValue: 'Create new media subtype',
+              severity: 'warning'
+            });
+          }
+        } else if (normalizeString(existingSubtype.mediaType?.name) !== normalizeString(mediaType)) {
+          conflicts.push({
+            type: 'Media Subtype',
+            name: mediaSubtype,
+            issue: 'Media type changed',
+            recommendedValue: existingSubtype.mediaType?.name,
+            severity: 'warning'
+          });
+        }
+      }
+      
+      // Extract PM Type
+      if (record['PM Type']) {
+        extractedPMTypes.add(record['PM Type']);
+        
+        // Check if PM Type exists
+        if (!existingPMTypes.includes(record['PM Type'])) {
+          conflicts.push({
+            type: 'PM Type',
+            name: record['PM Type'],
+            issue: 'New PM Type',
+            recommendedValue: 'Create new PM Type',
+            severity: 'info'
+          });
+        }
+      }
+      
+      // Extract Business Unit
+      if (record['Business Unit']) {
+        extractedBusinessUnits.add(record['Business Unit']);
+        
+        // Check if Business Unit exists
+        if (!existingBusinessUnits.includes(record['Business Unit'])) {
+          conflicts.push({
+            type: 'Business Unit',
+            name: record['Business Unit'],
+            issue: 'New Business Unit',
+            recommendedValue: 'Create new Business Unit',
+            severity: 'info'
+          });
+        }
+      }
+    });
+    
+    // Format the results
+    const formattedSubRegions = Array.from(extractedSubRegions);
+    
+    const formattedCountries = Array.from(extractedCountries).map(country => {
+      const existingCountry = existingCountries.find((c: any) => c.name === country);
+      return {
+        name: country,
+        subRegion: countrySubregions.get(country) || '',
+        cluster: countrySubregions.get(country) || '',
+        status: existingCountry ? 'existing' : 'new'
+      };
+    });
+    
+    const formattedCategories = Array.from(extractedCategories).map(category => ({
+      name: category,
+      status: existingCategories.includes(category) ? 'existing' : 'new'
+    }));
+    
+    const formattedRanges = Array.from(extractedRanges.entries()).map(([name, category]) => {
+      const existingRange = existingRanges.find((r: any) => r.name === name);
+      return {
+        name,
+        category,
+        status: existingRange ? (existingRange.category?.name === category ? 'existing' : 'modified') : 'new'
+      };
+    });
+    
+    const formattedMediaTypes = Array.from(extractedMediaTypes).map(mediaType => ({
+      name: mediaType,
+      status: existingMediaTypes.includes(mediaType) ? 'existing' : 'new'
+    }));
+    
+    const formattedMediaSubtypes = Array.from(extractedMediaSubtypes.entries()).map(([name, mediaType]) => {
+      const existingSubtype = existingMediaSubtypes.find((s: any) => s.name === name);
+      return {
+        name,
+        mediaType,
+        status: existingSubtype ? (existingSubtype.mediaType?.name === mediaType ? 'existing' : 'modified') : 'new'
+      };
+    });
+    
+    const formattedPMTypes = Array.from(extractedPMTypes).map(pmType => ({
+      name: pmType,
+      status: existingPMTypes.includes(pmType) ? 'existing' : 'new'
+    }));
+    
+    const formattedBusinessUnits = Array.from(extractedBusinessUnits).map(businessUnit => ({
+      name: businessUnit,
+      status: existingBusinessUnits.includes(businessUnit) ? 'existing' : 'new'
+    }));
+    
+    return {
+      subRegions: formattedSubRegions,
+      countries: formattedCountries,
+      categories: formattedCategories,
+      ranges: formattedRanges,
+      mediaTypes: formattedMediaTypes,
+      mediaSubtypes: formattedMediaSubtypes,
+      pmTypes: formattedPMTypes,
+      businessUnits: formattedBusinessUnits,
+      conflicts,
+      recordsWithMissingFields
+    };
+  };
+  
+  // Function to cluster similar validation issues
+  const clusterSimilarIssues = (conflicts: any[]): any[][] => {
+    if (!conflicts || conflicts.length === 0) return [];
+    
+    // Create a map to group issues by type and issue pattern
+    const issueGroups = new Map<string, any[]>();
+    
+    conflicts.forEach(conflict => {
+      // Create a key based on the type of issue and pattern
+      let groupKey = conflict.type;
+      
+      // For country subregion issues, group by the specific pattern
+      if (conflict.type === 'Country' && conflict.issue.includes('different SubRegion')) {
+        // Extract the expected and actual subregions to group similar issues
+        const match = conflict.issue.match(/SubRegion: ([^\s]+) \(expected: ([^\)]+)\)/);
+        if (match) {
+          const [_, actual, expected] = match;
+          groupKey = `${conflict.type}_SubRegion_${actual}_${expected}`;
+        }
+      } 
+      // For range category issues
+      else if (conflict.type === 'Range' && conflict.issue.includes('Category')) {
+        groupKey = `${conflict.type}_Category`;
+      }
+      // For media subtype issues
+      else if (conflict.type === 'Media Subtype') {
+        groupKey = `${conflict.type}_${conflict.issue}`;
+      }
+      // For new entities (info severity)
+      else if (conflict.severity === 'info') {
+        groupKey = `${conflict.type}_New`;
+      }
+      
+      // Get or create the group
+      const group = issueGroups.get(groupKey) || [];
+      group.push(conflict);
+      issueGroups.set(groupKey, group);
+    });
+    
+    // Convert the map to an array of clusters
+    const clusters = Array.from(issueGroups.values());
+    
+    // Sort clusters by size (largest first) and severity (warnings first)
+    clusters.sort((a, b) => {
+      // First sort by severity (warnings first)
+      if (a[0].severity === 'warning' && b[0].severity !== 'warning') return -1;
+      if (a[0].severity !== 'warning' && b[0].severity === 'warning') return 1;
+      
+      // Then sort by cluster size (largest first)
+      return b.length - a.length;
+    });
+    
+    return clusters;
+  };
+  
+  // Function to get the current cluster description
+  const getCurrentClusterDescription = (): string => {
+    if (!clusteredConflicts || clusteredConflicts.length === 0) {
+      return 'No issues found';
+    }
+    
+    const currentCluster = clusteredConflicts[currentClusterIndex];
+    if (!currentCluster || currentCluster.length === 0) {
+      return 'Empty cluster';
+    }
+    
+    const example = currentCluster[0];
+    const count = currentCluster.length;
+    
+    if (example.type === 'Country' && example.issue.includes('different SubRegion')) {
+      const match = example.issue.match(/SubRegion: ([^\s]+) \(expected: ([^\)]+)\)/);
+      if (match) {
+        const [_, actual, expected] = match;
+        return `${count} countries with SubRegion mismatch: ${actual} (database) vs ${expected} (CSV)`;
+      }
+    }
+    
+    if (example.type === 'Range' && example.issue.includes('Category')) {
+      return `${count} ranges with category mismatches`;
+    }
+    
+    if (example.type === 'Media Subtype' && example.issue === 'Not found in database') {
+      return `${count} new media subtypes not in database`;
+    }
+    
+    // Generic description
+    return `${count} ${example.type} issues: ${example.issue}`;
+  };
+
+  // Function to handle validation
+  const handleValidation = () => {
+    // In a real implementation, this would send the data to the server for validation
+    // For now, we'll just simulate validation by setting the status
+    setValidationStatus('validating');
+    
+    setTimeout(() => {
+      setValidationStatus('success');
+    }, 2000);
+  };
+
+  // Function to handle import to PostgreSQL
+  const handleImportToPostgreSQL = async () => {
+    if (!sessionId) return;
+    
+    try {
+      setImportStatus('importing');
+      
+      // Call the import API
+      const response = await fetch('/api/admin/media-sufficiency/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sessionId })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to import data');
+      }
+      
+      const data = await response.json();
+      
+      // Update import status and results
+      setImportStatus('success');
+      setImportResults(data.importResults);
+      
+      // Show success message briefly before redirecting
+      setTimeout(() => {
+        router.push('/admin/media-sufficiency/success?sessionId=' + sessionId);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error importing data:', error);
+      setImportStatus('error');
+      setError(error instanceof Error ? error.message : 'Failed to import data');
+    }
+  };
+
+  // Handle validation
+  const handleValidate = () => {
+    setValidationStatus('validating');
+    
+    // Simulate validation process
+    setTimeout(() => {
+      // Check if there are any remaining warning-level conflicts
+      const hasWarnings = masterDataDetails?.conflicts.some((conflict: any) => conflict.severity === 'warning');
+      
+      if (hasWarnings) {
+        // If there are still warnings, show success but keep the Continue button disabled
+        setValidationStatus('success');
+      } else {
+        // If all warnings are resolved, show success and enable the Continue button
+        setValidationStatus('success');
+      }
+      
+      // Re-cluster the conflicts if they've changed
+      if (masterDataDetails?.conflicts) {
+        const clusters = clusterSimilarIssues(masterDataDetails.conflicts);
+        setClusteredConflicts(clusters);
+        setCurrentClusterIndex(0);
+      }
+    }, 2000);
+  };
+  
+  // Handle navigation
+  const handleBack = () => {
+    router.push('/admin/media-sufficiency');
+  };
+  
+  const handleContinue = () => {
+    // Navigate to the next step (review)
+    router.push(`/admin/media-sufficiency/review?sessionId=${sessionId}`);
+  };
+  
+  if (loading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold font-quicksand text-gray-800">Validating Data</h1>
+          <button
+            onClick={handleBack}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-quicksand"
+          >
+            Back
+          </button>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-8 flex flex-col items-center justify-center">
+          <FiLoader className="h-12 w-12 text-indigo-600 animate-spin mb-4" />
+          <p className="text-lg text-gray-700">Loading session data...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold font-quicksand text-gray-800">Error</h1>
+          <button
+            onClick={handleBack}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-quicksand"
+          >
+            Back
+          </button>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="flex items-center text-red-600 mb-4">
+            <FiAlertTriangle className="h-6 w-6 mr-2" />
+            <h2 className="text-xl font-medium">Error</h2>
+          </div>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <button
+            onClick={handleBack}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-quicksand"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold font-quicksand text-gray-800">Validate Media Sufficiency Data</h1>
+        <button
+          onClick={handleBack}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-quicksand"
+        >
+          Back
+        </button>
+      </div>
+      {/* Session Info */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-medium mb-4 font-quicksand text-gray-800">File Information</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-500">File Name</p>
+            <p className="font-medium text-gray-800">{sessionData?.fileName}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-500">File Size</p>
+            <p className="font-medium text-gray-800">{sessionData ? `${(sessionData.fileSize / 1024).toFixed(2)} KB` : '-'}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-500">Records</p>
+            <p className="font-medium text-gray-800">{sessionData?.recordCount || 0}</p>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-500">Upload Time</p>
+            <p className="font-medium text-gray-800">
+              {sessionData?.timestamp ? new Date(sessionData.timestamp).toLocaleString() : '-'}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Master Data Validation */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-medium mb-4 font-quicksand text-gray-800">Step 2: Master Data Validation</h2>
+        <p className="text-gray-600 mb-6">
+          Review the master data extracted from your file. The system will check for any conflicts or new entities.
+        </p>
+        
+        {/* Master Data Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.subRegionsCount || 0}</p>
+            <p className="text-sm text-gray-600">Sub Regions</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.countriesCount || 0}</p>
+            <p className="text-sm text-gray-600">Countries</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.categoriesCount || 0}</p>
+            <p className="text-sm text-gray-600">Categories</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.rangesCount || 0}</p>
+            <p className="text-sm text-gray-600">Ranges</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.mediaTypesCount || 0}</p>
+            <p className="text-sm text-gray-600">Media Types</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.mediaSubtypesCount || 0}</p>
+            <p className="text-sm text-gray-600">Media Subtypes</p>
+          </div>
+          <div className="bg-indigo-50 p-4 rounded-lg text-center">
+            <p className="text-lg font-bold text-indigo-700">{sessionData?.masterData.businessUnitsCount || 0}</p>
+            <p className="text-sm text-gray-600">Business Units</p>
+          </div>
+        </div>
+        
+        {/* Master Data Details - Removed separate Countries section */}
+        
+        {/* Validation Issues */}
+        {masterDataDetails && masterDataDetails.conflicts && masterDataDetails.conflicts.length > 0 && (
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-medium text-gray-700">Potential Issues</h3>
+                {clusteredConflicts.length > 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Showing cluster {currentClusterIndex + 1} of {clusteredConflicts.length}: {getCurrentClusterDescription()}
+                  </p>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors font-quicksand text-sm"
+                  onClick={() => {
+                    // Apply bulk fixes to current cluster only
+                    if (!clusteredConflicts || clusteredConflicts.length === 0) return;
+                    
+                    const currentCluster = clusteredConflicts[currentClusterIndex];
+                    if (!currentCluster || currentCluster.length === 0) return;
+                    
+                    const updatedConflicts = [...masterDataDetails.conflicts];
+                    const updatedCountries = [...masterDataDetails.countries];
+                    const updatedRanges = [...masterDataDetails.ranges];
+                    const updatedMediaSubtypes = [...masterDataDetails.mediaSubtypes];
+                    
+                    // Track which conflicts were fixed
+                    const fixedConflictIndices = new Set();
+                    
+                    // Get the conflict IDs in the current cluster
+                    const currentClusterConflictIds = new Set(
+                      currentCluster.map(conflict => {
+                        // Find the index of this conflict in the main conflicts array
+                        return updatedConflicts.findIndex(c => 
+                          c.type === conflict.type && 
+                          c.name === conflict.name && 
+                          c.issue === conflict.issue
+                        );
+                      }).filter(index => index !== -1)
+                    );
+                    
+                    // Process only the conflicts in the current cluster
+                    currentCluster.forEach(conflict => {
+                      const conflictIndex = updatedConflicts.findIndex(c => 
+                        c.type === conflict.type && 
+                        c.name === conflict.name && 
+                        c.issue === conflict.issue
+                      );
+                      
+                      if (conflictIndex === -1) return; // Skip if not found
+                      
+                      // Fix country subregion issues
+                      if (conflict.type === 'Country' && conflict.issue.includes('different SubRegion')) {
+                        // Always use the database value (recommended value) for consistency
+                        const countryIndex = updatedCountries.findIndex(c => c.name === conflict.name);
+                        
+                        if (countryIndex >= 0) {
+                          updatedCountries[countryIndex] = {
+                            ...updatedCountries[countryIndex],
+                            subRegion: conflict.recommendedValue,
+                            cluster: conflict.recommendedValue,
+                            status: 'fixed'
+                          };
+                        } else {
+                          updatedCountries.push({
+                            name: conflict.name,
+                            subRegion: conflict.recommendedValue,
+                            cluster: conflict.recommendedValue,
+                            status: 'new'
+                          });
+                        }
+                        
+                        fixedConflictIndices.add(conflictIndex);
+                      }
+                      
+                      // Fix range category issues
+                      else if (conflict.type === 'Range' && (conflict.issue === 'Category mismatch' || conflict.issue === 'Category changed')) {
+                        const rangeIndex = updatedRanges.findIndex(r => r.name === conflict.name);
+                        
+                        if (rangeIndex >= 0) {
+                          updatedRanges[rangeIndex] = {
+                            ...updatedRanges[rangeIndex],
+                            category: conflict.recommendedValue,
+                            status: 'fixed'
+                          };
+                        }
+                        
+                        fixedConflictIndices.add(conflictIndex);
+                      }
+                      
+                      // Fix media subtype issues
+                      else if (conflict.type === 'Media Subtype' && conflict.issue === 'Not found in database') {
+                        // Create new media subtypes with Digital as default media type
+                        updatedMediaSubtypes.push({
+                          name: conflict.name,
+                          mediaType: 'Digital', // Default to Digital
+                          status: 'new'
+                        });
+                        
+                        fixedConflictIndices.add(conflictIndex);
+                      }
+                      
+                      // Fix media subtype media type mismatch
+                      else if (conflict.type === 'Media Subtype' && conflict.issue === 'Media type changed') {
+                        const subtypeIndex = updatedMediaSubtypes.findIndex(s => s.name === conflict.name);
+                        
+                        if (subtypeIndex >= 0) {
+                          updatedMediaSubtypes[subtypeIndex] = {
+                            ...updatedMediaSubtypes[subtypeIndex],
+                            mediaType: conflict.recommendedValue,
+                            status: 'fixed'
+                          };
+                        }
+                        
+                        fixedConflictIndices.add(conflictIndex);
+                      }
+                    });
+                    
+                    // Remove fixed conflicts
+                    const remainingConflicts = updatedConflicts.filter((_, index) => !fixedConflictIndices.has(index));
+                    
+                    // Update the master data details
+                    setMasterDataDetails({
+                      ...masterDataDetails,
+                      countries: updatedCountries,
+                      ranges: updatedRanges,
+                      mediaSubtypes: updatedMediaSubtypes,
+                      conflicts: remainingConflicts
+                    });
+                    
+                    // Revalidate
+                    setValidationStatus('validating');
+                    setTimeout(() => {
+                      // Re-cluster the conflicts
+                      const newClusters = clusterSimilarIssues(remainingConflicts);
+                      setClusteredConflicts(newClusters);
+                      
+                      // Adjust current cluster index if needed
+                      if (currentClusterIndex >= newClusters.length) {
+                        setCurrentClusterIndex(Math.max(0, newClusters.length - 1));
+                      }
+                      
+                      setValidationStatus('success');
+                    }, 1000);
+                  }}
+                >
+                  Fix This Cluster
+                </button>
+                
+                {/* Pagination Controls */}
+                <div className="flex items-center space-x-1">
+                  <button
+                    className={`p-2 rounded-md ${currentClusterIndex > 0 ? 'bg-gray-200 hover:bg-gray-300' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                    disabled={currentClusterIndex <= 0}
+                    onClick={() => setCurrentClusterIndex(prev => Math.max(0, prev - 1))}
+                  >
+                    <FiArrowLeft className="h-4 w-4" />
+                  </button>
+                  
+                  <span className="text-sm text-gray-600">
+                    {clusteredConflicts.length > 0 ? `${currentClusterIndex + 1}/${clusteredConflicts.length}` : '0/0'}
+                  </span>
+                  
+                  <button
+                    className={`p-2 rounded-md ${currentClusterIndex < clusteredConflicts.length - 1 ? 'bg-gray-200 hover:bg-gray-300' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                    disabled={currentClusterIndex >= clusteredConflicts.length - 1}
+                    onClick={() => setCurrentClusterIndex(prev => Math.min(clusteredConflicts.length - 1, prev + 1))}
+                  >
+                    <FiArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white border border-gray-200">
+                <thead>
+                  <tr>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Row #</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Type</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Name</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Issue</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Current Value</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Recommended Value</th>
+                    <th className="py-2 px-4 border-b text-left text-sm font-medium text-gray-700">Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clusteredConflicts.length > 0 && clusteredConflicts[currentClusterIndex].map((conflict: any, index: number) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700 font-medium">{conflict.rowNumber || '-'}</td>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700">{conflict.type}</td>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700">{conflict.name}</td>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700">{conflict.issue}</td>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700">
+                        {conflict.type === 'Range' && conflict.issue.includes('Category') ? 
+                          (conflict.name ? conflict.name + ' (' + (conflict.category || 'Unknown Category') + ')' : '-') : 
+                          (conflict.type === 'Country' && conflict.issue.includes('SubRegion') ? 
+                            (conflict.issue.match(/\(expected: ([^\)]+)\)/) ? conflict.issue.match(/\(expected: ([^\)]+)\)/)[1] : '-') : 
+                            '-')
+                        }
+                      </td>
+                      <td className="py-2 px-4 border-b text-sm text-gray-700">{conflict.recommendedValue || '-'}</td>
+                      <td className="py-2 px-4 border-b text-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            {conflict.severity === 'warning' ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Warning
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Info
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium ml-2"
+                            onClick={() => {
+                              setEditingConflict(conflict);
+                              setShowEditModal(true);
+                              // Set default value for subregion if editing Vietnam
+                              if (conflict.name === 'Vietnam' && conflict.issue === 'Missing subregion') {
+                                setEditedSubregion('ASEAN');
+                              }
+                              // Set default value for country with different subregion
+                              else if (conflict.type === 'Country' && conflict.issue.includes('different SubRegion')) {
+                                setEditedSubregion(conflict.recommendedValue);
+                              }
+                            }}
+                          >
+                            Fix
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        
+        {/* Validation Status */}
+        {validationStatus === 'validating' && (
+          <div className="bg-indigo-50 text-indigo-700 p-4 rounded-lg mb-6 flex items-center">
+            <div className="h-5 w-5 mr-3">
+              <div className="h-full w-full rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+            </div>
+            <span>Validating master data...</span>
+            {/* Validation Results */}
+            {validationStatus === 'success' && (
+              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center text-green-700 mb-2">
+                  <FiCheckCircle className="mr-2" />
+                  <span className="font-medium">Validation Successful</span>
+                </div>
+                <p className="text-green-600">
+                  All data has been validated successfully. You can now import the data to PostgreSQL.
+                </p>
+              </div>
+            )}
+            
+            {/* Import Results */}
+            {importStatus === 'success' && importResults && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center text-blue-700 mb-2">
+                  <FiCheckCircle className="mr-2" />
+                  <span className="font-medium">Import to PostgreSQL Successful</span>
+                </div>
+                <p className="text-blue-600 mb-2">
+                  All data has been successfully imported to PostgreSQL and synchronized with SQLite.
+                </p>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <h4 className="font-medium text-blue-800 mb-2">Master Data</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>Sub Regions: {importResults.subRegionsCount}</li>
+                      <li>Countries: {importResults.countriesCount}</li>
+                      <li>Categories: {importResults.categoriesCount}</li>
+                      <li>Ranges: {importResults.rangesCount}</li>
+                      <li>Media Types: {importResults.mediaTypesCount}</li>
+                      <li>Media Subtypes: {importResults.mediaSubtypesCount}</li>
+                      <li>Business Units: {importResults.businessUnitsCount}</li>
+                      <li>PM Types: {importResults.pmTypesCount}</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-blue-800 mb-2">Campaign Data</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>Campaigns: {importResults.campaignsCount}</li>
+                      <li>Campaign Media Items: {importResults.campaignMediaCount}</li>
+                    </ul>
+                  </div>
+                </div>
+                <p className="text-sm text-blue-600 mt-4">
+                  Redirecting to success page...
+                </p>
+              </div>
+            )}
+            
+            {/* Import Error */}
+            {importStatus === 'error' && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center text-red-700 mb-2">
+                  <FiAlertTriangle className="mr-2" />
+                  <span className="font-medium">Import Error</span>
+                </div>
+                <p className="text-red-600">
+                  {error || 'An error occurred during the import process. Please try again.'}
+                </p>
+              </div>
+            )}
+        
+        {validationStatus === 'error' && (
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 flex items-center">
+            <FiAlertTriangle className="h-5 w-5 mr-2" />
+            <span>There were issues validating the master data. Please review and fix the issues before proceeding.</span>
+          </div>
+        )}
+        
+        {/* Action Buttons */}
+        <div className="flex justify-between mt-8">
+          <button
+            onClick={() => router.push('/admin/media-sufficiency')}
+            className="px-4 py-2 flex items-center text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+          >
+            <FiArrowLeft className="mr-2" />
+            Back to Upload
+          </button>
+          
+          <div className="flex space-x-4">
+            <button
+              onClick={handleValidation}
+              className={`px-6 py-2 rounded-md flex items-center ${validationStatus === 'validating' ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'} text-white transition-colors`}
+              disabled={validationStatus === 'validating'}
+            >
+              {validationStatus === 'validating' ? (
+                <>
+                  <FiLoader className="animate-spin mr-2" />
+                  Validating...
+                </>
+              ) : validationStatus === 'success' ? (
+                <>
+                  <FiCheckCircle className="mr-2" />
+                  Validated
+                </>
+              ) : (
+                <>Validate Data</>
+              )}
+            </button>
+            
+            {validationStatus === 'success' && (
+              <button
+                onClick={handleImportToPostgreSQL}
+                className={`px-6 py-2 rounded-md flex items-center ${importStatus === 'importing' ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white transition-colors`}
+                disabled={importStatus === 'importing'}
+              >
+                {importStatus === 'importing' ? (
+                  <>
+                    <FiLoader className="animate-spin mr-2" />
+                    Importing to PostgreSQL...
+                  </>
+                ) : importStatus === 'success' ? (
+                  <>
+                    <FiCheckCircle className="mr-2" />
+                    Imported Successfully
+                  </>
+                ) : (
+                  <>Import to PostgreSQL</>
+                )}
+              </button>
+            )}
+            <button
+              className={`px-6 py-2 rounded-md flex items-center ${validationStatus !== 'success' ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'} transition-colors`}
+              disabled={validationStatus !== 'success'}
+              onClick={handleContinue}
+            >
+              Continue
+              <FiArrowRight className="ml-2" />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Import Steps */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-medium mb-4 font-quicksand text-gray-800">Import Process</h2>
+        <div className="flex flex-col md:flex-row justify-between">
+          <div className="flex-1 p-4 border-l-4 border-green-600 bg-green-50 mb-4 md:mb-0 md:mr-4">
+            <h3 className="font-medium text-green-800">Step 1: Upload</h3>
+            <p className="text-sm text-gray-600">Upload your CSV file with media sufficiency data</p>
+          </div>
+          <div className="flex-1 p-4 border-l-4 border-indigo-600 bg-indigo-50 mb-4 md:mb-0 md:mr-4">
+            <h3 className="font-medium text-indigo-800">Step 2: Validate</h3>
+            <p className="text-sm text-gray-600">System validates data and checks for issues</p>
+          </div>
+          <div className="flex-1 p-4 border-l-4 border-gray-300 bg-gray-50 mb-4 md:mb-0 md:mr-4">
+            <h3 className="font-medium text-gray-600">Step 3: Review</h3>
+            <p className="text-sm text-gray-600">Review and edit data before import</p>
+          </div>
+          <div className="flex-1 p-4 border-l-4 border-gray-300 bg-gray-50">
+            <h3 className="font-medium text-gray-600">Step 4: Import</h3>
+            <p className="text-sm text-gray-600">Confirm and import data into the system</p>
+          </div>
+        </div>
+      </div>
+            {/* Edit Modal for Conflicts */}
+      {showEditModal && editingConflict && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Fix {editingConflict.type} Issue</h3>
+            
+            {/* Country with different SubRegion fix - General handler for all countries */}
+            {editingConflict.type === 'Country' && editingConflict.issue.includes('different SubRegion') && (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  {editingConflict.name} exists but with a different SubRegion in the database.
+                  Please select which SubRegion to use:
+                </p>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SubRegion</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    value={editedSubregion}
+                    onChange={(e) => setEditedSubregion(e.target.value)}
+                  >
+                    <option value="">Select a SubRegion</option>
+                    <option value={editingConflict.recommendedValue}>{editingConflict.recommendedValue} (Database Value)</option>
+                    {/* Extract the expected value from the issue text */}
+                    {editingConflict.issue.match(/\(expected: ([^)]+)\)/) && (
+                      <option value={editingConflict.issue.match(/\(expected: ([^)]+)\)/)[1]}>
+                        {editingConflict.issue.match(/\(expected: ([^)]+)\)/)[1]} (CSV Value)
+                      </option>
+                    )}
+                    {masterDataDetails?.subRegions.map((region: string, index: number) => (
+                      region !== editingConflict.recommendedValue && 
+                      !editingConflict.issue.includes(`(expected: ${region})`) && (
+                        <option key={index} value={region}>{region}</option>
+                      )
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            
+            {/* Vietnam missing subregion fix */}
+            {editingConflict.name === 'Vietnam' && editingConflict.issue === 'Missing subregion' && (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Vietnam is missing a subregion assignment. Please select a subregion for Vietnam.
+                </p>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subregion</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    value={editedSubregion}
+                    onChange={(e) => setEditedSubregion(e.target.value)}
+                  >
+                    <option value="">Select a subregion</option>
+                    {masterDataDetails?.subRegions.map((region: string, index: number) => (
+                      <option key={index} value={region}>{region}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            
+            {/* Pearl & Beauty category mismatch fix */}
+            {editingConflict.name === 'Pearl & Beauty' && editingConflict.issue === 'Category mismatch' && (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  The range "Pearl & Beauty" is assigned to different categories in different records.
+                  Please confirm the correct category for this range.
+                </p>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    id="categorySelect"
+                  >
+                    <option value="Deo">Deo</option>
+                    <option value="Body Care">Body Care</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            
+            {/* Influencers Organic media subtype fix */}
+            {editingConflict.name === 'Influencers Organic' && editingConflict.issue === 'Not found in database' && (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  The media subtype "Influencers Organic" was not found in the database.
+                  Do you want to create this new media subtype?
+                </p>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Media Type</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    id="mediaTypeSelect"
+                  >
+                    <option value="Digital">Digital</option>
+                    <option value="TV">TV</option>
+                    <option value="OOH">OOH</option>
+                    <option value="Traditional">Traditional</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingConflict(null);
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                onClick={() => {
+                  // Handle the fix based on the conflict type
+                  let updatedConflicts = [...masterDataDetails.conflicts];
+                  
+                  // General country subregion conflict fix
+                  if (editingConflict.type === 'Country' && editingConflict.issue.includes('different SubRegion')) {
+                    // Update the countries list with the selected subregion
+                    const updatedCountries = masterDataDetails.countries.map((country: any) => {
+                      if (country.name === editingConflict.name) {
+                        return { ...country, subRegion: editedSubregion, cluster: editedSubregion, status: 'fixed' };
+                      }
+                      return country;
+                    });
+                    
+                    // Add country to the list if it doesn't exist
+                    let countryExists = false;
+                    for (const country of updatedCountries) {
+                      if (country.name === editingConflict.name) {
+                        countryExists = true;
+                        break;
+                      }
+                    }
+                    
+                    if (!countryExists) {
+                      updatedCountries.push({
+                        name: editingConflict.name,
+                        subRegion: editedSubregion,
+                        cluster: editedSubregion,
+                        status: 'new'
+                      });
+                    }
+                    
+                    // Remove the conflict from the list
+                    updatedConflicts = updatedConflicts.filter(
+                      (c: any) => !(c.type === 'Country' && c.name === editingConflict.name && c.issue.includes('different SubRegion'))
+                    );
+                    
+                    // Update the master data details
+                    setMasterDataDetails({
+                      ...masterDataDetails,
+                      countries: updatedCountries,
+                      conflicts: updatedConflicts
+                    });
+                  }
+                  
+                  // Vietnam missing subregion fix
+                  else if (editingConflict.name === 'Vietnam' && editingConflict.issue === 'Missing subregion') {
+                    // Update the countries list with the new subregion
+                    const updatedCountries = masterDataDetails.countries.map((country: any) => {
+                      if (country.name === 'Vietnam') {
+                        return { ...country, subRegion: editedSubregion, cluster: editedSubregion, status: 'fixed' };
+                      }
+                      return country;
+                    });
+                    
+                    // Add Vietnam to countries if it doesn't exist
+                    let vietnamExists = false;
+                    for (const country of updatedCountries) {
+                      if (country.name === 'Vietnam') {
+                        vietnamExists = true;
+                        break;
+                      }
+                    }
+                    
+                    if (!vietnamExists) {
+                      updatedCountries.push({
+                        name: 'Vietnam',
+                        subRegion: editedSubregion,
+                        cluster: editedSubregion,
+                        status: 'new'
+                      });
+                    }
+                    
+                    // Remove the conflict from the list
+                    updatedConflicts = updatedConflicts.filter(
+                      (c: any) => !(c.type === 'Country' && c.name === 'Vietnam' && c.issue === 'Missing subregion')
+                    );
+                    
+                    // Update the master data details
+                    setMasterDataDetails({
+                      ...masterDataDetails,
+                      countries: updatedCountries,
+                      conflicts: updatedConflicts
+                    });
+                  }
+                  
+                  // Pearl & Beauty category mismatch fix
+                  else if (editingConflict.name === 'Pearl & Beauty' && editingConflict.issue === 'Category mismatch') {
+                    // Get the selected category from the dropdown
+                    const categorySelect = document.querySelector('#categorySelect') as HTMLSelectElement;
+                    const selectedCategory = categorySelect ? categorySelect.value : 'Deo';
+                    
+                    // Ensure ranges exists and is an array
+                    const existingRanges = Array.isArray(masterDataDetails.ranges) 
+                      ? masterDataDetails.ranges 
+                      : [];
+                    
+                    // Create a new range if it doesn't exist
+                    let pearlBeautyExists = false;
+                    for (const range of existingRanges) {
+                      if (range.name === 'Pearl & Beauty') {
+                        pearlBeautyExists = true;
+                        break;
+                      }
+                    }
+                    
+                    let updatedRanges;
+                    if (pearlBeautyExists) {
+                      // Update the ranges list with the correct category
+                      updatedRanges = existingRanges.map((range: any) => {
+                        if (range.name === 'Pearl & Beauty') {
+                          return { ...range, category: selectedCategory, status: 'fixed' };
+                        }
+                        return range;
+                      });
+                    } else {
+                      // Add a new range if it doesn't exist
+                      updatedRanges = [...existingRanges, {
+                        name: 'Pearl & Beauty',
+                        category: selectedCategory,
+                        status: 'new'
+                      }];
+                    }
+                    
+                    // Remove the conflict from the list
+                    updatedConflicts = updatedConflicts.filter(
+                      (c: any) => !(c.type === 'Range' && c.name === 'Pearl & Beauty' && c.issue === 'Category mismatch')
+                    );
+                    
+                    // Update the master data details
+                    setMasterDataDetails({
+                      ...masterDataDetails,
+                      ranges: updatedRanges,
+                      conflicts: updatedConflicts
+                    });
+                  }
+                  
+                  // Influencers Organic media subtype fix
+                  else if (editingConflict.name === 'Influencers Organic' && editingConflict.issue === 'Not found in database') {
+                    // Get the selected media type from the dropdown
+                    const mediaTypeSelect = document.querySelector('#mediaTypeSelect') as HTMLSelectElement;
+                    const selectedMediaType = mediaTypeSelect ? mediaTypeSelect.value : 'Digital';
+                    
+                    // Add the new media subtype
+                    // Ensure mediaSubtypes exists and is an array
+                    const existingMediaSubtypes = Array.isArray(masterDataDetails.mediaSubtypes) 
+                      ? masterDataDetails.mediaSubtypes 
+                      : [];
+                      
+                    const updatedMediaSubtypes = [...existingMediaSubtypes, {
+                      name: 'Influencers Organic',
+                      mediaType: selectedMediaType,
+                      status: 'new'
+                    }];
+                    
+                    // Remove the conflict from the list
+                    updatedConflicts = updatedConflicts.filter(
+                      (c: any) => !(c.type === 'Media Subtype' && c.name === 'Influencers Organic' && c.issue === 'Not found in database')
+                    );
+                    
+                    // Update the master data details
+                    setMasterDataDetails({
+                      ...masterDataDetails,
+                      mediaSubtypes: updatedMediaSubtypes,
+                      conflicts: updatedConflicts
+                    });
+                  }
+                  
+                  // Save a reference to the current conflict before clearing it
+                  const currentConflict = { ...editingConflict };
+                  
+                  // Close the modal
+                  setShowEditModal(false);
+                  setEditingConflict(null);
+                  
+                  // Automatically revalidate after fixing an issue
+                  setValidationStatus('validating');
+                  setTimeout(() => {
+                    // Set validation to success
+                    setValidationStatus('success');
+                  }, 1000);
+                }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

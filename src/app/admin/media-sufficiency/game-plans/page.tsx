@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FiSearch, FiRefreshCw, FiFilter, FiChevronLeft, FiChevronRight, FiGrid, FiCalendar } from 'react-icons/fi';
 import SimpleEditableGrid from '@/components/media-sufficiency/SimpleEditableGrid';
 import GamePlansCalendar from '@/components/media-sufficiency/GamePlansCalendar';
+import { createPermissionChecker } from '@/lib/auth/permissions';
 
 export default function GamePlansAdmin() {
   const router = useRouter();
@@ -22,6 +23,21 @@ export default function GamePlansAdmin() {
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
   const [selectedImportBatch, setSelectedImportBatch] = useState<string | null>(null);
   const [availableImportBatches, setAvailableImportBatches] = useState<any[]>([]);
+  const [userPermissions, setUserPermissions] = useState<any>(null);
+  
+  // Initialize user permissions
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        const permissionChecker = createPermissionChecker(userData);
+        setUserPermissions(permissionChecker);
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+      }
+    }
+  }, []);
   
   // Load game plans data
   useEffect(() => {
@@ -35,7 +51,13 @@ export default function GamePlansAdmin() {
           url += `?lastUpdateId=${selectedImportBatch}`;
         }
         
-        const response = await fetch(url);
+        const token = localStorage.getItem('token');
+        const headers: any = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(url, { headers });
         
         if (!response.ok) {
           throw new Error(`Error fetching game plans: ${response.status}`);
@@ -238,7 +260,7 @@ export default function GamePlansAdmin() {
                   <select
                     value={selectedImportBatch || ''}
                     onChange={(e) => setSelectedImportBatch(e.target.value || null)}
-                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   >
                     <option value="">Latest Import</option>
                     <option value="all">All Data (No Filter)</option>
@@ -253,7 +275,7 @@ export default function GamePlansAdmin() {
                   <select
                     value={rowsPerPage}
                     onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                    className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   >
                     <option value={10}>10 per page</option>
                     <option value={25}>25 per page</option>
@@ -302,7 +324,8 @@ export default function GamePlansAdmin() {
                   <SimpleEditableGrid 
                     data={getCurrentPageData()} 
                     onSave={handleDataChange}
-                    onDelete={handleDelete} 
+                    onDelete={handleDelete}
+                    userPermissions={userPermissions}
                   />
                   
                   <div className="flex items-center justify-between mt-6">

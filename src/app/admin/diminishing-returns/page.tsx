@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FiBarChart, FiUpload, FiDatabase, FiFileText, FiArrowLeft, FiCheckCircle, FiDownload, FiTv, FiSmartphone, FiRefreshCw } from 'react-icons/fi';
+import { FiBarChart, FiUpload, FiDatabase, FiFileText, FiArrowLeft, FiCheckCircle, FiDownload, FiTv, FiSmartphone, FiRefreshCw, FiMonitor } from 'react-icons/fi';
 import TvTargetAudienceForm from '@/components/diminishing-returns/TvTargetAudienceForm';
 import TvCurvesTable from '@/components/diminishing-returns/TvCurvesTable';
 import DigitalTargetAudienceForm from '@/components/diminishing-returns/DigitalTargetAudienceForm';
 import DigitalCurvesTable from '@/components/diminishing-returns/DigitalCurvesTable';
+import MultimediaTargetAudienceForm from '@/components/diminishing-returns/MultimediaTargetAudienceForm';
+import MultimediaCurvesTable from '@/components/diminishing-returns/MultimediaCurvesTable';
 
 interface SessionSummary {
   sessionId: string;
   fileName: string;
   totalRecords: number;
-  mediaType: 'tv' | 'digital';
+  mediaType: 'tv' | 'digital' | 'multimedia';
   validationSummary?: {
     total: number;
     critical: number;
@@ -46,13 +48,13 @@ export default function DiminishingReturnsPage() {
   const [currentSession, setCurrentSession] = useState<string | null>(null);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [activeTab, setActiveTab] = useState('upload');
-  const [mediaType, setMediaType] = useState<'tv' | 'digital'>('tv');
+  const [mediaType, setMediaType] = useState<'tv' | 'digital' | 'multimedia'>('tv');
   
   // Form-based state
   const [countries, setCountries] = useState<Country[]>([]);
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<number>(0);
-  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<number>(0);
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<number>(1); // Default to business unit 1
   const [targetAudiences, setTargetAudiences] = useState<TargetAudience[]>([{
     id: Math.random().toString(36).substr(2, 9),
     gender: 'F',
@@ -76,13 +78,25 @@ export default function DiminishingReturnsPage() {
   }]);
   const [showDigitalCurvesTable, setShowDigitalCurvesTable] = useState(false);
 
-  const handleUploadComplete = (sessionId: string, type: 'tv' | 'digital') => {
+  // Multimedia form state
+  const [multimediaTargetAudiences, setMultimediaTargetAudiences] = useState<TargetAudience[]>([{
+    id: Math.random().toString(36).substr(2, 9),
+    gender: 'F',
+    minAge: 18,
+    maxAge: 45,
+    sel: '',
+    finalTarget: 'F 18-45',
+    saturationPoint: 0
+  }]);
+  const [showMultimediaCurvesTable, setShowMultimediaCurvesTable] = useState(false);
+
+  const handleUploadComplete = (sessionId: string, type: 'tv' | 'digital' | 'multimedia') => {
     setCurrentSession(sessionId);
     setMediaType(type);
     setActiveTab('validation');
   };
 
-  const handleValidationComplete = (sessionId: string, summary: any, type: 'tv' | 'digital') => {
+  const handleValidationComplete = (sessionId: string, summary: any, type: 'tv' | 'digital' | 'multimedia') => {
     setSessionSummary({
       sessionId,
       fileName: sessionSummary?.fileName || 'uploaded-file.csv',
@@ -101,6 +115,7 @@ export default function DiminishingReturnsPage() {
     setMediaType('tv');
     setShowCurvesTable(false);
     setShowDigitalCurvesTable(false);
+    setShowMultimediaCurvesTable(false);
   };
 
   // Load countries and business units
@@ -152,7 +167,7 @@ export default function DiminishingReturnsPage() {
   };
 
   const loadExistingTvData = async () => {
-    if (!selectedCountry || !selectedBusinessUnit) {
+    if (!selectedCountry) {
       return;
     }
 
@@ -192,7 +207,7 @@ export default function DiminishingReturnsPage() {
   };
 
   const loadExistingDigitalData = async () => {
-    if (!selectedCountry || !selectedBusinessUnit) {
+    if (!selectedCountry) {
       return;
     }
 
@@ -231,6 +246,46 @@ export default function DiminishingReturnsPage() {
     }
   };
 
+  const loadExistingMultimediaData = async () => {
+    if (!selectedCountry) {
+      return;
+    }
+
+    try {
+      console.log('Loading existing Multimedia data for:', { selectedCountry, selectedBusinessUnit });
+      
+      // Load audiences first
+      const audienceResponse = await fetch(`/api/admin/multimedia-diminishing-returns/audiences?countryId=${selectedCountry}&businessUnitId=${selectedBusinessUnit}`);
+      
+      if (audienceResponse.ok) {
+        const audienceData = await audienceResponse.json();
+        if (audienceData.length > 0) {
+          // Load existing audiences
+          const loadedAudiences = audienceData.map((aud: any) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            gender: aud.gender,
+            minAge: aud.minAge,
+            maxAge: aud.maxAge,
+            sel: aud.sel || '',
+            finalTarget: aud.finalTarget,
+            saturationPoint: aud.saturationPoint || 0
+          }));
+          
+          setMultimediaTargetAudiences(loadedAudiences);
+          setShowMultimediaCurvesTable(true); // Show curves table
+          
+          console.log(`Successfully loaded ${loadedAudiences.length} multimedia target audiences and curves data.`);
+        } else {
+          console.log('No existing Multimedia data found');
+        }
+      } else {
+        console.error('Failed to load multimedia audiences:', audienceResponse.status);
+      }
+    } catch (error) {
+      console.error('Error loading existing Multimedia data:', error);
+    }
+  };
+
   const handleAudiencesChange = (audiences: TargetAudience[]) => {
     // Only hide curves table if audiences actually changed (not just a re-render)
     const audiencesChanged = JSON.stringify(audiences) !== JSON.stringify(targetAudiences);
@@ -264,6 +319,23 @@ export default function DiminishingReturnsPage() {
     setShowDigitalCurvesTable(true);
   }, [showDigitalCurvesTable]);
 
+  // Multimedia handlers
+  const handleMultimediaAudiencesChange = (audiences: TargetAudience[]) => {
+    // Only hide curves table if audiences actually changed (not just a re-render)
+    const audiencesChanged = JSON.stringify(audiences) !== JSON.stringify(multimediaTargetAudiences);
+    
+    setMultimediaTargetAudiences(audiences);
+    
+    if (audiencesChanged) {
+      setShowMultimediaCurvesTable(false);
+    }
+  };
+
+  const handleMultimediaGenerateTable = React.useCallback((audiences: TargetAudience[]) => {
+    setMultimediaTargetAudiences(audiences);
+    setShowMultimediaCurvesTable(true);
+  }, [showMultimediaCurvesTable]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -275,7 +347,7 @@ export default function DiminishingReturnsPage() {
                 Diminishing Returns Management
               </h1>
               <p className="text-gray-600">
-                Upload and manage TV and Digital diminishing returns curves by business unit and country
+                Upload and manage TV, Digital, and Multimedia diminishing returns curves by country
               </p>
             </div>
             
@@ -306,7 +378,7 @@ export default function DiminishingReturnsPage() {
                         {sessionSummary.fileName} ({sessionSummary.mediaType.toUpperCase()})
                       </div>
                       <div className="text-sm text-gray-500">
-                        {sessionSummary.totalRecords} records • {sessionSummary.businessUnit} • {sessionSummary.country}
+                        {sessionSummary.totalRecords} records • {sessionSummary.country}
                       </div>
                       <div className="text-xs text-gray-400">
                         Session: {sessionSummary.sessionId}
@@ -401,11 +473,11 @@ export default function DiminishingReturnsPage() {
                   <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-medium text-gray-900">Select Media Type</h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      Choose whether you want to create TV or Digital diminishing returns curves
+                      Choose whether you want to create TV, Digital, or Multimedia diminishing returns curves
                     </p>
                   </div>
                   <div className="p-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <button
                         onClick={() => setMediaType('tv')}
                         className={`p-6 rounded-lg border-2 transition-colors ${
@@ -443,6 +515,25 @@ export default function DiminishingReturnsPage() {
                           </p>
                         </div>
                       </button>
+                      
+                      <button
+                        onClick={() => setMediaType('multimedia')}
+                        className={`p-6 rounded-lg border-2 transition-colors ${
+                          mediaType === 'multimedia'
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center">
+                          <FiMonitor className={`h-8 w-8 mb-3 ${mediaType === 'multimedia' ? 'text-purple-600' : 'text-gray-400'}`} />
+                          <h4 className={`font-medium ${mediaType === 'multimedia' ? 'text-purple-900' : 'text-gray-900'}`}>
+                            Multimedia Diminishing Returns
+                          </h4>
+                          <p className={`text-sm mt-1 ${mediaType === 'multimedia' ? 'text-purple-700' : 'text-gray-500'}`}>
+                            TRP-based reach curves
+                          </p>
+                        </div>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -450,13 +541,13 @@ export default function DiminishingReturnsPage() {
                 {/* Country and Business Unit Selection */}
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">Select Country & Business Unit</h3>
+                    <h3 className="text-lg font-medium text-gray-900">Select Country</h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      Choose the country and business unit for your diminishing returns data
+                      Choose the country for your diminishing returns data
                     </p>
                   </div>
                   <div className="p-6">
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Country <span className="text-red-500">*</span>
@@ -474,31 +565,13 @@ export default function DiminishingReturnsPage() {
                           ))}
                         </select>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Business Unit <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={selectedBusinessUnit}
-                          onChange={(e) => setSelectedBusinessUnit(parseInt(e.target.value))}
-                          className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                        >
-                          <option value={0}>Choose a business unit...</option>
-                          {businessUnits.map((bu) => (
-                            <option key={bu.id} value={bu.id}>
-                              {bu.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
                 </div>
 
 
                 {/* TV Form Components */}
-                {mediaType === 'tv' && selectedCountry && selectedBusinessUnit && (
+                {mediaType === 'tv' && selectedCountry > 0 && (
                   <>
                     <TvTargetAudienceForm
                       countryId={selectedCountry}
@@ -520,7 +593,7 @@ export default function DiminishingReturnsPage() {
                 )}
 
                 {/* Digital Form Components */}
-                {mediaType === 'digital' && selectedCountry && selectedBusinessUnit && (
+                {mediaType === 'digital' && selectedCountry > 0 && (
                   <>
                     <DigitalTargetAudienceForm
                       countryId={selectedCountry}
@@ -541,6 +614,28 @@ export default function DiminishingReturnsPage() {
                   </>
                 )}
 
+                {/* Multimedia Form Components */}
+                {mediaType === 'multimedia' && selectedCountry > 0 && (
+                  <>
+                    <MultimediaTargetAudienceForm
+                      countryId={selectedCountry}
+                      businessUnitId={selectedBusinessUnit}
+                      audiences={multimediaTargetAudiences}
+                      onAudiencesChange={handleMultimediaAudiencesChange}
+                      onGenerateTable={handleMultimediaGenerateTable}
+                      onLoadExisting={loadExistingMultimediaData}
+                    />
+
+                    {showMultimediaCurvesTable && (
+                      <MultimediaCurvesTable
+                        countryId={selectedCountry}
+                        businessUnitId={selectedBusinessUnit}
+                        audiences={multimediaTargetAudiences}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* Instructions */}
                 <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-sm">
                   <div className="px-8 py-6 border-b border-gray-200 bg-white rounded-t-xl">
@@ -550,12 +645,14 @@ export default function DiminishingReturnsPage() {
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-gray-900">
-                          {mediaType === 'tv' ? 'TV Form Interface Guide' : 'Digital Form Interface Guide'}
+                          {mediaType === 'tv' ? 'TV Form Interface Guide' : mediaType === 'digital' ? 'Digital Form Interface Guide' : 'Multimedia Form Interface Guide'}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
                           {mediaType === 'tv' 
                             ? 'Create and manage diminishing returns curves using our spreadsheet-style interface'
-                            : 'Create and manage budget vs reach & frequency curves using our spreadsheet-style interface'
+                            : mediaType === 'digital'
+                            ? 'Create and manage TRP vs reach curves using our spreadsheet-style interface'
+                            : 'Create and manage multimedia TRP vs reach curves using our spreadsheet-style interface'
                           }
                         </p>
                       </div>
@@ -566,19 +663,19 @@ export default function DiminishingReturnsPage() {
                     {/* Required Steps */}
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
-                        <div className={`h-1 w-8 ${mediaType === 'tv' ? 'bg-blue-500' : 'bg-green-500'} rounded-full`}></div>
+                        <div className={`h-1 w-8 ${mediaType === 'tv' ? 'bg-blue-500' : mediaType === 'digital' ? 'bg-green-500' : 'bg-purple-500'} rounded-full`}></div>
                         <h4 className="text-lg font-semibold text-gray-900">
-                          {mediaType === 'tv' ? 'Quick Start Steps' : 'Quick Start Steps'}
+                          Quick Start Steps
                         </h4>
                       </div>
                       
-                      {mediaType === 'tv' ? (
+                      {mediaType === 'tv' || mediaType === 'multimedia' ? (
                         <div className="grid gap-4">
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
                             <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
                             <div>
-                              <div className="font-medium text-gray-900">Select Location & Business Unit</div>
-                              <div className="text-sm text-gray-600 mt-1">Choose your country and business unit (Nivea or Derma) from the dropdowns above</div>
+                              <div className="font-medium text-gray-900">Select Country</div>
+                              <div className="text-sm text-gray-600 mt-1">Choose your country from the dropdown above</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
@@ -591,7 +688,7 @@ export default function DiminishingReturnsPage() {
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
                             <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
                             <div>
-                              <div className="font-medium text-gray-900">Input TRP vs Reach Data</div>
+                              <div className="font-medium text-gray-900">{mediaType === 'multimedia' ? 'Input Multimedia TRP vs Reach Data' : 'Input TRP vs Reach Data'}</div>
                               <div className="text-sm text-gray-600 mt-1">Use the spreadsheet-style grid to enter your curve data with copy-paste support</div>
                             </div>
                           </div>
@@ -601,8 +698,8 @@ export default function DiminishingReturnsPage() {
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
                             <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">1</div>
                             <div>
-                              <div className="font-medium text-gray-900">Select Location & Business Unit</div>
-                              <div className="text-sm text-gray-600 mt-1">Choose your country and business unit (Nivea or Derma) from the dropdowns above</div>
+                              <div className="font-medium text-gray-900">Select Country</div>
+                              <div className="text-sm text-gray-600 mt-1">Choose your country from the dropdown above</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
@@ -615,7 +712,7 @@ export default function DiminishingReturnsPage() {
                           <div className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-100 hover:shadow-sm transition-shadow">
                             <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">3</div>
                             <div>
-                              <div className="font-medium text-gray-900">Input Budget vs Reach & Frequency Data</div>
+                              <div className="font-medium text-gray-900">Input TRP vs Reach Data</div>
                               <div className="text-sm text-gray-600 mt-1">Use the spreadsheet-style grid to enter your curve data with copy-paste support</div>
                             </div>
                           </div>
@@ -632,28 +729,28 @@ export default function DiminishingReturnsPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-100">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className={`w-2 h-2 ${mediaType === 'tv' ? 'bg-blue-500' : mediaType === 'digital' ? 'bg-green-500' : 'bg-purple-500'} rounded-full mt-2 flex-shrink-0`}></div>
                             <div>
                               <div className="font-medium text-gray-900 text-sm">Auto-calculated Saturation Points</div>
                               <div className="text-xs text-gray-600 mt-1">System automatically detects when reach growth slows</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-100">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className={`w-2 h-2 ${mediaType === 'tv' ? 'bg-blue-500' : mediaType === 'digital' ? 'bg-green-500' : 'bg-purple-500'} rounded-full mt-2 flex-shrink-0`}></div>
                             <div>
                               <div className="font-medium text-gray-900 text-sm">Excel Copy-Paste Support</div>
                               <div className="text-xs text-gray-600 mt-1">Paste data directly from Excel spreadsheets</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-100">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className={`w-2 h-2 ${mediaType === 'tv' ? 'bg-blue-500' : mediaType === 'digital' ? 'bg-green-500' : 'bg-purple-500'} rounded-full mt-2 flex-shrink-0`}></div>
                             <div>
                               <div className="font-medium text-gray-900 text-sm">Real-time Validation</div>
                               <div className="text-xs text-gray-600 mt-1">Instant feedback on data quality and errors</div>
                             </div>
                           </div>
                           <div className="flex items-start space-x-3 p-4 bg-white rounded-lg border border-gray-100">
-                            <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className={`w-2 h-2 ${mediaType === 'tv' ? 'bg-blue-500' : mediaType === 'digital' ? 'bg-green-500' : 'bg-purple-500'} rounded-full mt-2 flex-shrink-0`}></div>
                             <div>
                               <div className="font-medium text-gray-900 text-sm">Load Existing Data</div>
                               <div className="text-xs text-gray-600 mt-1">Button highlights when data is available</div>
@@ -664,80 +761,61 @@ export default function DiminishingReturnsPage() {
                     )}
                     
                     {/* Data Requirements */}
-                    <div className={`${mediaType === 'tv' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'} p-6 rounded-xl border-2`}>
+                    <div className={`${mediaType === 'tv' ? 'bg-blue-50 border-blue-200' : mediaType === 'digital' ? 'bg-green-50 border-green-200' : 'bg-purple-50 border-purple-200'} p-6 rounded-xl border-2`}>
                       <div className="flex items-center space-x-3 mb-4">
-                        <div className={`p-2 rounded-lg ${mediaType === 'tv' ? 'bg-blue-100' : 'bg-green-100'}`}>
-                          <FiBarChart className={`h-5 w-5 ${mediaType === 'tv' ? 'text-blue-600' : 'text-green-600'}`} />
+                        <div className={`p-2 rounded-lg ${mediaType === 'tv' ? 'bg-blue-100' : mediaType === 'digital' ? 'bg-green-100' : 'bg-purple-100'}`}>
+                          <FiBarChart className={`h-5 w-5 ${mediaType === 'tv' ? 'text-blue-600' : mediaType === 'digital' ? 'text-green-600' : 'text-purple-600'}`} />
                         </div>
-                        <h4 className={`text-lg font-semibold ${mediaType === 'tv' ? 'text-blue-900' : 'text-green-900'}`}>
-                          {mediaType === 'tv' ? 'TV' : 'Digital'} Data Requirements
+                        <h4 className={`text-lg font-semibold ${mediaType === 'tv' ? 'text-blue-900' : mediaType === 'digital' ? 'text-green-900' : 'text-purple-900'}`}>
+                          {mediaType === 'tv' ? 'TV' : mediaType === 'digital' ? 'Digital' : 'Multimedia'} Data Requirements
                         </h4>
                       </div>
                       
                       <div className="grid lg:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <h5 className={`font-medium text-sm ${mediaType === 'tv' ? 'text-blue-800' : 'text-green-800'}`}>Target Audience Format</h5>
+                          <h5 className={`font-medium text-sm ${mediaType === 'tv' ? 'text-blue-800' : mediaType === 'digital' ? 'text-green-800' : 'text-purple-800'}`}>Target Audience Format</h5>
                           <div className="space-y-2">
                             <div className="flex items-center space-x-2 text-sm">
                               <code className="px-2 py-1 bg-white rounded text-blue-600 font-mono text-xs">F 18-45</code>
-                              <span className={mediaType === 'tv' ? 'text-blue-700' : 'text-green-700'}>Female 18-45 years</span>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Female 18-45 years</span>
                             </div>
                             <div className="flex items-center space-x-2 text-sm">
                               <code className="px-2 py-1 bg-white rounded text-blue-600 font-mono text-xs">M 25-54</code>
-                              <span className={mediaType === 'tv' ? 'text-blue-700' : 'text-green-700'}>Male 25-54 years</span>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Male 25-54 years</span>
                             </div>
                             <div className="flex items-center space-x-2 text-sm">
                               <code className="px-2 py-1 bg-white rounded text-blue-600 font-mono text-xs">BG 18-45</code>
-                              <span className={mediaType === 'tv' ? 'text-blue-700' : 'text-green-700'}>Both genders 18-45</span>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Both genders 18-45</span>
                             </div>
                           </div>
                         </div>
                         
                         <div className="space-y-3">
-                          <h5 className={`font-medium text-sm ${mediaType === 'tv' ? 'text-blue-800' : 'text-green-800'}`}>
-                            {mediaType === 'tv' ? 'TRP & Reach' : 'Budget & Reach'} Values
+                          <h5 className={`font-medium text-sm ${mediaType === 'tv' ? 'text-blue-800' : mediaType === 'digital' ? 'text-green-800' : 'text-purple-800'}`}>
+                            TRP & Reach Values
                           </h5>
                           <div className="space-y-2">
-                            {mediaType === 'tv' ? (
-                              <>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">100-1450</code>
-                                  <span className="text-blue-700">TRP range (Target Rating Points)</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">0.00-100.00</code>
-                                  <span className="text-blue-700">Reach percentages</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-orange-600 font-mono text-xs">≤0.701%</code>
-                                  <span className="text-blue-700">Saturation threshold</span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">$50K-$2M</code>
-                                  <span className="text-green-700">Budget range</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">1.0-5.0</code>
-                                  <span className="text-green-700">Frequency values</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">0-100%</code>
-                                  <span className="text-green-700">Reach percentages</span>
-                                </div>
-                              </>
-                            )}
+                            <div className="flex items-center space-x-2 text-sm">
+                              <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">100-1450</code>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>TRP range (Target Rating Points)</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm">
+                              <code className="px-2 py-1 bg-white rounded text-green-600 font-mono text-xs">0.00-100.00</code>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Reach percentages</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm">
+                              <code className="px-2 py-1 bg-white rounded text-orange-600 font-mono text-xs">≤0.701%</code>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Saturation threshold (customizable)</span>
+                            </div>
                           </div>
                         </div>
                       </div>
                       
-                      <div className={`mt-4 p-3 bg-white bg-opacity-60 rounded-lg border ${mediaType === 'tv' ? 'border-blue-200' : 'border-green-200'}`}>
+                      <div className={`mt-4 p-3 bg-white bg-opacity-60 rounded-lg border ${mediaType === 'tv' ? 'border-blue-200' : mediaType === 'digital' ? 'border-green-200' : 'border-purple-200'}`}>
                         <div className="flex items-start space-x-2">
-                          <FiRefreshCw className={`h-4 w-4 mt-0.5 ${mediaType === 'tv' ? 'text-blue-600' : 'text-green-600'}`} />
-                          <div className={`text-xs ${mediaType === 'tv' ? 'text-blue-700' : 'text-green-700'}`}>
-                            <strong>Data Persistence:</strong> Your data automatically saves and replaces existing curves for the same country/business unit combination.
+                          <FiRefreshCw className={`h-4 w-4 mt-0.5 ${mediaType === 'tv' ? 'text-blue-600' : mediaType === 'digital' ? 'text-green-600' : 'text-purple-600'}`} />
+                          <div className={`text-xs ${mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}`}>
+                            <strong>Data Persistence:</strong> Your data automatically saves and replaces existing curves for the same country.
                           </div>
                         </div>
                       </div>
@@ -777,7 +855,7 @@ export default function DiminishingReturnsPage() {
             {/* Database Tab */}
             {activeTab === 'database' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   {/* TV Diminishing Returns */}
                   <div className="bg-white rounded-lg border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
@@ -825,7 +903,7 @@ export default function DiminishingReturnsPage() {
                         <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
                           <div>
                             <div className="font-medium text-green-900">DigitalDiminishingReturns Table</div>
-                            <div className="text-sm text-green-700">Budget vs Reach & Frequency curves</div>
+                            <div className="text-sm text-green-700">TRP vs Reach curves</div>
                           </div>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-600">
                             Active
@@ -834,11 +912,45 @@ export default function DiminishingReturnsPage() {
                         
                         <div className="grid grid-cols-2 gap-4 pt-4">
                           <div className="text-center">
-                            <div className="text-xl font-bold text-gray-900">8</div>
+                            <div className="text-xl font-bold text-gray-900">7</div>
                             <div className="text-xs text-gray-500">Core Fields</div>
                           </div>
                           <div className="text-center">
-                            <div className="text-xl font-bold text-gray-900">Budget</div>
+                            <div className="text-xl font-bold text-gray-900">TRP</div>
+                            <div className="text-xs text-gray-500">Input Metric</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multimedia Diminishing Returns */}
+                  <div className="bg-white rounded-lg border border-gray-200">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                        <FiMonitor className="h-5 w-5 mr-2 text-purple-500" />
+                        Multimedia Diminishing Returns
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                          <div>
+                            <div className="font-medium text-purple-900">MultimediaDiminishingReturns Table</div>
+                            <div className="text-sm text-purple-700">TRP vs Reach curves</div>
+                          </div>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-600">
+                            Active
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-gray-900">7</div>
+                            <div className="text-xs text-gray-500">Core Fields</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-gray-900">TRP</div>
                             <div className="text-xs text-gray-500">Input Metric</div>
                           </div>
                         </div>
