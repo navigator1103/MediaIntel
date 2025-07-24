@@ -8,6 +8,37 @@ interface GamePlansValidationProps {
   sessionId: string;
 }
 
+// Severity helper functions
+const getSeverityIcon = (severity: string) => {
+  switch (severity) {
+    case 'critical':
+      return <FiAlertCircle className="h-4 w-4 text-red-500" />;
+    case 'warning':
+      return <FiAlertTriangle className="h-4 w-4 text-yellow-500" />;
+    case 'suggestion':
+      return <FiInfo className="h-4 w-4 text-blue-500" />;
+    default:
+      return null;
+  }
+};
+
+const getSeverityBadge = (severity: string) => {
+  const config = {
+    critical: { className: 'bg-red-100 text-red-800', label: 'Critical' },
+    warning: { className: 'bg-yellow-100 text-yellow-800', label: 'Warning' },
+    suggestion: { className: 'bg-blue-100 text-blue-800', label: 'Suggestion' }
+  };
+  
+  const { className, label } = config[severity as keyof typeof config] || config.suggestion;
+  
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}>
+      {getSeverityIcon(severity)}
+      <span className="ml-1">{label}</span>
+    </span>
+  );
+};
+
 export default function GamePlansValidation({ sessionId }: GamePlansValidationProps) {
   const [loading, setLoading] = useState(true);
   const [validationData, setValidationData] = useState<any>(null);
@@ -840,327 +871,176 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
         </div>
       </div>
 
-      {/* Critical Issues Summary - Show before import section */}
-      {validationData?.validationSummary?.critical > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg mt-6">
-          <div className="px-6 py-4 border-b border-red-200">
-            <h3 className="text-lg font-medium text-red-900 flex items-center">
-              <FiAlertCircle className="h-5 w-5 mr-2" />
-              Critical Issues Must Be Fixed Before Import
-            </h3>
+      {/* Detailed Validation Issues - Clean SOV-style display */}
+      {validationData?.validationIssues && validationData.validationIssues.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 mt-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Detailed Validation Issues</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              All validation issues found in your uploaded Game Plans data. Critical issues must be fixed before import.
+            </p>
           </div>
           <div className="p-6">
-            <div className="mb-4">
-              <p className="text-red-800 font-medium">
-                Found {validationData.validationSummary.critical} critical issues that prevent import:
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              {/* Display actual critical validation issues */}
-              {validationData.validationIssues && (() => {
-                const criticalIssues = validationData.validationIssues.filter((issue: any) => issue.severity === 'critical');
-                
-                if (criticalIssues.length > 0) {
-                  // Group issues by field and message for better display
-                  const groupedIssues: { [key: string]: any[] } = {};
-                  criticalIssues.forEach((issue: any) => {
-                    const key = `${issue.columnName}: ${issue.message}`;
-                    if (!groupedIssues[key]) {
-                      groupedIssues[key] = [];
-                    }
-                    groupedIssues[key].push(issue);
-                  });
-                  
-                  return [(
-                    <div key="critical_issues" className="bg-white border border-red-200 rounded-lg p-4">
-                      <h4 className="font-medium text-red-900 mb-2">🔴 Critical Validation Issues</h4>
-                      <div className="space-y-2">
-                        {Object.entries(groupedIssues).map(([key, issues], idx) => {
-                          const [field, message] = key.split(': ', 2);
-                          const rowCount = issues.length;
-                          const sampleRows = issues.slice(0, 5).map((issue: any) => issue.rowIndex + 1);
-                          
-                          return (
-                            <div key={idx} className="text-sm text-red-800">
-                              <div className="font-medium">{field}:</div>
-                              <div className="ml-4 text-red-700">
-                                {message}
-                                <div className="text-xs text-red-600 mt-1">
-                                  Affects {rowCount} row{rowCount > 1 ? 's' : ''}: 
-                                  {rowCount <= 5 ? 
-                                    ` ${sampleRows.join(', ')}` : 
-                                    ` ${sampleRows.join(', ')} and ${rowCount - 5} more`
-                                  }
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {validationData.validationIssues.map((issue: any, index: number) => (
+                <div 
+                  key={index} 
+                  className={`flex items-start p-3 rounded-lg border ${
+                    issue.severity === 'critical' 
+                      ? 'bg-red-50 border-red-200' 
+                      : issue.severity === 'warning'
+                      ? 'bg-yellow-50 border-yellow-200'
+                      : 'bg-blue-50 border-blue-200'
+                  }`}
+                >
+                  <div className="flex-shrink-0 mr-3 mt-0.5">
+                    {getSeverityIcon(issue.severity)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2 mb-1">
+                      {getSeverityBadge(issue.severity)}
+                      <span className="text-sm font-medium text-gray-900">
+                        Row {issue.rowIndex + 1}, Column "{issue.columnName}"
+                      </span>
                     </div>
-                  )];
-                }
-                
-                return [];
-              })()}
-              
-              {/* Check for structural issues - missing columns */}
-              {(() => {
-                const structuralIssues = [];
-                
-                // Check what columns are actually present vs required
-                if (validationData.records && validationData.records.length > 0) {
-                  const firstRecord = validationData.records[0];
-                  const presentColumns = Object.keys(firstRecord);
-                  console.log('Present columns:', presentColumns);
-                  
-                  // Only columns that MUST be present in CSV (not auto-populated)
-                  const requiredColumns = [
-                    // Core identification fields (required in CSV)
-                    'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst',
-                    
-                    // Media fields (required in CSV)
-                    'Media', 'Media Subtype',
-                    
-                    // Date fields (required in CSV)
-                    'Initial Date', 'End Date',
-                    
-                    // Budget fields (required in CSV)
-                    'Total Weeks', 'Total Budget', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-                    
-                    // Performance fields (required in CSV)
-                    'Total WOA', 'Total WOFF', 'Total R1+ (%)', 'Total R3+ (%)'
-                  ];
-                  
-                  // Check for required columns with flexible naming
-                  const missingRequired: string[] = [];
-                  
-                  for (const col of requiredColumns) {
-                    let found = false;
-                    
-                    // Check with flexible naming for backward compatibility
-                    if (col === 'Media Subtype') {
-                      found = presentColumns.includes('Media Subtype') || presentColumns.includes('Media Sub Type');
-                    } else if (col === 'Initial Date') {
-                      found = presentColumns.includes('Initial Date') || presentColumns.includes('Start Date');
-                    } else if (col === 'Total Budget') {
-                      found = presentColumns.includes('Total Budget') || presentColumns.includes('Budget');
-                    } else if (col === 'Media') {
-                      found = presentColumns.includes('Media') || presentColumns.includes('Media Type');
-                    } else if (col === 'TRP') {
-                      found = presentColumns.includes('TRP') || presentColumns.includes('Total TRPs') || presentColumns.includes('TRPs');
-                    } else if (col === 'Reach R1+') {
-                      found = presentColumns.includes('Reach R1+') || presentColumns.includes('Total R1+') || presentColumns.includes('R1+');
-                    } else if (col === 'Reach R3+') {
-                      found = presentColumns.includes('Reach R3+') || presentColumns.includes('Total R3+') || presentColumns.includes('R3+');
-                    } else {
-                      found = presentColumns.includes(col);
-                    }
-                    
-                    if (!found) {
-                      missingRequired.push(col);
-                    }
-                  }
-                  
-                  console.log('Missing required columns:', missingRequired);
-                  
-                  if (missingRequired.length > 0) {
-                    // Separate truly critical columns from governance-manageable ones
-                    const trulyMissing = [];
-                    const governanceManageable = [];
-                    
-                    for (const col of missingRequired) {
-                      // These columns can be auto-populated or auto-created by governance
-                      if (['Campaign', 'Range', 'Category'].includes(col)) {
-                        governanceManageable.push(col);
-                      } else {
-                        trulyMissing.push(col);
-                      }
-                    }
-                    
-                    // Only show critical error for truly missing essential columns
-                    if (trulyMissing.length > 0) {
-                      structuralIssues.push({
-                        type: 'missing_columns',
-                        severity: 'critical',
-                        message: `Missing essential columns: ${trulyMissing.join(', ')}`
-                      });
-                    }
-                    
-                    // Show warning for governance-manageable columns
-                    if (governanceManageable.length > 0) {
-                      structuralIssues.push({
-                        type: 'governance_manageable',
-                        severity: 'warning',
-                        message: `⚠️ These columns can be auto-created: ${governanceManageable.join(', ')}`
-                      });
-                    }
-                  }
-                  
-                  // Show helpful message about supported formats
-                  const hasMonthlyBudgets = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].some(month => presentColumns.includes(month));
-                  
-                  if (hasMonthlyBudgets && missingRequired.length === 0) {
-                    structuralIssues.push({
-                      type: 'info',
-                      message: `✅ New monthly budget format detected (Jan-Dec). This is supported!`
-                    });
-                  }
-                }
-                
-                if (structuralIssues.length > 0) {
-                  const criticalIssues = structuralIssues.filter(issue => issue.severity === 'critical');
-                  const warningIssues = structuralIssues.filter(issue => issue.severity === 'warning');
-                  const infoIssues = structuralIssues.filter(issue => issue.type === 'info');
-                  
-                  const elements = [];
-                  
-                  // Critical issues (red)
-                  if (criticalIssues.length > 0) {
-                    elements.push(
-                      <div key="critical_issues" className="bg-white border border-red-200 rounded-lg p-4">
-                        <h4 className="font-medium text-red-900 mb-2">🔴 Critical Structural Issues</h4>
-                        <ul className="space-y-1">
-                          {criticalIssues.map((issue, idx) => (
-                            <li key={idx} className="text-sm text-red-800 flex items-start">
-                              <span className="text-red-500 mr-2">•</span>
-                              <span>{issue.message}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  }
-                  
-                  // Warning issues (orange/yellow)
-                  if (warningIssues.length > 0) {
-                    elements.push(
-                      <div key="warning_issues" className="bg-white border border-orange-200 rounded-lg p-4 mt-4">
-                        <h4 className="font-medium text-orange-900 mb-2">⚠️ Governance Notifications</h4>
-                        <ul className="space-y-1">
-                          {warningIssues.map((issue, idx) => (
-                            <li key={idx} className="text-sm text-orange-800 flex items-start">
-                              <span className="text-orange-500 mr-2">•</span>
-                              <span>{issue.message}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="text-xs text-orange-700 mt-2">
-                          ℹ️ Import can proceed - missing entities will be auto-created during import.
-                        </p>
-                      </div>
-                    );
-                  }
-                  
-                  // Info issues (blue/green)
-                  if (infoIssues.length > 0) {
-                    elements.push(
-                      <div key="info_issues" className="bg-white border border-green-200 rounded-lg p-4 mt-4">
-                        <h4 className="font-medium text-green-900 mb-2">ℹ️ Information</h4>
-                        <ul className="space-y-1">
-                          {infoIssues.map((issue, idx) => (
-                            <li key={idx} className="text-sm text-green-800 flex items-start">
-                              <span className="text-green-500 mr-2">•</span>
-                              <span>{issue.message}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  }
-                  
-                  return elements;
-                }
-                
-                return [];
-              })()}
-            </div>
-            
-            <div className="mt-4 bg-red-100 border border-red-300 rounded-lg p-3">
-              <h4 className="font-medium text-red-900 mb-2">How to Fix:</h4>
-              <ul className="text-sm text-red-800 space-y-1">
-                <li>• Download your file, add missing columns/data, and re-upload</li>
-                <li>• Use the validation grid above to edit individual cells</li>
-                <li>• Export the corrected data and import to a new session</li>
-                <li>• Refer to the template file for correct column names and format</li>
-              </ul>
+                    <p className="text-sm text-gray-700">{issue.message}</p>
+                    {issue.currentValue && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Current value: "{issue.currentValue}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       {/* Import Section */}
-      <div className="bg-white rounded-lg border border-gray-200 mt-6">
+      <div className="bg-white rounded-lg shadow border border-gray-200 mt-6">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Import to Database</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Import your validated Game Plans data to the database for campaign management.
+          </p>
         </div>
         <div className="p-6">
           {/* Import Status */}
           {importStatus === 'idle' && (
-            <div className="space-y-4">
-              <div className={`p-4 rounded-lg ${canImport ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                {canImport ? (
-                  <div className="flex items-center">
-                    <FiCheckCircle className="h-5 w-5 text-green-400 mr-2" />
-                    <p className="text-green-800">Data is ready to import. No critical issues found.</p>
+            <div className="space-y-6">
+              {/* Summary Statistics */}
+              {validationData?.validationSummary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-2xl font-bold text-gray-900">
+                      {validationData.totalRecords || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">Total Records</div>
                   </div>
-                ) : (
-                  <div className="flex items-center">
-                    <FiAlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                    <p className="text-red-800">
-                      Cannot import: {validationData?.validationSummary?.critical || 0} critical issues must be fixed first.
-                    </p>
+                  <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="text-2xl font-bold text-red-600">
+                      {validationData.validationSummary.critical || 0}
+                    </div>
+                    <div className="text-sm text-red-700">Critical Issues</div>
                   </div>
-                )}
-              </div>
-              
-              <button
-                onClick={handleImport}
-                disabled={!canImport}
-                className={`w-full px-6 py-3 rounded-md font-medium transition-colors ${
-                  canImport
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <div className="flex items-center justify-center">
-                  <FiDatabase className="h-5 w-5 mr-2" />
-                  Import to Game Plans
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {validationData.validationSummary.warning || 0}
+                    </div>
+                    <div className="text-sm text-yellow-700">Warnings</div>
+                  </div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {validationData.validationSummary.suggestion || 0}
+                    </div>
+                    <div className="text-sm text-blue-700">Suggestions</div>
+                  </div>
                 </div>
-              </button>
+              )}
+
+              {/* Import Status Message */}
+              <div className={`p-4 rounded-lg border ${canImport ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center">
+                    {canImport ? (
+                      <>
+                        <FiCheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                        <div>
+                          <div className="text-sm font-medium text-green-800">Ready for Import</div>
+                          <div className="text-sm text-green-700">All validation checks passed! Data is ready for import.</div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <FiAlertCircle className="h-5 w-5 text-red-500 mr-3" />
+                        <div>
+                          <div className="text-sm font-medium text-red-800">Cannot Import</div>
+                          <div className="text-sm text-red-700">
+                            {validationData?.validationSummary?.critical || 0} critical issues must be resolved first.
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={handleImport}
+                    disabled={!canImport}
+                    className={`inline-flex items-center px-6 py-2 text-sm font-medium rounded-md transition-colors ${
+                      canImport
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <FiDatabase className="h-4 w-4 mr-2" />
+                    Import to Game Plans
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Import Progress */}
           {importStatus === 'importing' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <FiLoader className="h-5 w-5 text-blue-600 animate-spin mr-2" />
-                  <p className="text-blue-800 font-medium">Importing Data</p>
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <FiLoader className="h-6 w-6 text-blue-600 animate-spin mr-3" />
+                    <div>
+                      <div className="text-lg font-medium text-blue-900">Importing Game Plans Data</div>
+                      <div className="text-sm text-blue-700">{importStage}</div>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-700">{importProgress}%</div>
                 </div>
-                <div className="text-sm text-blue-600 font-medium">{importProgress}%</div>
+                
+                <div className="w-full bg-blue-100 rounded-full h-4 mb-4">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-500 ease-out shadow-sm" 
+                    style={{ width: `${importProgress}%` }}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between text-sm text-blue-700">
+                  <span>Processing records...</span>
+                  <span>
+                    {validationData?.totalRecords ? `${validationData.totalRecords} total records` : ''}
+                  </span>
+                </div>
               </div>
               
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div 
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out" 
-                  style={{ width: `${importProgress}%` }}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">{importStage}</span>
-                <span className="text-gray-500">
-                  {validationData?.totalRecords ? `${validationData.totalRecords} records` : ''}
-                </span>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-blue-800 text-sm">
-                  ⏳ Please wait while we process your data. This may take a few moments for large files.
-                </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <FiAlertCircle className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-amber-800 text-sm font-medium">Please do not close this page</p>
+                    <p className="text-amber-700 text-sm">Import is in progress. This may take a few moments for large files.</p>
+                  </div>
+                </div>
               </div>
               
               {/* Manual check option for timeouts */}
