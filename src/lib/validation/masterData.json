@@ -5,18 +5,12 @@
   ],
   "dermaCategories": [
     "Acne",
-    "Anti Age",
     "Anti Pigment",
-    "Aquaphor",
-    "Atopi",
-    "Body Lotion",
-    "Body Range",
-    "Dry Skin",
-    "Hydration",
-    "Repair",
     "Sun",
+    "Anti Age",
+    "Aquaphor",
     "X-Cat",
-    "pH5"
+    "Dry Skin"
   ],
   "niveaCategories": [
     "Deo",
@@ -24,7 +18,9 @@
     "Face Cleansing",
     "Hand Body",
     "Lip",
-    "Men"
+    "Men",
+    "Sun",
+    "X-Cat"
   ],
   "categories": [
     "Acne",
@@ -387,16 +383,16 @@
     ],
     "Deo": [
       "Black & White",
-      "Pearl & Beauty",
-      "Skin Hero",
-      "Clinical",
-      "Hijab",
       "Bliss",
+      "Clinical",
       "Cool Kick",
       "Deo Even Tone",
       "Deo Men",
       "Dry Rollon",
+      "Hijab",
       "Men Deep",
+      "Pearl & Beauty",
+      "Skin Hero",
       "X-Range"
     ],
     "Dry Skin": [
@@ -405,30 +401,29 @@
     "Face Care": [
       "Cellular",
       "Epigenetics",
-      "Q10",
       "Facial",
       "Luminous 630",
+      "Q10",
       "C&HYA"
     ],
     "Face Cleansing": [
-      "Daily Essentials",
-      "Micellar",
       "Acne",
       "Rose Care",
+      "Daily Essentials",
+      "Micellar",
       "C&HYA"
     ],
     "Hand Body": [
-      "Q10",
-      "Luminous 630",
-      "Repair & Care",
-      "Vitamin Range",
-      "Extra Bright",
-      "Natural Glow",
       "APC",
       "Body Aloe",
       "Body Milk",
       "Dark Skin",
-      "Body Star"
+      "Extra Bright",
+      "Luminous 630",
+      "Natural Glow",
+      "Q10",
+      "Repair & Care",
+      "Vitamin Range"
     ],
     "Hydration": [
       "Hydration"
@@ -437,19 +432,19 @@
       "Lip"
     ],
     "Men": [
+      "Acne",
       "Deep",
-      "Sensitive",
-      "Men",
       "Extra Bright",
-      "Acne"
+      "Men",
+      "Sensitive"
     ],
     "Repair": [
       "Repair"
     ],
     "Sun": [
-      "UV Face",
+      "Protect & Moisture",
       "Sun",
-      "Protect & Moisture"
+      "UV Face"
     ],
     "X-Cat": [
       "X-Range",
@@ -620,44 +615,41 @@
       "Skin Hero (THA)"
     ],
     "Acne": [
-      "Derma Skin Clear",
-      "Acne Control",
-      "Dermo Purifyer",
-      "Anti-Acne Range",
       "Dermopure Body (Bacne)",
-      "Triple Effect",
-      "Dermopure Cleansing (Yoda)",
-      "Genzit",
       "Dermopure RL",
+      "Dermo Purifyer",
       "Gel to Foam",
-      "Dermopure Cleansing (Activia)"
+      "Triple Effect",
+      "Dermopure Cleansing (Activia)",
+      "Dermopure Cleansing (Yoda)",
+      "Anti-Acne Range"
     ],
     "Anti Age": [
-      "Gold Revamp",
       "Elasticity Motown",
-      "3D Serum",
-      "3D Serum + Dragon"
+      "Golden Age (Gold Revamp)",
+      "3D Serum + Dragon (Gold)",
+      "Club55 Serum",
+      "Epigenetics (Benjamin Button)",
+      "Epigenetics (Epi 2.0)",
+      "Epigenius RL",
+      "Refillution"
     ],
     "Anti Pigment": [
-      "Thiamidol Roof",
-      "Anti-Pigment Range",
-      "Booster Serum",
-      "Boosting Essence",
-      "Avengers",
-      "Dragon",
-      "Globe",
+      "Globe - Body",
+      "Avengers (Search is Over)",
       "Hidden Spots",
-      "Serum (Avengers)",
-      "Eyes",
-      "Power Duo (Avengers + Gel)",
-      "AWON Antipigment",
-      "The Search is Over",
-      "Eyes (KFP)",
-      "Thiamidol Ramadan"
+      "Thiamidol Roof - Face & Body",
+      "Dragon (Boosting Essence)",
+      "Kung Fu Panda (Eyes)",
+      "Power Duo (Serum + Gel)",
+      "Anti-Pigment Range - Face",
+      "Bridge Campaign - Body AP",
+      "Alice - Body",
+      "Trilogy RL",
+      "Bridge Campaign - Face"
     ],
     "Aquaphor": [
-      "Aquaphor",
-      "Aquaphor Club Eucerin"
+      "Aquaphor"
     ],
     "Atopi": [
       "Atopi"
@@ -710,8 +702,8 @@
     "Clinical": [
       "Clinical",
       "Fendi",
-      "Sachet",
-      "Zazil"
+      "Clinical Even Tone",
+      "Sachet"
     ],
     "Cool Kick": [
       "Cool Kick"
@@ -734,7 +726,7 @@
       "NM Moisture Challenge"
     ],
     "Deo Even Tone": [
-      "Clinical Even Tone",
+      "Extra Bright",
       "Deo Even Tone Range"
     ],
     "Dettol Star": [
@@ -840,16 +832,12 @@
       "Skin Power (Hero)"
     ],
     "Sun": [
-      "Sun Range",
-      "Sun-Protection Range",
-      "Sun Roof",
-      "Sun",
-      "Sun 100",
       "Hydro Fluid Tinted (Bacalar)",
-      "Sun Range HS1",
-      "Sun Range HS2",
-      "Melanoma + Sun Roof",
+      "Sun Range",
       "Actinic",
+      "Sun Oil Control Core",
+      "Sun-Protection Range",
+      "Superstar",
       "Sun Oil Control"
     ],
     "UV Face": [
@@ -868,8 +856,16 @@
       "Unicorn Super 10",
       "Vitamin Scrub"
     ],
+    "X-Cat": [
+      "Derma Skin Clear",
+      "Genzit"
+    ],
     "X-Range": [
       "Derma Control"
+    ],
+    "Dry Skin": [
+      "Dry Skin Relief",
+      "Ultra Hydrating"
     ],
     "pH5": [
       "pH5 Wannabe"
@@ -935,6 +931,7 @@
     "Disney": "Deep",
     "Dragon": "Anti Pigment",
     "Dry Rollon": "Dry Rollon",
+    "Dry Skin Relief": "Dry Skin",
     "EMUR": "Micellar",
     "Elasticity Motown": "Anti Age",
     "Elevator": "Epigenetics",
@@ -947,7 +944,7 @@
     "Fendi": "Clinical",
     "Gel to Foam": "Acne",
     "Genie": "Epigenetics",
-    "Genzit": "Acne",
+    "Genzit": "X-Cat",
     "Ghostbuster": "Vitamin Range",
     "Globe": "Anti Pigment",
     "Gold Revamp": "Anti Age",
@@ -1035,6 +1032,7 @@
     "UV Face": "UV Face",
     "UV Specialist": "UV Face",
     "Unicorn Super 10": "Vitamin Range",
+    "Ultra Hydrating": "Dry Skin",
     "Urea": "Body Lotion",
     "Vitamin Scrub": "Vitamin Range",
     "Zazil": "Clinical",
@@ -1058,8 +1056,8 @@
     "Lip": "Nivea",
     "Men": "Nivea",
     "Repair": "Derma",
-    "Sun": "Derma",
-    "X-Cat": "Derma",
+    "Sun": "Nivea",
+    "X-Cat": "Nivea",
     "pH5": "Derma"
   },
   "rangeToBusinessUnit": {
@@ -1159,6 +1157,7 @@
     "Disney": "Nivea",
     "Dragon": "Derma",
     "Dry Rollon": "Nivea",
+    "Dry Skin Relief": "Derma",
     "EMUR": "Nivea",
     "Elasticity Motown": "Derma",
     "Elevator": "Nivea",
@@ -1170,6 +1169,7 @@
     "Fanta": "Nivea",
     "Fendi": "Nivea",
     "Genie": "Nivea",
+    "Genzit": "Derma",
     "Ghostbuster": "Nivea",
     "Globe": "Derma",
     "Gold Revamp": "Derma",
@@ -1256,6 +1256,7 @@
     "UV Face": "Derma",
     "UV Specialist": "Derma",
     "Unicorn Super 10": "Nivea",
+    "Ultra Hydrating": "Derma",
     "Urea": "Derma",
     "Vitamin Scrub": "Nivea",
     "Zazil": "Nivea",

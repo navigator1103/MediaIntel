@@ -52,7 +52,7 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
           const response = await fetch('/api/admin/media-sufficiency/master-data');
           if (response.ok) {
             const masterData = await response.json();
-            const newValidator = new MediaSufficiencyValidator(masterData);
+            const newValidator = new MediaSufficiencyValidator(masterData, true); // Enable auto-creation mode
             setValidator(newValidator);
             console.log('Validator initialized with master data');
             

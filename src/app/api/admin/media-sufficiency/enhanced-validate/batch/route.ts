@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
-import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
+import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
 
 // Handle batch validation for large datasets
 export async function POST(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     console.log(`Processing ${records.length} records for batch validation...`);
     
     // Initialize validator with master data
-    const validator = new MediaSufficiencyValidator(masterData);
+    const validator = new AutoCreateValidator(masterData);
     
     // Process records in chunks to prevent memory issues
     const CHUNK_SIZE = 1000; // Process 1000 records at a time

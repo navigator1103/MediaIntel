@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
-import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
+import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
 import { prisma } from '@/lib/prisma';
 
 // Define session data structure
@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create a validator with the master data
-    const validator = new MediaSufficiencyValidator(masterData);
+    const validator = new AutoCreateValidator(masterData);
     
     // Process records in chunks for large datasets
     const CHUNK_SIZE = 1000; // Process 1000 records at a time

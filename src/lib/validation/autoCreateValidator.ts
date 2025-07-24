@@ -162,10 +162,13 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
   protected setupValidationRules(): void {
     super.setupValidationRules();
     
-    // Remove the existing campaign and range validation rules
+    // Remove the existing campaign, range, and cross-reference validation rules
     this.rules = this.rules.filter(rule => 
       !(rule.field === 'Campaign' && rule.type === 'relationship') &&
-      !(rule.field === 'Range' && rule.type === 'relationship')
+      !(rule.field === 'Range' && rule.type === 'relationship') &&
+      !(rule.field === 'Range' && rule.type === 'cross_reference') &&
+      !(rule.field === 'Campaign' && rule.type === 'cross_reference') &&
+      !(rule.field === 'Category' && rule.type === 'cross_reference')
     );
     
     // Add new auto-creating validation rules

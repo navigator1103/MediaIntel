@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { validateSessionMiddleware } from '@/lib/utils/sessionManager';
 
 // We'll retrieve upload sessions from temporary file storage
 
@@ -10,28 +11,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
     
-    if (!sessionId) {
+    // Validate session with expiration check
+    const sessionValidation = await validateSessionMiddleware(sessionId);
+    if (!sessionValidation.success) {
       return NextResponse.json(
-        { error: 'No session ID provided' },
-        { status: 400 }
+        { error: sessionValidation.error },
+        { status: sessionValidation.statusCode }
       );
     }
     
-    // Get the session data from the file system
-    const tempDir = path.join(process.cwd(), 'tmp');
-    const sessionFilePath = path.join(tempDir, `${sessionId}.json`);
-    
-    if (!fs.existsSync(sessionFilePath)) {
-      // If session file not found, return an error
-      return NextResponse.json(
-        { error: 'Session not found. Please upload a file first.' },
-        { status: 404 }
-      );
-    }
-    
-    // Read and parse the session data from the file
-    const sessionDataRaw = fs.readFileSync(sessionFilePath, 'utf8');
-    const sessionData = JSON.parse(sessionDataRaw);
+    const sessionData = sessionValidation.sessionData!;
     
     // Fetch master data for validation
     const masterData = await fetchMasterData();
@@ -39,12 +28,14 @@ export async function GET(request: NextRequest) {
     // Return the session data, records, and master data
     return NextResponse.json({
       sessionData: {
-        id: sessionId,
-        fileName: sessionData.fileName,
+        id: sessionData.id,
+        fileName: sessionData.originalFilename || sessionData.fileName,
         uploadDate: sessionData.createdAt,
         recordCount: sessionData.recordCount,
         status: sessionData.status,
-        fileSize: sessionData.fileSize
+        fileSize: sessionData.fileSize,
+        expiresAt: sessionData.expiresAt,
+        lastAccessedAt: sessionData.lastAccessedAt
       },
       records: sessionData.data.records,
       masterData,

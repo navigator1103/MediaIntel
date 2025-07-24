@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import { validateSessionMiddleware } from '@/lib/utils/sessionManager';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,29 +10,21 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const sessionId = searchParams.get('sessionId');
     
-    if (!sessionId) {
-      return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
+    // Validate session with expiration check
+    const sessionValidation = await validateSessionMiddleware(sessionId);
+    if (!sessionValidation.success) {
+      return NextResponse.json(
+        { error: sessionValidation.error },
+        { status: sessionValidation.statusCode }
+      );
     }
     
-    // Construct path to session file in the persistent directory
-    const dataDir = path.join(process.cwd(), 'data', 'sessions');
-    const sessionFilePath = path.join(dataDir, `${sessionId}.json`);
-    
-    try {
-      // Check if session file exists
-      await fs.access(sessionFilePath);
-    } catch (error) {
-      return NextResponse.json({ error: 'Session not found. Please upload a file first.' }, { status: 404 });
-    }
-    
-    // Read session data from file
-    const sessionDataRaw = await fs.readFile(sessionFilePath, 'utf-8');
-    const sessionData = JSON.parse(sessionDataRaw);
+    const sessionData = sessionValidation.sessionData!;
     
     // If validation issues aren't in the session data, generate them
     if (!sessionData.validationIssues && sessionData.data?.records && sessionData.data?.masterData) {
-      const MediaSufficiencyValidator = require('@/lib/validation/mediaSufficiencyValidator').default;
-      const validator = new MediaSufficiencyValidator(sessionData.data.masterData);
+      const { AutoCreateValidator } = require('@/lib/validation/autoCreateValidator');
+      const validator = new AutoCreateValidator(sessionData.data.masterData);
       
       // Validate the data
       try {

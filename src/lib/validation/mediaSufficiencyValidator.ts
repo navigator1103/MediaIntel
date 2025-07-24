@@ -86,7 +86,7 @@ export interface MediaSufficiencyRecord {
 // Define validation rule types
 export interface ValidationRule {
   field: string;
-  type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency' | 'requirement';
+  type: 'required' | 'format' | 'relationship' | 'uniqueness' | 'range' | 'consistency' | 'requirement' | 'cross_reference';
   severity: 'critical' | 'warning' | 'suggestion';
   message: string;
   validate: (value: any, record: MediaSufficiencyRecord, allRecords: MediaSufficiencyRecord[], masterData?: MasterData) => boolean | Promise<boolean | { isValid: boolean; message?: string }> | { isValid: boolean; message?: string };
@@ -96,11 +96,13 @@ export interface ValidationRule {
 export class MediaSufficiencyValidator {
   private rules: ValidationRule[] = [];
   private masterData: MasterData = {};
+  private autoCreateMode: boolean = false;
 
-  constructor(masterData?: MasterData) {
+  constructor(masterData?: MasterData, autoCreateMode: boolean = false) {
     if (masterData) {
       this.masterData = masterData;
     }
+    this.autoCreateMode = autoCreateMode;
     this.initializeRules();
   }
 
@@ -157,13 +159,13 @@ export class MediaSufficiencyValidator {
     const budgetFields = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     // Other fields that must have values
-    const otherRequiredFields = ['Playbook ID', 'Total Weeks'];
+    const otherRequiredFields = ['Playbook ID', 'Total Weeks', 'Total WOA', 'Total WOFF'];
     
     // Conditional fields - required only for specific media types
     const conditionalFields = ['Total TRPs', 'Total R1+ (%)', 'Total R3+ (%)'];
     
     // Optional fields that can be empty
-    const optionalFields = ['Total WOA', 'Total WOFF'];
+    const optionalFields = [];
     
     // First, validate ALL expected columns are present (structural validation)
     // This will be handled in the validateRecord method
@@ -181,13 +183,13 @@ export class MediaSufficiencyValidator {
       });
     });
     
-    // Add validation for monthly budget fields (critical - must have values)
+    // Add validation for monthly budget fields (warning - blank fields will be treated as 0)
     budgetFields.forEach(field => {
       this.rules.push({
         field,
         type: 'required',
-        severity: 'critical',
-        message: `${field} budget is required and cannot be empty`,
+        severity: 'warning',
+        message: `${field} budget is blank and will be treated as 0`,
         validate: (value) => {
           return value !== undefined && value !== null && value.toString().trim() !== '';
         }
@@ -235,8 +237,13 @@ export class MediaSufficiencyValidator {
             };
           }
         } else {
-          // For non-TV campaigns, Total TRPs should be empty
+          // For non-TV campaigns, Total TRPs should be empty or 0
           if (value && value.toString().trim() !== '') {
+            const numValue = parseFloat(value.toString());
+            // Allow 0 as a valid value for non-TV campaigns
+            if (!isNaN(numValue) && numValue === 0) {
+              return true;
+            }
             return {
               isValid: false,
               message: `Total TRPs should only be used for TV campaigns. Media Subtype '${record['Media Subtype']}' should not have TRP values.`
@@ -320,17 +327,22 @@ export class MediaSufficiencyValidator {
 
     // Business unit validation is handled at the data model level, not in the validation grid
 
-    // Add range-to-category validation (without business unit checks)
+    // Add range-to-category validation (supports auto-creation mode)
     this.rules.push({
       field: 'Range',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Range must be compatible with the selected Category',
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Range will be auto-created for review' : 'Range must be compatible with the selected Category',
       validate: (value, record, allRecords, masterData) => {
         if (!value || !masterData) return true;
         
         const rangeName = value.toString().trim();
         const categoryName = record['Category']?.toString().trim();
+        
+        // In auto-creation mode, allow any range
+        if (this.autoCreateMode) {
+          return true;
+        }
         
         // Check if range belongs to category
         const categoryToRanges = masterData.categoryToRanges || {};
@@ -353,17 +365,22 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Add campaign-to-range validation (without business unit checks)
+    // Add campaign-to-range validation (supports auto-creation mode)
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
-      severity: 'critical',
-      message: 'Campaign must be compatible with the selected Range',
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Campaign will be auto-created for review' : 'Campaign must be compatible with the selected Range',
       validate: (value, record, allRecords, masterData) => {
         if (!value || !masterData) return true;
         
         const campaignName = value.toString().trim();
         const rangeName = record['Range']?.toString().trim();
+        
+        // In auto-creation mode, allow any campaign
+        if (this.autoCreateMode) {
+          return true;
+        }
         
         // Check if campaign belongs to range
         const rangeToCampaigns = masterData.rangeToCampaigns || {};
@@ -869,15 +886,20 @@ export class MediaSufficiencyValidator {
       }
     });
     
-    // Campaign-Range relationship validation with compatibility support
+    // Campaign-Range relationship validation with compatibility support (supports auto-creation mode)
     this.rules.push({
       field: 'Campaign',
-      type: 'relationship',
-      severity: 'critical',
-      message: 'Campaign does not match the specified Range',
+      type: 'relationship',  
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Campaign will be auto-created for review' : 'Campaign does not match the specified Range',
       validate: (value, record, allRecords, masterData) => {
         // Skip validation if either campaign or range is missing
         if (!value || !record.Range) return true;
+        
+        // In auto-creation mode, allow any campaign
+        if (this.autoCreateMode) {
+          return true;
+        }
         
         const campaignInput = value.toString().trim();
         const rangeInput = record.Range.toString().trim();
@@ -1193,8 +1215,8 @@ export class MediaSufficiencyValidator {
     this.rules.push({
       field: 'End Date',
       type: 'relationship',
-      severity: 'warning',
-      message: 'End Date should be after Initial Date',
+      severity: 'critical',
+      message: 'End Date must be after Initial Date',
       validate: (value, record) => {
         const initialDate = record['Initial Date'] || record['Start Date'];
         if (!value || !initialDate) return true; // Not critical
@@ -1341,6 +1363,11 @@ export class MediaSufficiencyValidator {
                          mediaSubtype?.toLowerCase().includes('paid');
         
         if (!isTvMedia) {
+          // Allow 0 as a valid value for non-TV media types
+          const numValue = parseFloat(value.toString());
+          if (!isNaN(numValue) && numValue === 0) {
+            return true;
+          }
           return {
             isValid: false,
             message: `Total TRPs should only be used for TV media types (Open TV, Paid TV, etc.). Media type '${mediaSubtype || mediaType}' does not support TRPs. Consider using reach metrics instead.`
@@ -1750,6 +1777,186 @@ export class MediaSufficiencyValidator {
         return validArchetypes.some(archetype => 
           archetype.toLowerCase() === archetypeInput.toLowerCase()
         );
+      }
+    });
+
+    // Category-Range cross-reference validation (supports auto-creation mode)
+    this.rules.push({
+      field: 'Range',
+      type: 'cross_reference',
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Range will be auto-created for review' : 'Range does not belong to the specified Category',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !record.Category || !masterData) return true;
+        
+        // In auto-creation mode, allow any range
+        if (this.autoCreateMode) {
+          return true;
+        }
+        
+        const categoryName = record.Category.toString().trim();
+        const rangeName = value.toString().trim();
+        
+        // Get category-to-ranges mapping
+        const categoryToRanges = masterData.categoryToRanges || {};
+        
+        // Find valid ranges for this category (case-insensitive)
+        const categoryKey = Object.keys(categoryToRanges).find(key => 
+          key.toLowerCase() === categoryName.toLowerCase()
+        );
+        
+        if (!categoryKey) {
+          // Category not found in master data, let other validations handle this
+          return true;
+        }
+        
+        const validRanges = categoryToRanges[categoryKey] || [];
+        
+        // Check if range is valid for this category (case-insensitive)
+        const isValidRange = validRanges.some(validRange => 
+          validRange.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        if (!isValidRange) {
+          return {
+            isValid: false,
+            message: `Range '${rangeName}' is not valid for Category '${categoryName}'. Valid ranges: ${validRanges.slice(0, 5).join(', ')}${validRanges.length > 5 ? '...' : ''}`
+          };
+        }
+        
+        return true;
+      }
+    });
+
+    // Range-Campaign cross-reference validation
+    this.rules.push({
+      field: 'Campaign',
+      type: 'cross_reference',
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Campaign will be auto-created for review' : 'Campaign does not belong to the specified Range',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !record.Range || !masterData) return true;
+        
+        // In auto-creation mode, allow any campaign
+        if (this.autoCreateMode) {
+          return true;
+        }
+        
+        const campaignName = value.toString().trim();
+        const rangeName = record.Range.toString().trim();
+        
+        // Get range-to-campaigns mapping
+        const rangeToCampaigns = masterData.rangeToCampaigns || {};
+        
+        // Find valid campaigns for this range (case-insensitive)
+        const rangeKey = Object.keys(rangeToCampaigns).find(key => 
+          key.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        if (!rangeKey) {
+          // Range not found in master data, let other validations handle this
+          return true;
+        }
+        
+        const validCampaigns = rangeToCampaigns[rangeKey] || [];
+        
+        // Check if campaign is valid for this range (case-insensitive)
+        const isValidCampaign = validCampaigns.some((validCampaign: string) => 
+          validCampaign.toLowerCase() === campaignName.toLowerCase()
+        );
+        
+        if (!isValidCampaign) {
+          return {
+            isValid: false,
+            message: `Campaign '${campaignName}' is not valid for Range '${rangeName}'. Valid campaigns: ${validCampaigns.slice(0, 5).join(', ')}${validCampaigns.length > 5 ? '...' : ''}`
+          };
+        }
+        
+        return true;
+      }
+    });
+
+    // Category-Range-Campaign consistency validation (supports auto-creation mode)
+    this.rules.push({
+      field: 'Category',
+      type: 'cross_reference',
+      severity: this.autoCreateMode ? 'warning' : 'critical',
+      message: this.autoCreateMode ? 'Entities will be auto-created for review' : 'Category, Range, and Campaign combination is inconsistent',
+      validate: (value, record, allRecords, masterData) => {
+        if (!value || !record.Range || !record.Campaign || !masterData) return true;
+        
+        // In auto-creation mode, skip cross-reference validation
+        if (this.autoCreateMode) {
+          return true;
+        }
+        
+        const categoryName = value.toString().trim();
+        const rangeName = record.Range.toString().trim();
+        const campaignName = record.Campaign.toString().trim();
+        
+        // Get all mappings
+        const categoryToRanges = masterData.categoryToRanges || {};
+        const rangeToCampaigns = masterData.rangeToCampaigns || {};
+        const rangeToCategories = masterData.rangeToCategories || {};
+        
+        // First, verify the range belongs to the category
+        const categoryKey = Object.keys(categoryToRanges).find(key => 
+          key.toLowerCase() === categoryName.toLowerCase()
+        );
+        
+        if (categoryKey) {
+          const validRanges = categoryToRanges[categoryKey] || [];
+          const rangeValid = validRanges.some(validRange => 
+            validRange.toLowerCase() === rangeName.toLowerCase()
+          );
+          
+          if (!rangeValid) {
+            return {
+              isValid: false,
+              message: `Inconsistent data: Range '${rangeName}' does not belong to Category '${categoryName}'`
+            };
+          }
+        }
+        
+        // Second, verify the campaign belongs to the range
+        const rangeKey = Object.keys(rangeToCampaigns).find(key => 
+          key.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        if (rangeKey) {
+          const validCampaigns = rangeToCampaigns[rangeKey] || [];
+          const campaignValid = validCampaigns.some((validCampaign: string) => 
+            validCampaign.toLowerCase() === campaignName.toLowerCase()
+          );
+          
+          if (!campaignValid) {
+            return {
+              isValid: false,
+              message: `Inconsistent data: Campaign '${campaignName}' does not belong to Range '${rangeName}'`
+            };
+          }
+        }
+        
+        // Third, verify the range's category matches what we expect
+        const rangeToCategory = Object.keys(rangeToCategories).find(key => 
+          key.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        if (rangeToCategory) {
+          const expectedCategories = rangeToCategories[rangeToCategory] || [];
+          const categoryMatches = expectedCategories.some(expectedCategory => 
+            expectedCategory.toLowerCase() === categoryName.toLowerCase()
+          );
+          
+          if (!categoryMatches) {
+            return {
+              isValid: false,
+              message: `Inconsistent data: Range '${rangeName}' should belong to categories [${expectedCategories.join(', ')}], not '${categoryName}'`
+            };
+          }
+        }
+        
+        return true;
       }
     });
   }

@@ -714,15 +714,19 @@ async function processImport(
     try {
       // Ranges are already processed in pre-processing step
       
-      // Process media subtype
+      // Process media subtype with case-insensitive matching
       if (record['Media Subtype'] && !processedEntities.mediaSubTypes.has(record['Media Subtype'])) {
-        const existingMediaSubtype = await prisma.mediaSubType.findFirst({
-          where: { name: record['Media Subtype'] }
-        });
+        // Get all media subtypes and do case-insensitive matching
+        const cleanMediaSubtypeName = record['Media Subtype'].toString().trim();
+        const cleanMediaSubtypeLower = cleanMediaSubtypeName.toLowerCase();
+        let allMediaSubtypes = await prisma.mediaSubType.findMany();
+        
+        // Filter manually for case-insensitive match but preserve original case
+        const existingMediaSubtype = allMediaSubtypes.find(ms => ms.name.toLowerCase() === cleanMediaSubtypeLower);
         
         if (existingMediaSubtype) {
           processedEntities.mediaSubTypes.set(record['Media Subtype'], existingMediaSubtype.id);
-          logWithTimestamp(`Found existing media subtype: ${record['Media Subtype']} (ID: ${existingMediaSubtype.id})`);
+          logWithTimestamp(`Found existing media subtype: ${existingMediaSubtype.name} (ID: ${existingMediaSubtype.id}) for input: ${record['Media Subtype']}`);
         } else {
           const newMediaSubtype = await prisma.mediaSubType.create({
             data: {
@@ -737,15 +741,19 @@ async function processImport(
         }
       }
       
-      // Process PM type
+      // Process PM type with case-insensitive matching
       if (record['PM Type'] && !processedEntities.pmTypes.has(record['PM Type'])) {
-        const existingPmType = await prisma.pMType.findFirst({
-          where: { name: record['PM Type'] }
-        });
+        // Get all PM types and do case-insensitive matching
+        const cleanPmTypeName = record['PM Type'].toString().trim();
+        const cleanPmTypeLower = cleanPmTypeName.toLowerCase();
+        let allPmTypes = await prisma.pMType.findMany();
+        
+        // Filter manually for case-insensitive match but preserve original case
+        const existingPmType = allPmTypes.find(pt => pt.name.toLowerCase() === cleanPmTypeLower);
         
         if (existingPmType) {
           processedEntities.pmTypes.set(record['PM Type'], existingPmType.id);
-          logWithTimestamp(`Found existing PM type: ${record['PM Type']} (ID: ${existingPmType.id})`);
+          logWithTimestamp(`Found existing PM type: ${existingPmType.name} (ID: ${existingPmType.id}) for input: ${record['PM Type']}`);
         } else {
           const newPmType = await prisma.pMType.create({
             data: {
@@ -934,17 +942,21 @@ async function processImport(
         }
       }
       
-      // Process category with flexible column name handling
+      // Process category with flexible column name handling and case-insensitive matching
       const categoryValue = record.Category || record['Category'] || record.CATEGORY || record['Product Category'];
       if (categoryValue && !processedEntities.categories.has(categoryValue)) {
         try {
-          const existingCategory = await prisma.category.findFirst({
-            where: { name: categoryValue }
-          });
+          // Get all categories and do case-insensitive matching
+          const cleanCategoryName = categoryValue.toString().trim();
+          const cleanCategoryLower = cleanCategoryName.toLowerCase();
+          let allCategories = await prisma.category.findMany();
+          
+          // Filter manually for case-insensitive match but preserve original case
+          const existingCategory = allCategories.find(c => c.name.toLowerCase() === cleanCategoryLower);
           
           if (existingCategory) {
             processedEntities.categories.set(categoryValue, existingCategory.id);
-            logWithTimestamp(`Found existing category: ${categoryValue} (ID: ${existingCategory.id})`);
+            logWithTimestamp(`Found existing category: ${existingCategory.name} (ID: ${existingCategory.id}) for input: ${categoryValue}`);
           } else {
             // Create a new category
             const newCategory = await prisma.category.create({
