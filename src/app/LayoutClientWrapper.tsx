@@ -2,7 +2,6 @@
 
 import { usePathname } from 'next/navigation';
 import BeiersdorfHeader from '@/components/BeiersdorfHeader';
-import DebugConsole from '@/components/DebugConsole';
 
 export default function LayoutClientWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,7 +16,6 @@ export default function LayoutClientWrapper({ children }: { children: React.Reac
       <main className={showHeader ? 'pt-20' : ''}>
         {children}
       </main>
-      <DebugConsole />
     </>
   );
 }
