@@ -41,49 +41,6 @@ export async function POST(request: Request) {
         token: 'demo-super-admin-token',
         user: superAdminUser
       });
-    } else if (email === 'restricted-admin@example.com' && password === 'admin') {
-      const restrictedAdminUser = {
-        id: 3,
-        email: 'restricted-admin@example.com',
-        name: 'Restricted Admin User',
-        role: 'admin',
-        accessibleCountries: '4,33', // Only access to Australia (4) and India (33)
-        accessibleBrands: null,     // Full brand access
-        accessiblePages: 'game-plans,reach-planning,dashboard' // Limited page access
-      };
-      
-      // Validate admin permissions on server side
-      if (loginType === 'admin' && !['super_admin', 'admin'].includes(restrictedAdminUser.role)) {
-        return NextResponse.json(
-          { error: 'You do not have admin privileges. Please login as a regular user.' },
-          { status: 403 }
-        );
-      }
-      
-      return NextResponse.json({
-        token: 'demo-restricted-admin-token',
-        user: restrictedAdminUser
-      });
-    } else if (email === 'user@example.com' && password === 'user') {
-      const regularUser = {
-        id: 2,
-        email: 'user@example.com',
-        name: 'Regular User',
-        role: 'user',
-      };
-      
-      // Validate admin permissions on server side
-      if (loginType === 'admin' && regularUser.role !== 'admin') {
-        return NextResponse.json(
-          { error: 'You do not have admin privileges. Please login as a regular user.' },
-          { status: 403 }
-        );
-      }
-      
-      return NextResponse.json({
-        token: 'demo-user-token',
-        user: regularUser
-      });
     }
 
     // Check database for real users

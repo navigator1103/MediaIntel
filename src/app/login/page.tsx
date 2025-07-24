@@ -55,111 +55,7 @@ export default function Login() {
       const processingEl = document.getElementById('login-processing-message');
       if (processingEl) document.body.removeChild(processingEl);
       
-      // IMPORTANT: Check for demo accounts first and use client-side authentication for them
-      // This is a guaranteed fallback that will work even if the backend is unavailable
-      console.log('DEBUG: Checking demo accounts');
-      console.log('Email:', email);
-      console.log('Password:', password);
-      console.log('Admin check:', (email === 'admin@example.com' && password === 'admin') || (email.toLowerCase() === 'admin' && password === 'admin'));
-      console.log('User check:', (email === 'user@example.com' && password === 'user') || (email.toLowerCase() === 'user' && password === 'user'));
-      
-      // Check for demo accounts and validate permissions
-      let demoUser = null;
-      
-      console.log('Checking for demo accounts...');
-      console.log('Email match check:', email === 'admin@example.com' || email.toLowerCase() === 'admin');
-      console.log('Password match check:', password === 'admin');
-      
-      if ((email === 'admin@example.com' && password === 'admin') || (email.toLowerCase() === 'admin' && password === 'admin')) {
-        demoUser = {
-          id: 1,
-          email: 'admin@example.com',
-          name: 'Super Admin User',
-          role: 'super_admin'
-        };
-      } else if ((email === 'user@example.com' && password === 'user') || (email.toLowerCase() === 'user' && password === 'user')) {
-        demoUser = {
-          id: 2,
-          email: 'user@example.com',
-          name: 'Regular User',
-          role: 'user'
-        };
-      }
-      
-      if (demoUser) {
-        console.log('Demo account detected:', demoUser.email);
-        console.log('Login type requested:', type);
-        console.log('User role:', demoUser.role);
-        
-        // Validate permissions - check if user has required role for the requested login type
-        if (type === 'admin' && !['super_admin', 'admin'].includes(demoUser.role)) {
-          console.log('=== ADMIN ACCESS DENIED FOR DEMO ACCOUNT ===');
-          console.log('Requested: admin, User role:', demoUser.role);
-          console.log('Setting error state for demo account');
-          setError('You do not have admin privileges. Please login as a regular user.');
-          setIsLoading(false);
-          return;
-        }
-        
-        // Prevent admin users from accessing user dashboard
-        if (type === 'user' && ['super_admin', 'admin'].includes(demoUser.role)) {
-          console.log('=== USER ACCESS DENIED FOR ADMIN DEMO ACCOUNT ===');
-          console.log('Requested: user dashboard, User role:', demoUser.role);
-          console.log('Admin users cannot access user dashboard');
-          setError('Admin users cannot access the user dashboard. Please use "Login as Admin" instead.');
-          setIsLoading(false);
-          return;
-        }
-        
-        console.log('=== DEMO ACCOUNT PERMISSION CHECK PASSED ===');
-        console.log('Using direct client-side authentication for demo account');
-        
-        // Track successful login
-        trackLogin(type);
-        
-        // Display success message
-        const successMessage = document.createElement('div');
-        successMessage.style.position = 'fixed';
-        successMessage.style.top = '0';
-        successMessage.style.left = '0';
-        successMessage.style.width = '100%';
-        successMessage.style.padding = '10px';
-        successMessage.style.backgroundColor = '#4f46e5';
-        successMessage.style.color = 'white';
-        successMessage.style.textAlign = 'center';
-        successMessage.style.zIndex = '9999';
-        successMessage.innerText = 'Login successful! Redirecting to dashboard...';
-        document.body.appendChild(successMessage);
-        
-        // Store authentication data
-        const token = ['super_admin', 'admin'].includes(demoUser.role) ? 'mock-admin-token' : 'mock-user-token';
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(demoUser));
-        localStorage.setItem('loginType', type || 'user');
-        document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-        
-        // Redirect based on login type and permissions
-        setTimeout(() => {
-          if (type === 'admin' && ['super_admin', 'admin'].includes(demoUser.role)) {
-            console.log('Redirecting to admin dashboard');
-            const adminLink = document.createElement('a');
-            adminLink.href = '/admin';
-            adminLink.style.display = 'none';
-            document.body.appendChild(adminLink);
-            adminLink.click();
-          } else {
-            console.log('Redirecting to user dashboard');
-            const homeLink = document.createElement('a');
-            homeLink.href = '/';
-            homeLink.style.display = 'none';
-            document.body.appendChild(homeLink);
-            homeLink.click();
-          }
-        }, 1500);
-        return;
-      }
-      
-      // For non-demo accounts, try API login with a timeout to prevent hanging
+      // Try API login with a timeout to prevent hanging
       try {
         const loadingMessage = document.createElement('div');
         loadingMessage.style.position = 'fixed';
@@ -565,34 +461,6 @@ export default function Login() {
               </p>
             </div>
             
-            {/* Test account info - hidden by default but can be shown for development */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <details className="text-sm text-gray-500">
-                <summary className="cursor-pointer font-medium">Developer Options</summary>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('admin@example.com');
-                      setPassword('admin');
-                    }}
-                    className="w-full rounded-md border border-gray-300 bg-white py-2 px-4 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 font-quicksand"
-                  >
-                    Use Admin Account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('user@example.com');
-                      setPassword('user');
-                    }}
-                    className="w-full rounded-md border border-gray-300 bg-white py-2 px-4 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 font-quicksand"
-                  >
-                    Use User Account
-                  </button>
-                </div>
-              </details>
-            </div>
           </form>
         )}
         
