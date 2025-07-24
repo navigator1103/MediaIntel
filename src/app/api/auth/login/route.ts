@@ -109,14 +109,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if email is verified
-    if (!user.emailVerified) {
-      console.log('Email not verified for user:', email);
-      return NextResponse.json(
-        { error: 'Please verify your email before logging in. Check your inbox for the verification link.' },
-        { status: 403 }
-      );
-    }
+    // Email verification check removed - auto-verify all users
 
     // Validate admin permissions for real users
     if (loginType === 'admin' && !['super_admin', 'admin'].includes(user.role)) {

@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         name: body.name,
         password: hashedPassword,
         role: 'admin', // All new signups get admin role
-        emailVerified: false,
+        emailVerified: true, // Auto-verify all new users
         verificationToken,
         accessibleCountries: countryId.toString(), // Single country access
         accessiblePages: restrictedAdminPages, // Specific page access
@@ -95,19 +95,8 @@ export async function POST(request: NextRequest) {
     
     console.log('User created successfully:', user.id);
     
-    // Send welcome email with verification link
-    console.log('Sending welcome email...');
-    try {
-      const emailSent = await sendWelcomeEmail(user.email, user.name || '', verificationToken);
-      if (emailSent) {
-        console.log('Welcome email sent successfully');
-      } else {
-        console.log('Failed to send welcome email');
-      }
-    } catch (emailError) {
-      console.error('Error sending welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+    // Email verification disabled - users are auto-verified
+    console.log('User registered and auto-verified');
     
     // Return user info (without password)
     return NextResponse.json({
@@ -118,7 +107,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         emailVerified: user.emailVerified
       },
-      message: 'Registration successful! Please check your email to verify your account.'
+      message: 'Registration successful! You can now log in to your account.'
     }, { status: 201 });
   } catch (error) {
     console.error('Error during registration:', error);
