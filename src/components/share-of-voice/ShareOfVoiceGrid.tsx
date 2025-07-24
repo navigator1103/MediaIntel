@@ -33,12 +33,14 @@ interface ShareOfVoiceGridProps {
   sessionId: string;
 }
 
-// SOV template columns
+// SOV template columns - supports both TV and Digital
 const SOV_TEMPLATE_COLUMNS = [
   'Category',
   'Company', 
   'Total TV Investment',
-  'Total TV TRPs'
+  'Total TV TRPs',
+  'Total Digital Spend',
+  'Total Digital Impressions'
 ];
 
 export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
@@ -47,6 +49,8 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
+  const [editingCell, setEditingCell] = useState<{rowIndex: number, columnName: string} | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     loadSessionData();
@@ -144,6 +148,7 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({
           sessionId,
           uploadedBy: 'admin' // This should come from user context
@@ -151,7 +156,22 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        console.error('Import API Response Status:', response.status, response.statusText);
+        const responseText = await response.text();
+        console.error('Import API Raw Response:', responseText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          errorData = { error: `Non-JSON response: ${responseText}` };
+        }
+        
+        console.error('Import API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         throw new Error(errorData.error || 'Import failed');
       }
       
@@ -164,6 +184,34 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleCellClick = (rowIndex: number, columnName: string, currentValue: any) => {
+    setEditingCell({ rowIndex, columnName });
+    setEditValue(currentValue || '');
+  };
+
+  const handleCellSave = () => {
+    if (!editingCell || !sessionData) return;
+    
+    // Update the record in local state
+    const updatedRecords = [...sessionData.records];
+    updatedRecords[editingCell.rowIndex][editingCell.columnName] = editValue;
+    
+    setSessionData({
+      ...sessionData,
+      records: updatedRecords
+    });
+    
+    setEditingCell(null);
+    setEditValue('');
+    
+    // TODO: Save to session file and re-validate
+  };
+
+  const handleCellCancel = () => {
+    setEditingCell(null);
+    setEditValue('');
   };
 
   if (loading) {
@@ -409,10 +457,12 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
                         const cellValue = record[header] || '-';
                         const isCustomColumn = !isTemplateColumn(header);
                         
+                        const isEditing = editingCell?.rowIndex === originalRowIndex && editingCell?.columnName === header;
+                        
                         return (
                           <td 
                             key={header} 
-                            className={`px-4 py-3 text-sm whitespace-nowrap relative min-w-32 ${
+                            className={`px-4 py-3 text-sm whitespace-nowrap relative min-w-32 cursor-pointer hover:bg-gray-50 ${
                               cellIssue 
                                 ? cellIssue.severity === 'critical' 
                                   ? 'bg-red-100 text-red-900 border-l-4 border-red-500' 
@@ -424,17 +474,48 @@ export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
                                 : 'text-gray-900'
                             }`}
                             title={cellIssue ? `${cellIssue.severity.toUpperCase()}: ${cellIssue.message}` : cellValue.length > 20 ? cellValue : undefined}
+                            onClick={() => !isEditing && handleCellClick(originalRowIndex, header, cellValue)}
                           >
-                            <span className="flex items-center">
-                              <span className="truncate max-w-48">{cellValue}</span>
-                              {cellIssue && (
-                                <span className="ml-2 flex-shrink-0">
-                                  {cellIssue.severity === 'critical' && <FiAlertCircle className="h-3 w-3 text-red-500" />}
-                                  {cellIssue.severity === 'warning' && <FiAlertTriangle className="h-3 w-3 text-yellow-500" />}
-                                  {cellIssue.severity === 'suggestion' && <FiInfo className="h-3 w-3 text-blue-500" />}
-                                </span>
-                              )}
-                            </span>
+                            {isEditing ? (
+                              <div className="flex items-center space-x-1">
+                                <input
+                                  type="text"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleCellSave();
+                                    if (e.key === 'Escape') handleCellCancel();
+                                  }}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={handleCellSave}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Save"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={handleCellCancel}
+                                  className="text-red-600 hover:text-red-800"
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="flex items-center">
+                                <span className="truncate max-w-48">{cellValue}</span>
+                                {cellIssue && (
+                                  <span className="ml-2 flex-shrink-0">
+                                    {cellIssue.severity === 'critical' && <FiAlertCircle className="h-3 w-3 text-red-500" />}
+                                    {cellIssue.severity === 'warning' && <FiAlertTriangle className="h-3 w-3 text-yellow-500" />}
+                                    {cellIssue.severity === 'suggestion' && <FiInfo className="h-3 w-3 text-blue-500" />}
+                                  </span>
+                                )}
+                              </span>
+                            )}
                           </td>
                         );
                       })}

@@ -24,6 +24,7 @@ export default function ShareOfVoicePage() {
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [activeTab, setActiveTab] = useState('upload');
   const [mediaType, setMediaType] = useState<'tv' | 'digital'>('tv');
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
 
   const handleUploadComplete = (sessionId: string) => {
     setCurrentSession(sessionId);
@@ -41,11 +42,16 @@ export default function ShareOfVoicePage() {
     });
   };
 
+  const handleBusinessUnitChange = (businessUnit: string) => {
+    setSelectedBusinessUnit(businessUnit);
+  };
+
   const resetSession = () => {
     setCurrentSession(null);
     setSessionSummary(null);
     setActiveTab('upload');
     setMediaType('tv');
+    setSelectedBusinessUnit('');
   };
 
   return (
@@ -229,6 +235,7 @@ export default function ShareOfVoicePage() {
                   mediaType={mediaType}
                   onUploadComplete={handleUploadComplete}
                   onValidationComplete={handleValidationComplete}
+                  onBusinessUnitChange={handleBusinessUnitChange}
                 />
                 
                 {/* Upload Instructions */}
@@ -255,18 +262,32 @@ export default function ShareOfVoicePage() {
                         }
                       </p>
                     </div>
-                    <a
-                      href={mediaType === 'tv' ? "/templates/sov-tv-template.csv" : "/templates/sov-digital-template.csv"}
-                      download={mediaType === 'tv' ? "sov-tv-template.csv" : "sov-digital-template.csv"}
-                      className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md hover:bg-gray-50 ${
-                        mediaType === 'tv' 
-                          ? 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100' 
-                          : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                      }`}
-                    >
-                      <FiDownload className="h-4 w-4 mr-2" />
-                      Download {mediaType === 'tv' ? 'TV' : 'Digital'} Template
-                    </a>
+                    {selectedBusinessUnit && (
+                      <a
+                        href={mediaType === 'tv' ? 
+                          `/templates/sov-tv-template-${selectedBusinessUnit.toLowerCase()}.csv` : 
+                          `/templates/sov-digital-template-${selectedBusinessUnit.toLowerCase()}.csv`
+                        }
+                        download={mediaType === 'tv' ? 
+                          `sov-tv-template-${selectedBusinessUnit.toLowerCase()}.csv` : 
+                          `sov-digital-template-${selectedBusinessUnit.toLowerCase()}.csv`
+                        }
+                        className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md hover:bg-gray-50 ${
+                          mediaType === 'tv' 
+                            ? 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100' 
+                            : 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                        }`}
+                      >
+                        <FiDownload className="h-4 w-4 mr-2" />
+                        Download {selectedBusinessUnit} {mediaType === 'tv' ? 'TV' : 'Digital'} Template
+                      </a>
+                    )}
+                    {!selectedBusinessUnit && (
+                      <div className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md bg-gray-100 text-gray-400 cursor-not-allowed">
+                        <FiDownload className="h-4 w-4 mr-2" />
+                        Select Business Unit First
+                      </div>
+                    )}
                   </div>
                   <div className="p-6 space-y-4">
                     <div>

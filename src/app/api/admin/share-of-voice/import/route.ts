@@ -7,12 +7,14 @@ const prisma = new PrismaClient();
 const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
 const SESSION_PREFIX = 'sov-';
 
-// Field mapping for ShareOfVoice table
+// Field mapping for ShareOfVoice table - supports both TV and Digital SOV
 const FIELD_MAPPING = {
   'Category': 'category',
   'Company': 'company',
   'Total TV Investment': 'totalTvInvestment',
-  'Total TV TRPs': 'totalTvTrps'
+  'Total TV TRPs': 'totalTvTrps',
+  'Total Digital Spend': 'totalTvInvestment', // Map to same field as TV Investment
+  'Total Digital Impressions': 'totalTvTrps' // Map to same field as TV TRPs
 };
 
 function parseNumber(value: any): number | null {
@@ -31,13 +33,18 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
   transformed.countryId = sessionData.countryId;
   transformed.businessUnitId = sessionData.businessUnitId;
   
+  console.log('Transforming record:', record); // Debug log
+  
   // Map CSV fields to database fields
   for (const [csvField, dbField] of Object.entries(FIELD_MAPPING)) {
     const value = record[csvField];
+    console.log(`Mapping ${csvField} -> ${dbField}:`, value); // Debug log
     
     if (dbField === 'totalTvInvestment' || dbField === 'totalTvTrps') {
       // Parse numeric fields
-      transformed[dbField] = parseNumber(value);
+      const parsed = parseNumber(value);
+      console.log(`Parsed ${csvField}:`, value, '->', parsed); // Debug log
+      transformed[dbField] = parsed;
     } else {
       // String fields
       transformed[dbField] = value || null;
@@ -48,6 +55,7 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
   transformed.uploadedBy = 'admin'; // This should come from user context
   transformed.uploadSession = sessionData.sessionId;
   
+  console.log('Transformed record:', transformed); // Debug log
   return transformed;
 }
 
@@ -130,14 +138,15 @@ export async function POST(request: NextRequest) {
       const batch = transformedRecords.slice(i, i + batchSize);
       
       try {
+        console.log(`Attempting to import batch ${i / batchSize + 1}:`, batch.slice(0, 2)); // Log first 2 records for debugging
         await prisma.shareOfVoice.createMany({
-          data: batch,
-          skipDuplicates: true
+          data: batch
         });
         importedCount += batch.length;
         console.log(`Imported batch: ${importedCount}/${transformedRecords.length}`);
       } catch (error) {
         console.error(`Error importing batch starting at ${i}:`, error);
+        console.error(`Problematic batch data:`, JSON.stringify(batch, null, 2));
         return NextResponse.json({
           error: `Failed to import batch starting at record ${i + 1}`,
           details: error.message

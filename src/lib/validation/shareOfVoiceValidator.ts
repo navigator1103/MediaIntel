@@ -17,12 +17,16 @@ export class ShareOfVoiceValidator {
   private masterData: any;
   private businessUnit: string;
   private country: string;
+  private mediaType: string;
   private rules: ValidationRule[] = [];
 
-  constructor(masterData: any, businessUnit: string, country: string) {
+  constructor(masterData: any, businessUnit: string, country: string, mediaType: string = 'tv') {
     this.masterData = masterData;
     this.businessUnit = businessUnit;
     this.country = country;
+    this.mediaType = mediaType.toLowerCase();
+    console.log('ShareOfVoiceValidator initialized with:', { businessUnit, country, mediaType: this.mediaType });
+    console.log('Available categories for business unit:', this.getValidCategoriesForBusinessUnit());
     this.initializeRules();
   }
 
@@ -51,29 +55,72 @@ export class ShareOfVoiceValidator {
       message: `Category must be valid for ${this.businessUnit} business unit`
     });
 
-    // Company validation
+    // Company validation - make it a suggestion to be less strict
     this.rules.push({
       field: 'Company',
       type: 'relationship',
-      severity: 'warning',
-      message: 'Company should be "Nivea" or "Competitor 1-5" format'
+      severity: 'suggestion',
+      message: 'Company name format suggestion: "Nivea" or "Competitor 1-5". Other competitor names are allowed.'
     });
 
-    // Numeric field validation
-    this.rules.push(
-      {
-        field: 'Total TV Investment',
-        type: 'format',
-        severity: 'warning',
-        message: 'Total TV Investment should be a valid number if provided'
-      },
-      {
-        field: 'Total TV TRPs',
-        type: 'format',
-        severity: 'warning',
-        message: 'Total TV TRPs should be a valid number if provided'
-      }
-    );
+    // Numeric field validation - media type specific
+    if (this.mediaType === 'tv') {
+      // TV media type validation
+      this.rules.push(
+        {
+          field: 'Total TV Investment',
+          type: 'required',
+          severity: 'critical',
+          message: 'Total TV Investment is required and cannot be empty'
+        },
+        {
+          field: 'Total TV TRPs',
+          type: 'required',
+          severity: 'critical',
+          message: 'Total TV TRPs is required and cannot be empty'
+        },
+        {
+          field: 'Total TV Investment',
+          type: 'format',
+          severity: 'warning',
+          message: 'Total TV Investment should be a valid number if provided'
+        },
+        {
+          field: 'Total TV TRPs',
+          type: 'format',
+          severity: 'warning',
+          message: 'Total TV TRPs should be a valid number if provided'
+        }
+      );
+    } else if (this.mediaType === 'digital') {
+      // Digital media type validation
+      this.rules.push(
+        {
+          field: 'Total Digital Spend',
+          type: 'required',
+          severity: 'critical',
+          message: 'Total Digital Spend is required and cannot be empty'
+        },
+        {
+          field: 'Total Digital Impressions',
+          type: 'required',
+          severity: 'critical',
+          message: 'Total Digital Impressions is required and cannot be empty'
+        },
+        {
+          field: 'Total Digital Spend',
+          type: 'format',
+          severity: 'warning',
+          message: 'Total Digital Spend should be a valid number if provided'
+        },
+        {
+          field: 'Total Digital Impressions',
+          type: 'format',
+          severity: 'warning',
+          message: 'Total Digital Impressions should be a valid number if provided'
+        }
+      );
+    }
 
     // Uniqueness check
     this.rules.push({
@@ -81,6 +128,14 @@ export class ShareOfVoiceValidator {
       type: 'uniqueness',
       severity: 'critical',
       message: 'Duplicate combination: same Category and Company combination already exists in this upload'
+    });
+
+    // Brand presence validation - ensure our brand is present for each category
+    this.rules.push({
+      field: 'Category',
+      type: 'consistency',
+      severity: 'critical',
+      message: `Each category must have a ${this.businessUnit} entry. Missing ${this.businessUnit} entry for this category.`
     });
   }
 
@@ -125,7 +180,8 @@ export class ShareOfVoiceValidator {
 
       case 'format':
         if (fieldValue && fieldValue !== '') {
-          if (rule.field.includes('Investment') || rule.field.includes('TRPs')) {
+          if (rule.field.includes('Investment') || rule.field.includes('TRPs') || 
+              rule.field.includes('Spend') || rule.field.includes('Impressions')) {
             const numericValue = this.parseNumber(fieldValue);
             if (numericValue === null && fieldValue.toString().trim() !== '') {
               issues.push({
@@ -180,6 +236,21 @@ export class ShareOfVoiceValidator {
           }
         }
         break;
+
+      case 'consistency':
+        if (rule.field === 'Category') {
+          const hasBrandForCategory = this.checkBrandPresenceForCategory(record.Category, allRecords);
+          if (!hasBrandForCategory) {
+            issues.push({
+              rowIndex,
+              columnName: rule.field,
+              severity: rule.severity,
+              message: rule.message,
+              currentValue: record.Category
+            });
+          }
+        }
+        break;
     }
 
     return issues;
@@ -208,6 +279,7 @@ export class ShareOfVoiceValidator {
     
     const validPatterns = [
       /^Nivea$/i,
+      /^Derma$/i,
       /^Competitor\s+[1-5]$/i,
       /^Competitor[1-5]$/i
     ];
@@ -229,6 +301,16 @@ export class ShareOfVoiceValidator {
     });
     
     return duplicateRows;
+  }
+
+  private checkBrandPresenceForCategory(category: string, allRecords: any[]): boolean {
+    if (!category) return true; // Don't flag empty categories here, handled by required rule
+    
+    const expectedBrand = this.businessUnit.toLowerCase();
+    return allRecords.some(record => 
+      record.Category?.toLowerCase() === category.toLowerCase() && 
+      record.Company?.toLowerCase() === expectedBrand
+    );
   }
 
   private parseNumber(value: any): number | null {

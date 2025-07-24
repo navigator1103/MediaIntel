@@ -24,6 +24,7 @@ interface ShareOfVoiceUploadProps {
   mediaType: 'tv' | 'digital';
   onUploadComplete?: (sessionId: string) => void;
   onValidationComplete?: (sessionId: string, summary: any) => void;
+  onBusinessUnitChange?: (businessUnit: string) => void;
 }
 
 interface Country {
@@ -39,7 +40,8 @@ interface BusinessUnit {
 export default function ShareOfVoiceUpload({ 
   mediaType,
   onUploadComplete, 
-  onValidationComplete 
+  onValidationComplete,
+  onBusinessUnitChange
 }: ShareOfVoiceUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
@@ -362,7 +364,14 @@ export default function ShareOfVoiceUpload({
                 <div className="relative">
                   <select
                     value={selectedBusinessUnit}
-                    onChange={(e) => setSelectedBusinessUnit(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedBusinessUnit(e.target.value);
+                      // Find the business unit name from the list
+                      const selectedBU = businessUnits.find(bu => bu.id.toString() === e.target.value);
+                      if (selectedBU && onBusinessUnitChange) {
+                        onBusinessUnitChange(selectedBU.name);
+                      }
+                    }}
                     disabled={loadingBusinessUnits}
                     className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   >

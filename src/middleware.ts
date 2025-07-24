@@ -19,6 +19,7 @@ export function middleware(request: NextRequest) {
     '/api/auth/verify-email',
     '/api/auth/test',
     '/api/test',
+    '/api/admin/share-of-voice', // Temporarily allow SOV routes for testing
     '/_next',
     '/favicon.ico',
   ];

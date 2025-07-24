@@ -46,7 +46,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    console.log('Validating for:', country.name, businessUnit.name);
+    console.log('Validating for:', country.name, businessUnit.name, 'Media Type:', sessionData.mediaType);
+    console.log('Session data keys:', Object.keys(sessionData));
+    console.log('Full session mediaType value:', JSON.stringify(sessionData.mediaType));
     
     // Load master data for validation
     const masterDataPath = path.join(process.cwd(), 'src/lib/validation/masterData.json');
@@ -56,8 +58,8 @@ export async function POST(request: NextRequest) {
       masterData = JSON.parse(fs.readFileSync(masterDataPath, 'utf8'));
     }
     
-    // Initialize validator
-    const validator = new ShareOfVoiceValidator(masterData, businessUnit.name!, country.name);
+    // Initialize validator with media type
+    const validator = new ShareOfVoiceValidator(masterData, businessUnit.name!, country.name, sessionData.mediaType || 'tv');
     
     // Get all records for validation
     const allRecordsFile = path.join(SESSIONS_DIR, `${sessionId}-full-records.json`);

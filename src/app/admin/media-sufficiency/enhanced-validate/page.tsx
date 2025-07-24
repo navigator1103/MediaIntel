@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiCheckCircle, FiAlertTriangle, FiAlertCircle, FiInfo, FiArrowLeft, FiLoader } from 'react-icons/fi';
 import DataPreviewGrid from '@/components/media-sufficiency/DataPreviewGrid';
-import { ValidationIssue, MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
+import { ValidationIssue } from '@/lib/validation/mediaSufficiencyValidator';
+import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
 
 export default function EnhancedValidate() {
   const router = useRouter();

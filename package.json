@@ -10,7 +10,8 @@
     "db:seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts",
     "db:export": "ts-node scripts/simple-backup.ts export",
     "db:import": "ts-node scripts/simple-backup.ts import",
-    "db:create-backup": "bash scripts/create-backup.sh"
+    "db:create-backup": "bash scripts/create-backup.sh",
+    "cleanup-sessions": "ts-node scripts/cleanup-sessions.ts"
   },
   "prisma": {
     "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"
