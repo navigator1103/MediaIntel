@@ -97,12 +97,23 @@ export class MediaSufficiencyValidator {
   private rules: ValidationRule[] = [];
   private masterData: MasterData = {};
   private autoCreateMode: boolean = false;
+  private abpYear: number | null = null;
 
-  constructor(masterData?: MasterData, autoCreateMode: boolean = false) {
+  constructor(masterData?: MasterData, autoCreateMode: boolean = false, abpCycle?: string) {
     if (masterData) {
       this.masterData = masterData;
     }
     this.autoCreateMode = autoCreateMode;
+    
+    // Extract year from ABP cycle (e.g., "ABP 2025" -> 2025)
+    if (abpCycle) {
+      const yearMatch = abpCycle.match(/(\d{4})/);
+      if (yearMatch) {
+        this.abpYear = parseInt(yearMatch[1]);
+        console.log('ABP Year extracted:', this.abpYear, 'from cycle:', abpCycle);
+      }
+    }
+    
     this.initializeRules();
   }
 
@@ -125,18 +136,67 @@ export class MediaSufficiencyValidator {
     // If it's already a Date object, return it
     if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
     
-    // Use the shared date utility
-    const { parseDate } = require('@/lib/utils/dateUtils');
-    return parseDate(value);
+    // Simple date parsing for common formats
+    const dateStr = value.toString().trim();
+    
+    // Try ISO format first (YYYY-MM-DD)
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(date.getTime())) return date;
+    }
+    
+    // Try DD-Mon-YY format (like "01-Jan-25")
+    const shortDateMatch = dateStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+    if (shortDateMatch) {
+      const [, day, monthStr, yearShort] = shortDateMatch;
+      const monthMap: Record<string, number> = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      const month = monthMap[monthStr];
+      if (month !== undefined) {
+        // Convert 2-digit year to 4-digit (assuming 20xx for years 00-99)
+        const year = 2000 + parseInt(yearShort);
+        const date = new Date(year, month, parseInt(day));
+        if (!isNaN(date.getTime())) return date;
+      }
+    }
+    
+    // Try standard Date constructor as fallback
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) return date;
+    } catch (error) {
+      // Date parsing failed
+    }
+    
+    return null;
   }
   
   // Format dates using the shared utility
   private formatDate(date: Date | string | number | null): string {
     if (!date) return '';
     
-    // Use the shared date utility
-    const { formatDateForStorage } = require('@/lib/utils/dateUtils');
-    return formatDateForStorage(date) || '';
+    // Simple date formatting to YYYY-MM-DD
+    if (date instanceof Date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // If it's a string or number, try to parse it first
+    const parsedDate = this.parseDate(date);
+    if (parsedDate) {
+      const year = parsedDate.getFullYear();
+      const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(parsedDate.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return date.toString();
   }
   
   // Initialize default validation rules
@@ -780,7 +840,7 @@ export class MediaSufficiencyValidator {
       }
     });
 
-    // Category validation
+    // Category validation (case-insensitive)
     this.rules.push({
       field: 'Category',
       type: 'relationship',
@@ -794,13 +854,19 @@ export class MediaSufficiencyValidator {
         const categories = masterData?.categories || [];
         
         // Case-insensitive search - categories array now contains strings directly
-        return categories.some((category: string) => {
+        const isValid = categories.some((category: string) => {
           return category.toLowerCase() === categoryInput.toLowerCase();
         });
+        
+        if (!isValid) {
+          console.log(`Category validation failed for '${categoryInput}'. Available categories: [${categories.join(', ')}]`);
+        }
+        
+        return isValid;
       }
     });
 
-    // Range validation - modified for governance support
+    // Range validation - modified for governance support (case-insensitive)
     this.rules.push({
       field: 'Range',
       type: 'relationship',
@@ -818,13 +884,17 @@ export class MediaSufficiencyValidator {
           return range.toLowerCase() === rangeInput.toLowerCase();
         });
         
-        // Return false if range doesn't exist (to trigger warning highlight)
+        if (!exists) {
+          console.log(`Range validation: '${rangeInput}' not found in existing ranges. Available ranges: [${ranges.slice(0, 10).join(', ')}...]`);
+        }
+        
+        // Return false if range doesn't exist (to trigger warning highlight)  
         // Return true if range exists (no highlighting needed)
         return exists;
       }
     });
 
-    // Campaign validation - modified for governance support
+    // Campaign validation - modified for governance support (case-insensitive)
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
@@ -843,13 +913,17 @@ export class MediaSufficiencyValidator {
           return campaignName.toLowerCase() === campaignInput.toLowerCase();
         });
         
+        if (!exists) {
+          console.log(`Campaign validation: '${campaignInput}' not found in existing campaigns. Will be auto-created.`);
+        }
+        
         // Return false if campaign doesn't exist (to trigger warning highlight)
         // Return true if campaign exists (no highlighting needed)
         return exists;
       }
     });
 
-    // Category-Range relationship validation - modified for governance support
+    // Category-Range relationship validation - modified for governance support (case-insensitive)
     this.rules.push({
       field: 'Range',
       type: 'relationship',
@@ -871,10 +945,14 @@ export class MediaSufficiencyValidator {
           // Get valid ranges for this category
           const validRanges = categoryKey ? masterData.categoryToRanges[categoryKey] || [] : [];
           
-          // Check if range already exists for category
+          // Check if range already exists for category (case-insensitive)
           const exists = validRanges.some((m: string) => 
             m.toLowerCase() === range.toLowerCase()
           );
+          
+          if (!exists) {
+            console.log(`Category-Range relationship: Range '${range}' not found for category '${category}'. Valid ranges: [${validRanges.join(', ')}]`);
+          }
           
           // Return false if range doesn't exist (to trigger warning highlight)
           // Return true if range exists (no highlighting needed)
@@ -886,6 +964,55 @@ export class MediaSufficiencyValidator {
       }
     });
     
+    // Campaign-Category relationship validation (new rule to catch invalid combinations)
+    this.rules.push({
+      field: 'Campaign',
+      type: 'relationship',
+      severity: 'critical',
+      message: 'Campaign does not belong to the selected Category',
+      validate: (value, record, allRecords, masterData) => {
+        // Skip validation if either campaign or category is missing
+        if (!value || !record.Category) return true;
+        
+        const campaignInput = value.toString().trim();
+        const categoryInput = record.Category.toString().trim();
+        
+        // Get the campaign-to-range mapping and range-to-category mapping
+        const campaignToRangeMap = masterData?.campaignToRangeMap || {};
+        const rangeToCategories = masterData?.rangeToCategories || {};
+        
+        // If we don't have mapping data, skip validation
+        if (Object.keys(campaignToRangeMap).length === 0) {
+          return true;
+        }
+        
+        // Find the campaign in our mappings (case-insensitive)
+        const campaignKey = Object.keys(campaignToRangeMap).find(
+          key => key.toLowerCase() === campaignInput.toLowerCase()
+        );
+        
+        // If campaign exists in mappings
+        if (campaignKey) {
+          const campaignRange = campaignToRangeMap[campaignKey];
+          
+          // Get categories that this range belongs to
+          const validCategories = rangeToCategories[campaignRange] || [];
+          
+          // Check if the selected category is valid for this campaign (case-insensitive)
+          const isValidCategory = validCategories.some((cat: string) => 
+            cat.toLowerCase() === categoryInput.toLowerCase()
+          );
+          
+          if (!isValidCategory) {
+            console.log(`Campaign '${campaignInput}' belongs to range '${campaignRange}' which is valid for categories: [${validCategories.join(', ')}], but selected category is '${categoryInput}'`);
+            return false;
+          }
+        }
+        
+        return true;
+      }
+    });
+
     // Campaign-Range relationship validation with compatibility support (supports auto-creation mode)
     this.rules.push({
       field: 'Campaign',
@@ -1045,6 +1172,46 @@ export class MediaSufficiencyValidator {
         });
         
         return isEqual;
+      }
+    });
+
+    // Total WOFF validation - should equal Total Weeks minus Total WOA
+    this.rules.push({
+      field: 'Total WOFF',
+      type: 'consistency',
+      severity: 'critical',
+      message: 'Total WOFF should equal Total Weeks minus Total WOA (Total WOFF = Total Weeks - Total WOA)',
+      validate: (value, record) => {
+        if (!value) return true; // Skip if no WOFF value
+        
+        // Parse all required values
+        const woff = this.parseNumber(value);
+        const totalWeeks = this.parseNumber(record['Total Weeks']);
+        const totalWOA = this.parseNumber(record['Total WOA']);
+        
+        // Skip validation if any values are missing or invalid
+        if (woff === null || totalWeeks === null || totalWOA === null) {
+          return true; // Other validation rules will catch missing/invalid numbers
+        }
+        
+        // Calculate expected WOFF: Total Weeks - Total WOA
+        const expectedWOFF = totalWeeks - totalWOA;
+        
+        // Check if WOFF matches the formula (with small tolerance for floating point errors)
+        const tolerance = 0.01;
+        const isCorrect = Math.abs(woff - expectedWOFF) < tolerance;
+        
+        if (!isCorrect) {
+          console.log('WOFF validation failed:', {
+            providedWOFF: woff,
+            totalWeeks,
+            totalWOA,
+            expectedWOFF,
+            difference: Math.abs(woff - expectedWOFF)
+          });
+        }
+        
+        return isCorrect;
       }
     });
 
@@ -1229,6 +1396,86 @@ export class MediaSufficiencyValidator {
         return endDate >= startDate;
       }
     });
+
+    // ABP year validation for Initial Date
+    if (this.abpYear) {
+      this.rules.push({
+        field: 'Initial Date',
+        type: 'relationship',
+        severity: 'critical',
+        message: `Initial Date must be in ${this.abpYear} to match the selected ABP cycle`,
+        validate: (value, record) => {
+          if (!value) return true; // Will be caught by required validation
+          
+          const date = this.parseDate(value);
+          if (!date) {
+            console.log('ABP Initial Date validation: Failed to parse date', value);
+            return true; // Will be caught by format validation
+          }
+          
+          const year = date.getFullYear();
+          const isValid = year === this.abpYear;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`ABP Initial Date validation: "${value}" -> year ${year}, ABP year ${this.abpYear}, valid: ${isValid}`);
+          }
+          
+          return isValid;
+        }
+      });
+
+      this.rules.push({
+        field: 'End Date',
+        type: 'relationship',
+        severity: 'critical',
+        message: `End Date must be in ${this.abpYear} to match the selected ABP cycle`,
+        validate: (value, record) => {
+          if (!value) return true; // Will be caught by required validation
+          
+          const date = this.parseDate(value);
+          if (!date) {
+            console.log('ABP End Date validation: Failed to parse date', value);
+            return true; // Will be caught by format validation
+          }
+          
+          const year = date.getFullYear();
+          const isValid = year === this.abpYear;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`ABP End Date validation: "${value}" -> year ${year}, ABP year ${this.abpYear}, valid: ${isValid}`);
+          }
+          
+          return isValid;
+        }
+      });
+
+      // Cross-year validation: Both dates must be in the same year (campaigns can't span multiple years)
+      this.rules.push({
+        field: 'End Date',
+        type: 'relationship',
+        severity: 'critical',
+        message: 'Initial Date and End Date must be in the same year - campaigns cannot span multiple years',
+        validate: (value, record) => {
+          const initialDate = record['Initial Date'] || record['Start Date'];
+          if (!initialDate || !value) return true; // Will be caught by required validation
+          
+          const startDate = this.parseDate(initialDate);
+          const endDate = this.parseDate(value);
+          
+          if (!startDate || !endDate) return true; // Will be caught by format validation
+          
+          const startYear = startDate.getFullYear();
+          const endYear = endDate.getFullYear();
+          const isValid = startYear === endYear;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Cross-year validation: Initial "${initialDate}" (${startYear}) vs End "${value}" (${endYear}), valid: ${isValid}`);
+          }
+          
+          return isValid;
+        }
+      });
+    }
 
     // Campaign uniqueness validation within the same country
     this.rules.push({
@@ -2150,6 +2397,11 @@ export class MediaSufficiencyValidator {
     }
     
     return allIssues;
+  }
+  
+  // Getter for ABP year for testing
+  public getAbpYear(): number | null {
+    return this.abpYear;
   }
   
   // Get a summary of validation issues

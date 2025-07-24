@@ -3,6 +3,7 @@ import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import path from 'path';
 import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
+import { MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
 import { PrismaClient } from '@prisma/client';
 
 // We'll use temporary file storage for upload sessions
@@ -216,6 +217,26 @@ export async function POST(request: NextRequest) {
       const sessionId = generateSessionId();
       console.log(`Session ID generated: ${sessionId}`);
       
+      // Fetch ABP cycle name from lastUpdateId
+      console.log(`Fetching ABP cycle name for lastUpdateId: ${lastUpdateId}`);
+      let abpCycleName = null;
+      try {
+        const prisma = new PrismaClient();
+        const lastUpdate = await prisma.lastUpdate.findUnique({
+          where: { id: parseInt(lastUpdateId) }
+        });
+        await prisma.$disconnect();
+        
+        if (lastUpdate) {
+          abpCycleName = lastUpdate.name;
+          console.log(`ABP cycle name resolved: ${abpCycleName}`);
+        } else {
+          console.warn(`LastUpdate with ID ${lastUpdateId} not found`);
+        }
+      } catch (dbError) {
+        console.error('Error fetching ABP cycle name:', dbError);
+      }
+      
       // Extract master data
       const masterData = extractMasterData(records);
       
@@ -236,6 +257,7 @@ export async function POST(request: NextRequest) {
         recordCount: records.length,
         lastUpdateId,
         country,
+        abpCycle: abpCycleName,
         status: 'pending',
         data: {
           masterData,
@@ -265,6 +287,7 @@ export async function POST(request: NextRequest) {
           recordCount: records.length,
           lastUpdateId,
           country,
+          abpCycle: abpCycleName,
           createdAt: new Date().toISOString(),
           status: 'pending'
         }),
@@ -377,6 +400,26 @@ export async function POST(request: NextRequest) {
     const sessionId = generateSessionId();
     console.log(`Session ID generated: ${sessionId}`);
     
+    // Fetch ABP cycle name from lastUpdateId
+    console.log(`Fetching ABP cycle name for lastUpdateId: ${lastUpdateId}`);
+    let abpCycleName = null;
+    try {
+      const prisma = new PrismaClient();
+      const lastUpdate = await prisma.lastUpdate.findUnique({
+        where: { id: parseInt(lastUpdateId) }
+      });
+      await prisma.$disconnect();
+      
+      if (lastUpdate) {
+        abpCycleName = lastUpdate.name;
+        console.log(`ABP cycle name resolved: ${abpCycleName}`);
+      } else {
+        console.warn(`LastUpdate with ID ${lastUpdateId} not found`);
+      }
+    } catch (dbError) {
+      console.error('Error fetching ABP cycle name:', dbError);
+    }
+    
     // Extract master data for validation
     const masterData = extractMasterData(records);
     
@@ -401,6 +444,7 @@ export async function POST(request: NextRequest) {
       status: 'uploaded',
       lastUpdateId: parseInt(lastUpdateId, 10), // Store the selected lastUpdateId
       country: country, // Store the selected country
+      abpCycle: abpCycleName, // Store the ABP cycle name
       data: {
         records,
         processedRecords: records, // Keep original records for validation display
@@ -606,10 +650,10 @@ export async function GET(request: NextRequest) {
           // Add the selected country to master data for validation
           masterData.selectedCountry = session.country;
           
-          // Use AutoCreateValidator for proper validation with auto-creation support
-          console.log('Using AutoCreateValidator with auto-creation');
+          // Use MediaSufficiencyValidator for proper validation with ABP year support
+          console.log('Using MediaSufficiencyValidator with ABP cycle:', session.abpCycle);
           
-          const validator = new AutoCreateValidator(masterData);
+          const validator = new MediaSufficiencyValidator(masterData, true, session.abpCycle);
           const records = session.data?.records || [];
           
           // Run validation using AutoCreateValidator
@@ -646,7 +690,10 @@ export async function GET(request: NextRequest) {
         validationSummary: validationSummary,
         masterData: summarizeMasterData(session.data.masterData),
         importErrors: session.importErrors || [],
-        importResults: session.importResults || null
+        importResults: session.importResults || null,
+        abpCycle: session.abpCycle,
+        lastUpdateId: session.lastUpdateId,
+        country: session.country
       });
     } else {
       // Return session metadata without the full records
@@ -659,7 +706,10 @@ export async function GET(request: NextRequest) {
         status: session.status,
         masterData: summarizeMasterData(session.data.masterData),
         importErrors: session.importErrors || [],
-        importResults: session.importResults || null
+        importResults: session.importResults || null,
+        abpCycle: session.abpCycle,
+        lastUpdateId: session.lastUpdateId,
+        country: session.country
       });
     }
   } catch (error) {

@@ -52,9 +52,12 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
           const response = await fetch('/api/admin/media-sufficiency/master-data');
           if (response.ok) {
             const masterData = await response.json();
-            const newValidator = new MediaSufficiencyValidator(masterData, true); // Enable auto-creation mode
+            // Pass ABP cycle from validation data to validator
+            const abpCycle = validationData.abpCycle;
+            console.log('Initializing validator with ABP cycle:', abpCycle);
+            const newValidator = new MediaSufficiencyValidator(masterData, true, abpCycle); // Enable auto-creation mode and pass ABP cycle
             setValidator(newValidator);
-            console.log('Validator initialized with master data');
+            console.log('Validator initialized with master data and ABP cycle:', abpCycle);
             
             // Run validation immediately after initializing
             const newIssues = await newValidator.validateAll(validationData.records);
@@ -97,8 +100,13 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
       console.log('Loaded validation data:', {
         recordCount: data.records?.length,
         issueCount: data.validationIssues?.length,
-        validationSummary: data.validationSummary
+        validationSummary: data.validationSummary,
+        abpCycle: data.abpCycle,
+        lastUpdateId: data.lastUpdateId,
+        country: data.country
       });
+      
+      console.log('Full validation data structure:', Object.keys(data));
       
       setValidationData(data);
     } catch (error) {
@@ -430,25 +438,44 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
     // Update session data on the server
     await updateSessionData(updatedData);
     
-    // Re-run validation locally if validator is available
-    if (validator) {
-      try {
-        // Properly await the Promise
-        const newIssues = await validator.validateAll(updatedData);
+    // Always recreate validator with fresh ABP cycle to ensure it's up to date
+    try {
+      const response = await fetch('/api/admin/media-sufficiency/master-data');
+      if (response.ok) {
+        const masterData = await response.json();
+        const abpCycle = validationData.abpCycle;
         
-        // Ensure issues is an array
+        console.log('Recreating validator after cell edit with ABP cycle:', abpCycle);
+        console.log('Cell edited - row:', rowIndex, 'column:', columnName, 'new value:', newValue);
+        
+        const newValidator = new MediaSufficiencyValidator(masterData, true, abpCycle);
+        setValidator(newValidator);
+        
+        const abpYear = newValidator.getAbpYear();
+        console.log('Fresh validator ABP year:', abpYear);
+        
+        const newIssues = await newValidator.validateAll(updatedData);
         if (Array.isArray(newIssues)) {
+          console.log(`Re-validation found ${newIssues.length} issues after cell edit`);
+          
+          // Debug: Log any ABP-related issues
+          const abpIssues = newIssues.filter(issue => 
+            issue.message.includes('ABP cycle') || 
+            issue.message.includes('same year')
+          );
+          if (abpIssues.length > 0) {
+            console.log('ABP-related issues found:', abpIssues);
+          }
+          
           setValidationData(prev => ({
             ...prev,
             validationIssues: newIssues,
-            validationSummary: validator.getValidationSummary(newIssues)
+            validationSummary: newValidator.getValidationSummary(newIssues)
           }));
-        } else {
-          console.error('validateAll did not return an array:', newIssues);
         }
-      } catch (error) {
-        console.error('Error during validation after cell edit:', error);
       }
+    } catch (error) {
+      console.error('Error recreating validator after cell edit:', error);
     }
   };
 

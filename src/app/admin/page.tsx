@@ -113,8 +113,8 @@ export default function AdminDashboard() {
       '/admin/categories',
       '/admin/ranges',
       '/admin/campaigns',
-      '/admin/sov-upload',
-      '/admin/diminishing-returns-upload'
+      '/admin/share-of-voice',
+      '/admin/diminishing-returns'
     ];
     
     if (implementedPages.includes(path)) {
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
               <button 
                 className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
                 style={{backgroundColor: '#006992'}}
-                onClick={() => handleNavigate('/admin/sov-upload')}
+                onClick={() => handleNavigate('/admin/share-of-voice')}
               >
                 Upload SOV Data
               </button>
@@ -267,7 +267,7 @@ export default function AdminDashboard() {
               <button 
                 className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
                 style={{backgroundColor: '#98473E'}}
-                onClick={() => handleNavigate('/admin/diminishing-returns-upload')}
+                onClick={() => handleNavigate('/admin/diminishing-returns')}
               >
                 Upload Media Curves
               </button>
