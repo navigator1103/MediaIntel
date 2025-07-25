@@ -1,3 +1,3 @@
-Category,Range,Campaign,Playbook ID,Campaign Archetype,Burst,Media,Media Subtype,Initial Date,End Date,Total Weeks,Total Budget,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Total WOA,Total WOFF,Total TRPs,Total R1+ (%),Total R3+ (%)
-Hand Body,Body Milk,Body Milk 5 in 1,EM014,Innovation,1,Digital,PM & FF,01-Oct-26,15-Dec-26,11,10,1,1,1,1,1,1,1,1,1,1,0,0,8,3,,56%,
-Hand Body,Body Milk,Body Milk 5 in 1,EM014,Base Business (Maintenance),1,Traditional,Open TV,15-Jan-26,30-Jan-26,2,15,2,1,1,1,1,1,1,1,1,2,1,2,1,1,600000,44%,56%
+Category,Range,Campaign,Playbook ID,Campaign Archetype,Burst,Media,Media Subtype,Initial Date,End Date,Total Weeks,Business Unit,Total Budget,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Total WOA,Total WOFF,Total TRPs,Total R1+ (%),Total R3+ (%)
+Hand Body,Body Milk,Body Milk 5 in 1,EM014,Innovation,1,Digital,PM & FF,01-Oct-26,15-Dec-26,11,BU - Nivea,10,1,1,1,1,1,1,1,1,1,1,0,0,8,3,,56%,
+Hand Body,Body Milk,Body Milk 5 in 1,EM014,Base Business (Maintenance),1,Traditional,Open TV,15-Jan-26,30-Jan-26,2,BU - Derma,15,2,1,1,1,1,1,1,1,1,2,1,2,1,1,600000,44%,56%

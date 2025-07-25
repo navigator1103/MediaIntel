@@ -89,7 +89,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
     
     // Convert to CSV
     const headers = [
-      'ID', 'Campaign', 'Media Sub Type', 'Country', 'Category', 'PM Type', 'Start Date', 'End Date',
+      'ID', 'Campaign', 'Media Sub Type', 'Country', 'Business Unit', 'Category', 'PM Type', 'Start Date', 'End Date',
       'Total Budget', 'Jan Budget', 'Feb Budget', 'Mar Budget', 'Apr Budget', 'May Budget', 'Jun Budget',
       'Jul Budget', 'Aug Budget', 'Sep Budget', 'Oct Budget', 'Nov Budget', 'Dec Budget',
       'Total TRPs', 'Total R1+', 'Total R3+', 'Total WOA', 'Total WOFF', 'Total Weeks', 'Weeks Off Air', 'Year'
@@ -102,6 +102,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
         item.campaign?.name || '',
         item.mediaSubType?.name || '',
         item.country?.name || '',
+        item.category?.businessUnit?.name || '',
         item.category?.name || '',
         item.pmType?.name || '',
         item.startDate || '',
@@ -351,6 +352,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total R3+ (%)</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Update</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business Unit</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -445,6 +447,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.lastUpdate?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.businessUnit?.name || 'N/A'}</td>
               </tr>
             ))
           ) : (

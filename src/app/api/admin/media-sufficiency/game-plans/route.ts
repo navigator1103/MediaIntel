@@ -61,38 +61,17 @@ export async function GET(request: NextRequest) {
         pmType: true,
         campaignArchetype: true,
         lastUpdate: true,
-        // Use a type assertion to handle the category relation
-        // that might not be fully recognized in the TypeScript types yet
-        ...({
-          // @ts-ignore - Handle the case where category might not be in the type yet
-          category: true
-        })
+        category: {
+          include: {
+            businessUnit: true
+          }
+        }
       },
       orderBy: {
         id: 'desc'
       }
     });
 
-    // Enhance the response with category information from the category_id field
-    // if the relation isn't properly loaded
-    const enhancedGamePlans = await Promise.all(gamePlans.map(async (plan) => {
-      // @ts-ignore - Handle the case where category might not be in the type yet
-      if (!plan.category && plan.category_id) {
-        try {
-          // @ts-ignore - Handle the case where category might not be in the type yet
-          const category = await prisma.category.findUnique({
-            where: { id: plan.category_id }
-          });
-          
-          // @ts-ignore - Handle the case where category might not be in the type yet
-          return { ...plan, category };
-        } catch (err) {
-          console.error('Error fetching category for game plan:', err);
-          return plan;
-        }
-      }
-      return plan;
-    }));
 
     // Get available lastUpdateIds for filtering
     const availableUpdates = await prisma.gamePlan.findMany({
@@ -110,7 +89,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      gamePlans: enhancedGamePlans,
+      gamePlans: gamePlans,
       availableUpdates: availableUpdates.filter(u => u.last_update_id !== null),
       currentFilter: whereClause.last_update_id || null
     });

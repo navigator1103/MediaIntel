@@ -106,6 +106,7 @@ export default function GamePlansAdmin() {
         (plan.mediaSubType?.name?.toLowerCase().includes(searchTermLower)) ||
         (plan.mediaSubType?.mediaType?.name?.toLowerCase().includes(searchTermLower)) ||
         (plan.country?.name?.toLowerCase().includes(searchTermLower)) ||
+        (plan.category?.businessUnit?.name?.toLowerCase().includes(searchTermLower)) ||
         (plan.category?.name?.toLowerCase().includes(searchTermLower)) ||
         (plan.pmType?.name?.toLowerCase().includes(searchTermLower)) ||
         (plan.startDate?.includes(searchTerm)) ||
@@ -158,6 +159,7 @@ export default function GamePlansAdmin() {
           (plan.mediaSubType?.name && plan.mediaSubType.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (plan.mediaSubType?.mediaType?.name && plan.mediaSubType.mediaType.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (plan.country?.name && plan.country.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (plan.category?.businessUnit?.name && plan.category.businessUnit.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (plan.category?.name && plan.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (plan.pmType?.name && plan.pmType.name.toLowerCase().includes(searchTerm.toLowerCase()))
         );
