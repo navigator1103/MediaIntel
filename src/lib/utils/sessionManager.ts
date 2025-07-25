@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 // Session timeout configuration (in hours)
-const SESSION_TIMEOUT_HOURS = parseInt(process.env.SESSION_TIMEOUT_HOURS || '24'); // Default 24 hours (1 day)
+const SESSION_TIMEOUT_HOURS = parseInt(process.env.SESSION_TIMEOUT_HOURS || '6'); // Default 6 hours
 const SESSION_CLEANUP_INTERVAL_HOURS = parseInt(process.env.SESSION_CLEANUP_INTERVAL_HOURS || '6'); // Cleanup every 6 hours
 
 export interface SessionData {

@@ -3,7 +3,6 @@ import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import path from 'path';
 import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
-import { MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
 import { PrismaClient } from '@prisma/client';
 
 // We'll use temporary file storage for upload sessions
@@ -650,10 +649,10 @@ export async function GET(request: NextRequest) {
           // Add the selected country to master data for validation
           masterData.selectedCountry = session.country;
           
-          // Use MediaSufficiencyValidator for proper validation with ABP year support
-          console.log('Using MediaSufficiencyValidator with ABP cycle:', session.abpCycle);
+          // Use AutoCreateValidator for proper game plans validation with range restrictions
+          console.log('Using AutoCreateValidator with ABP cycle:', session.abpCycle);
           
-          const validator = new MediaSufficiencyValidator(masterData, true, session.abpCycle);
+          const validator = new AutoCreateValidator(masterData, session.abpCycle);
           const records = session.data?.records || [];
           
           // Run validation using AutoCreateValidator

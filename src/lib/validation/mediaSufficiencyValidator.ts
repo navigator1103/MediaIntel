@@ -94,10 +94,10 @@ export interface ValidationRule {
 
 // Define the validator class
 export class MediaSufficiencyValidator {
-  private rules: ValidationRule[] = [];
-  private masterData: MasterData = {};
-  private autoCreateMode: boolean = false;
-  private abpYear: number | null = null;
+  protected rules: ValidationRule[] = [];
+  protected masterData: MasterData = {};
+  protected autoCreateMode: boolean = false;
+  protected abpYear: number | null = null;
 
   constructor(masterData?: MasterData, autoCreateMode: boolean = false, abpCycle?: string) {
     if (masterData) {
@@ -200,7 +200,7 @@ export class MediaSufficiencyValidator {
   }
   
   // Initialize default validation rules
-  private initializeRules() {
+  protected initializeRules() {
     // Define REQUIRED columns - all must be present in CSV (your exact list)
     const allExpectedColumns = [
       'Category', 'Range', 'Campaign', 'Playbook ID', 'Campaign Archetype', 'Burst', 
@@ -243,18 +243,7 @@ export class MediaSufficiencyValidator {
       });
     });
     
-    // Add validation for monthly budget fields (warning - blank fields will be treated as 0)
-    budgetFields.forEach(field => {
-      this.rules.push({
-        field,
-        type: 'required',
-        severity: 'warning',
-        message: `${field} budget is blank and will be treated as 0`,
-        validate: (value) => {
-          return value !== undefined && value !== null && value.toString().trim() !== '';
-        }
-      });
-    });
+    // Monthly budget fields (blank values are automatically treated as 0 - no warnings needed)
     
     // Add validation for other required fields (critical - must have values)
     otherRequiredFields.forEach(field => {
@@ -845,7 +834,7 @@ export class MediaSufficiencyValidator {
       field: 'Category',
       type: 'relationship',
       severity: 'critical',
-      message: 'Category must be a valid category name',
+      message: 'Category must be a valid category name (case-insensitive match)',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
@@ -860,6 +849,12 @@ export class MediaSufficiencyValidator {
         
         if (!isValid) {
           console.log(`Category validation failed for '${categoryInput}'. Available categories: [${categories.join(', ')}]`);
+          console.log(`Testing case-insensitive matches for '${categoryInput}':`);
+          categories.forEach(cat => {
+            if (cat.toLowerCase().includes(categoryInput.toLowerCase())) {
+              console.log(`  Partial match: '${cat}'`);
+            }
+          });
         }
         
         return isValid;
@@ -1112,13 +1107,14 @@ export class MediaSufficiencyValidator {
       field: 'Total Budget',
       type: 'consistency',
       severity: 'critical',
-      message: 'Total Budget should equal the sum of monthly budgets (Jan-Dec)',
+      message: 'Total Budget should equal the sum of monthly budgets (Jan-Dec). Budget must be distributed across months.',
       validate: (value, record) => {
-        if (!value) return true; // Skip if no budget
+        // Total budget is required - cannot be blank/empty
+        if (!value) return false;
         
         // Parse the budget
         const budget = this.parseNumber(value);
-        if (budget === null) return true; // Skip if invalid budget
+        if (budget === null || budget <= 0) return false; // Invalid or zero budget
         
         // Parse monthly budgets with flexible field names
         const jan = this.parseNumber(record['Jan'] || record['Jan Budget'] || record['January'] || 0) || 0;
@@ -1141,9 +1137,9 @@ export class MediaSufficiencyValidator {
         const monthlyBudgets = [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec];
         const hasMonthlyData = monthlyBudgets.some(month => month > 0);
         
-        // If no monthly data is provided, skip this validation (allow total budget only)
+        // REQUIREMENT: If total budget exists, there MUST be monthly distribution
         if (!hasMonthlyData) {
-          return true;
+          return false; // Critical error: no monthly budget distribution
         }
         
         // Special case: If only one month has budget and it equals the total budget,

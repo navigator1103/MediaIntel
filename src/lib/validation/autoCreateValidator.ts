@@ -9,16 +9,16 @@ export interface AutoCreateResult {
     name: string;
     created: boolean;
   };
-  range?: {
-    id: number;
-    name: string;
-    created: boolean;
-  };
 }
 
 export class AutoCreateValidator extends MediaSufficiencyValidator {
   private autoCreatedEntities: Set<string> = new Set();
   private createdInSession: AutoCreateResult[] = [];
+
+  constructor(masterData?: any, abpCycle?: string) {
+    // Call parent constructor with autoCreateMode = false since we handle it ourselves
+    super(masterData, false, abpCycle);
+  }
 
   async validateOrCreateCampaign(campaignName: string, importSource?: string): Promise<{ id: number; name: string; created: boolean }> {
     const cleanName = campaignName.toString().trim();
@@ -70,10 +70,10 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
     return result;
   }
 
-  async validateOrCreateRange(rangeName: string, importSource?: string, categoryName?: string): Promise<{ id: number; name: string; created: boolean }> {
+  async validateRange(rangeName: string): Promise<{ id: number; name: string; exists: boolean }> {
     const cleanName = rangeName.toString().trim();
     
-    // First check if range exists - use toLowerCase() instead of mode: 'insensitive'
+    // Check if range exists - use toLowerCase() for case-insensitive match
     const cleanNameLower = cleanName.toLowerCase();
     let ranges = await prisma.range.findMany({
       where: { 
@@ -85,112 +85,70 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
     const range = ranges.find(r => r.name.toLowerCase() === cleanNameLower);
     
     if (range) {
-      return { id: range.id, name: range.name, created: false };
+      return { id: range.id, name: range.name, exists: true };
     }
     
-    // Check if we already auto-created this in the current session
-    const sessionKey = `range:${cleanName.toLowerCase()}`;
-    if (this.autoCreatedEntities.has(sessionKey)) {
-      const existing = this.createdInSession.find(r => 
-        r.range?.name.toLowerCase() === cleanName.toLowerCase()
-      );
-      if (existing?.range) {
-        return existing.range;
-      }
-    }
-    
-    // Auto-create range with pending status
-    const newRange = await prisma.range.create({
-      data: {
-        name: cleanName,
-        status: 'pending_review',
-        createdBy: 'import_auto',
-        originalName: cleanName,
-        notes: `Auto-created during import${importSource ? ` from ${importSource}` : ''} on ${new Date().toISOString()}`
-      }
-    });
-    
-    // If categoryName is provided, link the range to the category
-    if (categoryName) {
-      try {
-        // Find the category
-        const category = await prisma.category.findFirst({
-          where: {
-            name: {
-              equals: categoryName,
-              mode: 'insensitive'
-            }
-          }
-        });
-        
-        if (category) {
-          // Create the CategoryToRange relationship if it doesn't exist
-          await prisma.categoryToRange.upsert({
-            where: {
-              categoryId_rangeId: {
-                categoryId: category.id,
-                rangeId: newRange.id
-              }
-            },
-            update: {}, // No update needed if it exists
-            create: {
-              categoryId: category.id,
-              rangeId: newRange.id
-            }
-          });
-          
-          console.log(`🔗 Linked range "${cleanName}" to category "${categoryName}"`);
-        } else {
-          console.warn(`⚠️ Could not find category "${categoryName}" to link with range "${cleanName}"`);
-        }
-      } catch (error) {
-        console.error(`❌ Error linking range "${cleanName}" to category "${categoryName}":`, error);
-      }
-    }
-    
-    // Track the creation
-    this.autoCreatedEntities.add(sessionKey);
-    const result = { id: newRange.id, name: newRange.name, created: true };
-    this.createdInSession.push({ range: result });
-    
-    console.log(`🆕 Auto-created range: "${cleanName}" (ID: ${newRange.id})`);
-    
-    return result;
+    // Range not found - return null result to indicate validation failure
+    throw new Error(`Range "${cleanName}" does not exist and must be created manually`);
   }
 
-  // Override the campaign validation rule to use auto-creation
-  protected setupValidationRules(): void {
-    super.setupValidationRules();
+  // Override validation rules to allow campaign auto-creation but keep ranges strict
+  protected initializeRules(): void {
+    super.initializeRules();
     
-    // Remove the existing campaign, range, and cross-reference validation rules
+    // Remove ALL campaign and range validation rules - we'll replace them completely
     this.rules = this.rules.filter(rule => 
       !(rule.field === 'Campaign' && rule.type === 'relationship') &&
-      !(rule.field === 'Range' && rule.type === 'relationship') &&
-      !(rule.field === 'Range' && rule.type === 'cross_reference') &&
       !(rule.field === 'Campaign' && rule.type === 'cross_reference') &&
-      !(rule.field === 'Category' && rule.type === 'cross_reference')
+      !(rule.field === 'Range' && rule.type === 'relationship') &&
+      !(rule.field === 'Range' && rule.type === 'cross_reference')
     );
     
-    // Add new auto-creating validation rules
+    // Add new auto-creating validation rule only for campaigns
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
       severity: 'warning', // Changed from critical to warning since we auto-create
       message: 'Campaign will be auto-created for review',
       validate: (value, record, allRecords, masterData) => {
-        // Always return true since we'll auto-create missing campaigns
-        return !!value?.toString().trim();
+        if (!value?.toString().trim()) return true; // If empty, let required validation handle it
+        
+        const campaignName = value.toString().trim();
+        const campaigns = masterData?.campaigns || [];
+        
+        // Ensure campaigns is an array before using .some()
+        if (!Array.isArray(campaigns)) {
+          return false; // Show warning if campaigns is not an array
+        }
+        
+        // Check if campaign exists (case-insensitive) with null safety
+        const exists = campaigns.some((c: string) => 
+          c && typeof c === 'string' && c.toLowerCase() === campaignName.toLowerCase()
+        );
+        
+        // Return true if exists (no warning), false if doesn't exist (show warning)
+        return exists;
       }
     });
 
+    // Add strict range validation to ensure ranges must exist
     this.rules.push({
       field: 'Range',
       type: 'relationship',
-      severity: 'warning', // Changed from critical to warning since we auto-create
-      message: 'Range will be auto-created for review',
+      severity: 'critical',
+      message: 'Range must exist in the system before import - ranges are not auto-created',
       validate: (value, record, allRecords, masterData) => {
-        // Always return true since we'll auto-create missing ranges
-        return !!value?.toString().trim();
+        if (!value) return false;
+        
+        const rangeName = value.toString().trim();
+        const ranges = masterData?.ranges || [];
+        
+        // Check if range exists (case-insensitive)
+        const exists = ranges.some((r: string) => 
+          r.toLowerCase() === rangeName.toLowerCase()
+        );
+        
+        return exists;
       }
     });
   }
@@ -198,16 +156,13 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
   // Get summary of what was auto-created in this session
   getAutoCreatedSummary(): {
     campaigns: { id: number; name: string; created: boolean }[];
-    ranges: { id: number; name: string; created: boolean }[];
     totalCreated: number;
   } {
     const campaigns = this.createdInSession.filter(r => r.campaign).map(r => r.campaign!);
-    const ranges = this.createdInSession.filter(r => r.range).map(r => r.range!);
     
     return {
       campaigns,
-      ranges,
-      totalCreated: campaigns.length + ranges.length
+      totalCreated: campaigns.length
     };
   }
 

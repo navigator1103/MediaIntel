@@ -24,6 +24,7 @@ export default function GamePlansAdmin() {
   const [selectedImportBatch, setSelectedImportBatch] = useState<string | null>(null);
   const [availableImportBatches, setAvailableImportBatches] = useState<any[]>([]);
   const [userPermissions, setUserPermissions] = useState<any>(null);
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
   
   // Initialize user permissions
   useEffect(() => {
@@ -90,34 +91,39 @@ export default function GamePlansAdmin() {
     fetchGamePlans();
   }, [rowsPerPage, refreshTrigger, selectedImportBatch]);
   
-  // Filter game plans based on search term
+  // Filter game plans based on search term and business unit
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredGamePlans(gamePlans);
-      setTotalPages(Math.ceil(gamePlans.length / rowsPerPage));
-      return;
+    let filtered = gamePlans;
+    
+    // Apply business unit filter first
+    if (selectedBusinessUnit) {
+      filtered = filtered.filter(plan => 
+        plan.category?.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
+      );
     }
     
-    const searchTermLower = searchTerm.toLowerCase();
-    const filtered = gamePlans.filter(plan => {
-      // Search in multiple fields
-      return (
-        (plan.campaign?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.mediaSubType?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.mediaSubType?.mediaType?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.country?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.category?.businessUnit?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.category?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.pmType?.name?.toLowerCase().includes(searchTermLower)) ||
-        (plan.startDate?.includes(searchTerm)) ||
-        (plan.endDate?.includes(searchTerm))
-      );
-    });
+    // Then apply search filter
+    if (searchTerm.trim()) {
+      const searchTermLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(plan => {
+        // Search in multiple fields (excluding business unit to avoid confusion)
+        return (
+          (plan.campaign?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.mediaSubType?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.mediaSubType?.mediaType?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.country?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.category?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.pmType?.name?.toLowerCase().includes(searchTermLower)) ||
+          (plan.startDate?.includes(searchTerm)) ||
+          (plan.endDate?.includes(searchTerm))
+        );
+      });
+    }
     
     setFilteredGamePlans(filtered);
     setTotalPages(Math.ceil(filtered.length / rowsPerPage));
-    setCurrentPage(1); // Reset to first page when search changes
-  }, [searchTerm, gamePlans, rowsPerPage]);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, selectedBusinessUnit, gamePlans, rowsPerPage]);
   
   // Handle refresh
   const handleRefresh = () => {
@@ -150,26 +156,34 @@ export default function GamePlansAdmin() {
     
     setGamePlans(updatedGamePlans);
     
-    // Re-apply filtering
+    // Re-apply filtering (both business unit and search)
+    let filtered = updatedGamePlans;
+    
+    // Apply business unit filter
+    if (selectedBusinessUnit) {
+      filtered = filtered.filter(plan => 
+        plan.category?.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
+      );
+    }
+    
+    // Apply search filter
     if (searchTerm.trim()) {
-      const filtered = updatedGamePlans.filter(plan => {
+      const searchTermLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(plan => {
         return (
           String(plan.id).includes(searchTerm) ||
-          (plan.campaign?.name && plan.campaign.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.mediaSubType?.name && plan.mediaSubType.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.mediaSubType?.mediaType?.name && plan.mediaSubType.mediaType.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.country?.name && plan.country.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.category?.businessUnit?.name && plan.category.businessUnit.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.category?.name && plan.category.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (plan.pmType?.name && plan.pmType.name.toLowerCase().includes(searchTerm.toLowerCase()))
+          (plan.campaign?.name && plan.campaign.name.toLowerCase().includes(searchTermLower)) ||
+          (plan.mediaSubType?.name && plan.mediaSubType.name.toLowerCase().includes(searchTermLower)) ||
+          (plan.mediaSubType?.mediaType?.name && plan.mediaSubType.mediaType.name.toLowerCase().includes(searchTermLower)) ||
+          (plan.country?.name && plan.country.name.toLowerCase().includes(searchTermLower)) ||
+          (plan.category?.name && plan.category.name.toLowerCase().includes(searchTermLower)) ||
+          (plan.pmType?.name && plan.pmType.name.toLowerCase().includes(searchTermLower))
         );
       });
-      setFilteredGamePlans(filtered);
-      setTotalPages(Math.ceil(filtered.length / rowsPerPage));
-    } else {
-      setFilteredGamePlans(updatedGamePlans);
-      setTotalPages(Math.ceil(updatedGamePlans.length / rowsPerPage));
     }
+    
+    setFilteredGamePlans(filtered);
+    setTotalPages(Math.ceil(filtered.length / rowsPerPage));
     
     setUnsavedChanges(true);
   };
@@ -257,6 +271,17 @@ export default function GamePlansAdmin() {
                     placeholder="Search game plans..."
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
+                </div>
+                <div className="ml-4">
+                  <select
+                    value={selectedBusinessUnit}
+                    onChange={(e) => setSelectedBusinessUnit(e.target.value)}
+                    className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">All Business Units</option>
+                    <option value="Derma">Derma</option>
+                    <option value="Nivea">Nivea</option>
+                  </select>
                 </div>
                 <div className="ml-4">
                   <select
