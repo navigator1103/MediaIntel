@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiDatabase, FiLoader, FiSearch, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { MediaSufficiencyValidator } from '@/lib/validation/mediaSufficiencyValidator';
+import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
 
 interface GamePlansValidationProps {
   sessionId: string;
@@ -42,6 +42,7 @@ const getSeverityBadge = (severity: string) => {
 export default function GamePlansValidation({ sessionId }: GamePlansValidationProps) {
   const [loading, setLoading] = useState(true);
   const [validationData, setValidationData] = useState<any>(null);
+  const [masterDataCache, setMasterDataCache] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
   const [importProgress, setImportProgress] = useState(0);
@@ -66,7 +67,24 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
   const [showOnlyIssues, setShowOnlyIssues] = useState(false);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnName: string } | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [validator, setValidator] = useState<MediaSufficiencyValidator | null>(null);
+  const [validator, setValidator] = useState<AutoCreateValidator | null>(null);
+
+  // Helper function to get master data with caching
+  const getMasterData = async () => {
+    if (masterDataCache) {
+      console.log('Using cached master data');
+      return masterDataCache;
+    }
+    
+    console.log('Fetching master data from API...');
+    const response = await fetch('/api/admin/media-sufficiency/master-data');
+    if (response.ok) {
+      const masterData = await response.json();
+      setMasterDataCache(masterData);
+      return masterData;
+    }
+    throw new Error('Failed to fetch master data');
+  };
 
   useEffect(() => {
     if (sessionId) {
@@ -77,29 +95,39 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
   // Initialize validator when validation data loads
   useEffect(() => {
     const initializeValidator = async () => {
-      if (validationData?.records && !validator) {
+      if (validationData?.records) {
         try {
-          // Fetch master data for the validator
-          const response = await fetch('/api/admin/media-sufficiency/master-data');
-          if (response.ok) {
-            const masterData = await response.json();
-            // Pass ABP cycle from validation data to validator
-            const abpCycle = validationData.abpCycle;
-            console.log('Initializing validator with ABP cycle:', abpCycle);
-            const newValidator = new MediaSufficiencyValidator(masterData, true, abpCycle); // Enable auto-creation mode and pass ABP cycle
-            setValidator(newValidator);
-            console.log('Validator initialized with master data and ABP cycle:', abpCycle);
+          // Always create a fresh validator to ensure latest rules
+          console.log('Creating fresh AutoCreateValidator...');
+          // Use cached master data or fetch if not available
+          const masterData = await getMasterData();
+          // Pass ABP cycle from validation data to validator
+          const abpCycle = validationData.abpCycle;
+          console.log('Initializing validator with ABP cycle:', abpCycle);
+          const newValidator = new AutoCreateValidator(masterData, abpCycle); // Use AutoCreateValidator for game plans
+          setValidator(newValidator);
+          console.log('Validator initialized with master data and ABP cycle:', abpCycle);
+          
+          // Run validation immediately after initializing - completely replace any backend validation
+          console.log('Running fresh validation with AutoCreateValidator to replace backend results...');
+          const newIssues = await newValidator.validateAll(validationData.records);
+          if (Array.isArray(newIssues)) {
+            console.log(`AutoCreateValidator found ${newIssues.length} issues (replacing any backend validation)`);
             
-            // Run validation immediately after initializing
-            const newIssues = await newValidator.validateAll(validationData.records);
-            if (Array.isArray(newIssues)) {
-              console.log(`Initial validation found ${newIssues.length} issues`);
-              setValidationData(prev => ({
-                ...prev,
-                validationIssues: newIssues,
-                validationSummary: newValidator.getValidationSummary(newIssues)
-              }));
-            }
+            // Debug: Check for range-related issues to verify our fix
+            const rangeIssues = newIssues.filter(issue => issue.columnName === 'Range');
+            console.log('Range validation issues from AutoCreateValidator:', rangeIssues.map(i => ({
+              message: i.message,
+              severity: i.severity,
+              rowIndex: i.rowIndex
+            })));
+            
+            // Force complete replacement of validation data
+            setValidationData(prev => ({
+              ...prev,
+              validationIssues: newIssues, // Complete override, not merge
+              validationSummary: newValidator.getValidationSummary(newIssues)
+            }));
           }
         } catch (error) {
           console.error('Error initializing validator:', error);
@@ -108,7 +136,7 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
     };
     
     initializeValidator();
-  }, [validationData?.records, validator]);
+  }, [validationData?.records]); // Remove validator dependency to always run
 
   const loadValidationData = async () => {
     try {
@@ -398,7 +426,7 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
           setShowManualCheck(true);
         }
       } else {
-        console.log('Failed to check status, response not ok:', response.status);
+        console.log('Failed to check status, response not ok:', statusResponse.status);
         setImportStatus('error');
         setError('Failed to check status');
       }
@@ -469,44 +497,45 @@ export default function GamePlansValidation({ sessionId }: GamePlansValidationPr
     // Update session data on the server
     await updateSessionData(updatedData);
     
-    // Always recreate validator with fresh ABP cycle to ensure it's up to date
-    try {
-      const response = await fetch('/api/admin/media-sufficiency/master-data');
-      if (response.ok) {
-        const masterData = await response.json();
-        const abpCycle = validationData.abpCycle;
+    // Optimize: Only validate the edited row instead of fetching master data and validating all rows
+    if (validator) {
+      try {
+        console.log('Optimized validation - row:', rowIndex, 'column:', columnName, 'new value:', newValue);
         
-        console.log('Recreating validator after cell edit with ABP cycle:', abpCycle);
-        console.log('Cell edited - row:', rowIndex, 'column:', columnName, 'new value:', newValue);
+        // Validate only the edited record
+        const editedRecord = updatedData[rowIndex];
+        const recordIssues = await validator.validateRecord(editedRecord, rowIndex, updatedData);
         
-        const newValidator = new MediaSufficiencyValidator(masterData, true, abpCycle);
-        setValidator(newValidator);
+        // Update validation issues by removing old issues for this row and adding new ones
+        const otherRowIssues = validationData.validationIssues.filter(issue => issue.rowIndex !== rowIndex);
+        const newIssues = [...otherRowIssues, ...recordIssues];
         
-        const abpYear = newValidator.getAbpYear();
-        console.log('Fresh validator ABP year:', abpYear);
+        console.log(`Row validation found ${recordIssues.length} issues for row ${rowIndex}`);
         
-        const newIssues = await newValidator.validateAll(updatedData);
-        if (Array.isArray(newIssues)) {
-          console.log(`Re-validation found ${newIssues.length} issues after cell edit`);
-          
-          // Debug: Log any ABP-related issues
-          const abpIssues = newIssues.filter(issue => 
-            issue.message.includes('ABP cycle') || 
-            issue.message.includes('same year')
-          );
-          if (abpIssues.length > 0) {
-            console.log('ABP-related issues found:', abpIssues);
+        setValidationData(prev => ({
+          ...prev,
+          records: updatedData,
+          validationIssues: newIssues,
+          validationSummary: validator.getValidationSummary(newIssues)
+        }));
+        
+      } catch (error) {
+        console.error('Error validating edited row:', error);
+        // Fallback to full validation if row validation fails
+        try {
+          const newIssues = await validator.validateAll(updatedData);
+          if (Array.isArray(newIssues)) {
+            setValidationData(prev => ({
+              ...prev,
+              records: updatedData,
+              validationIssues: newIssues,
+              validationSummary: validator.getValidationSummary(newIssues)
+            }));
           }
-          
-          setValidationData(prev => ({
-            ...prev,
-            validationIssues: newIssues,
-            validationSummary: newValidator.getValidationSummary(newIssues)
-          }));
+        } catch (fallbackError) {
+          console.error('Fallback validation also failed:', fallbackError);
         }
       }
-    } catch (error) {
-      console.error('Error recreating validator after cell edit:', error);
     }
   };
 
