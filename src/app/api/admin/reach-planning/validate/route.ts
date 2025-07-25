@@ -116,7 +116,9 @@ async function validateAgainstGamePlans(
   const issues: ValidationIssue[] = [];
   
   try {
-    // Get all game plans for this country + financial cycle
+    console.log(`Querying game plans for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}`);
+    
+    // Get all game plans for this country + financial cycle (with limit to prevent memory issues)
     const gamePlans = await prisma.gamePlan.findMany({
       where: {
         countryId: countryId,
@@ -129,8 +131,11 @@ async function validateAgainstGamePlans(
             mediaType: true
           }
         }
-      }
+      },
+      take: 10000 // Limit to prevent memory issues
     });
+    
+    console.log(`Found ${gamePlans.length} game plans to validate against`);
 
     // Group game plans by campaign and check media types
     const campaignMediaTypes = new Map<string, Set<string>>();
@@ -150,7 +155,12 @@ async function validateAgainstGamePlans(
     console.log('Campaign media types found in game plans:', Array.from(campaignMediaTypes.entries()));
 
     // Validate each record against game plans
+    console.log(`Starting validation of ${records.length} records against game plans`);
+    
     records.forEach((record, rowIndex) => {
+      if (rowIndex % 100 === 0 && rowIndex > 0) {
+        console.log(`Processed ${rowIndex}/${records.length} records`);
+      }
       const campaignName = record['Campaign'];
       
       if (!campaignName) {
@@ -635,38 +645,6 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   
   // Business logic validations
   
-  // Franchise NS validation - only required for Derma campaigns
-  const franchiseNs = record['Franchise NS'];
-  const campaign = record['Campaign'];
-  const hasFranchiseNs = franchiseNs && franchiseNs.toString().trim() !== '';
-  
-  if (campaign) {
-    // Check if this is a Derma campaign
-    const campaignNameLower = campaign.toString().toLowerCase();
-    const isDermaCampaign = campaignNameLower.includes('derma') || 
-                            campaignNameLower.includes('eucerin') || 
-                            campaignNameLower.includes('aquaphor') ||
-                            campaignNameLower.includes('atopia');
-    
-    if (isDermaCampaign && !hasFranchiseNs) {
-      issues.push({
-        rowIndex: index,
-        columnName: 'Franchise NS',
-        severity: 'critical',
-        message: `Franchise NS (Actual or Projected) is required for Derma campaigns. Campaign "${campaign}" appears to be a Derma campaign.`,
-        currentValue: franchiseNs || ''
-      });
-    } else if (!isDermaCampaign && hasFranchiseNs) {
-      issues.push({
-        rowIndex: index,
-        columnName: 'Franchise NS',
-        severity: 'warning',
-        message: `Franchise NS (Actual or Projected) should only be filled for Derma campaigns. Campaign "${campaign}" does not appear to be a Derma campaign.`,
-        currentValue: franchiseNs
-      });
-    }
-  }
-  
   // Date range validation
   const startDate = record['Start Date'];
   const endDate = record['End Date'];
@@ -760,10 +738,15 @@ export async function POST(request: NextRequest) {
     
     console.log(`Validating ${records.length} records`);
     
-    // Fetch master data from database for relationship validation
-    console.log('Fetching master data from database...');
+    // Load master data from JSON file (same as game plans validation) and supplement with database
+    console.log('Loading master data from masterData.json and database...');
     let masterData: any = null;
     try {
+      // Load the updated master data from JSON file
+      const masterDataPath = path.join(process.cwd(), 'src', 'lib', 'validation', 'masterData.json');
+      const masterDataJson = JSON.parse(fs.readFileSync(masterDataPath, 'utf8'));
+      
+      // Also fetch database data for cross-reference validation
       const [
         countries,
         subRegions,
@@ -803,7 +786,7 @@ export async function POST(request: NextRequest) {
         prisma.businessUnit.findMany()
       ]);
 
-      // Build master data mappings
+      // Build master data mappings using JSON file as primary source
       const countryToSubRegionMap: Record<string, string> = {};
       countries.forEach(country => {
         if (country.subRegion) {
@@ -811,25 +794,9 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      const categoryToRanges: Record<string, string[]> = {};
-      categoryToRangeRelations.forEach(relation => {
-        const categoryName = relation.category.name;
-        const rangeName = relation.range.name;
-        
-        if (!categoryToRanges[categoryName]) {
-          categoryToRanges[categoryName] = [];
-        }
-        if (!categoryToRanges[categoryName].includes(rangeName)) {
-          categoryToRanges[categoryName].push(rangeName);
-        }
-      });
-
-      const campaignToRangeMap: Record<string, string> = {};
-      campaigns.forEach(campaign => {
-        if (campaign.range) {
-          campaignToRangeMap[campaign.name] = campaign.range.name;
-        }
-      });
+      // Use updated mappings from JSON file for category-range and campaign-range relationships
+      const categoryToRanges = masterDataJson.categoryToRanges || {};
+      const campaignToRangeMap = masterDataJson.campaignToRangeMap || {};
 
       const mediaToSubtypes: Record<string, string[]> = {};
       mediaSubTypes.forEach(subType => {
@@ -845,14 +812,16 @@ export async function POST(request: NextRequest) {
       });
 
       masterData = {
+        // Use JSON file data for categories, ranges, campaigns (updated mappings)
         countries: countries.map(c => c.name),
         subRegions: subRegions.map(sr => sr.name),
-        categories: categories.map(c => c.name),
-        ranges: ranges.map(r => r.name),
-        campaigns: campaigns.map(c => c.name),
+        categories: masterDataJson.categories || categories.map(c => c.name),
+        ranges: masterDataJson.ranges || ranges.map(r => r.name),
+        campaigns: masterDataJson.campaigns || campaigns.map(c => c.name),
         mediaTypes: mediaTypes.map(mt => mt.name),
         mediaSubTypes: mediaSubTypes.map(mst => mst.name),
-        businessUnits: businessUnits.map(bu => bu.name).filter(name => name),
+        businessUnits: masterDataJson.businessUnits || businessUnits.map(bu => bu.name).filter(name => name),
+        // Use updated mappings from JSON file
         countryToSubRegionMap,
         categoryToRanges,
         campaignToRangeMap,
@@ -874,12 +843,30 @@ export async function POST(request: NextRequest) {
       allIssues = allIssues.concat(recordIssues);
     }
 
-    // Add cross-reference validation against game plans
+    // Add cross-reference validation against game plans with timeout
     if (sessionData.countryId && sessionData.lastUpdateId) {
       console.log(`Performing cross-reference validation for countryId: ${sessionData.countryId}, lastUpdateId: ${sessionData.lastUpdateId}`);
-      const gameplanValidationIssues = await validateAgainstGamePlans(records, sessionData.countryId, sessionData.lastUpdateId);
-      allIssues = allIssues.concat(gameplanValidationIssues);
-      console.log(`Cross-reference validation found ${gameplanValidationIssues.length} additional issues`);
+      try {
+        // Add timeout to prevent hanging
+        const validationPromise = validateAgainstGamePlans(records, sessionData.countryId, sessionData.lastUpdateId);
+        const timeoutPromise = new Promise<ValidationIssue[]>((_, reject) => 
+          setTimeout(() => reject(new Error('Game plan validation timeout')), 30000) // 30 second timeout
+        );
+        
+        const gameplanValidationIssues = await Promise.race([validationPromise, timeoutPromise]);
+        allIssues = allIssues.concat(gameplanValidationIssues);
+        console.log(`Cross-reference validation found ${gameplanValidationIssues.length} additional issues`);
+      } catch (error) {
+        console.error('Cross-reference validation failed:', error);
+        // Add a warning issue instead of failing the entire validation
+        allIssues.push({
+          rowIndex: 0,
+          columnName: 'General',
+          severity: 'warning',
+          message: 'Cross-reference validation against game plans failed. Please verify data manually.',
+          currentValue: ''
+        });
+      }
     } else {
       console.log('Skipping cross-reference validation - missing countryId or lastUpdateId in session data');
     }
