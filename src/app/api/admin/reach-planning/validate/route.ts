@@ -91,20 +91,38 @@ const FIELD_VALIDATIONS = {
 
 // TV fields that must be validated against game plans
 const TV_FIELDS = [
-  'TV Copy Length',
+  // TV Demographics & Targeting
+  'TV Demo Gender',
+  'TV Demo Min. Age',
+  'TV Demo Max. Age',
+  'TV SEL',
   'TV Target Size',
-  'TV R1+', 
-  'TV R3+',
-  'TV Ideal Reach',
+  'TV Copy Length',
+  // TV Performance Metrics
+  'Total TV Planned R1+ (%)',
+  'Total TV Planned R3+ (%)',
+  'TV Potential R1+',
   'CPP 2024',
-  'CPP 2025'
+  'CPP 2025',
+  'CPP 2026'
 ];
 
 // Digital fields that must be validated against game plans
 const DIGITAL_FIELDS = [
+  // Always required for Digital campaigns
+  'Is Digital target the same than TV?',
   'Digital Target Size (Abs)',
+  // Digital Performance Metrics
   'Total Digital Planned R1+',
   'Total Digital Potential R1+'
+];
+
+// Digital demographic fields (only required if different from TV)
+const DIGITAL_DEMO_FIELDS = [
+  'Digital Demo Gender',
+  'Digital Demo Min. Age', 
+  'Digital Demo Max. Age',
+  'Digital SEL'
 ];
 
 // Cross-reference validation against game plans
@@ -174,7 +192,7 @@ async function validateAgainstGamePlans(
         issues.push({
           rowIndex,
           columnName: 'Campaign',
-          severity: 'warning',
+          severity: 'critical',
           message: `No game plans found for campaign "${campaignName}" in this country/financial cycle. Please verify campaign name.`,
           currentValue: campaignName
         });
@@ -236,6 +254,41 @@ async function validateAgainstGamePlans(
           });
         }
       });
+
+      // Check Digital demographic fields validation (only if different from TV)
+      if (hasDigitalMedia) {
+        const isDigitalTargetSameAsTv = record['Is Digital target the same than TV?'];
+        const sameAsTV = isDigitalTargetSameAsTv && (
+          isDigitalTargetSameAsTv.toString().toLowerCase() === 'yes' ||
+          isDigitalTargetSameAsTv.toString().toLowerCase() === 'y' ||
+          isDigitalTargetSameAsTv.toString().toLowerCase() === 'true'
+        );
+
+        DIGITAL_DEMO_FIELDS.forEach(fieldName => {
+          const fieldValue = record[fieldName];
+          const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+
+          if (!sameAsTV && !hasValue) {
+            // Digital target is different from TV but demographic field is empty
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'critical',
+              message: `${fieldName} is required because campaign "${campaignName}" has Digital media and digital target is different from TV target.`,
+              currentValue: fieldValue || ''
+            });
+          } else if (sameAsTV && hasValue) {
+            // Digital target is same as TV but demographic field has value
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'warning',
+              message: `${fieldName} should be empty when digital target is the same as TV target.`,
+              currentValue: fieldValue
+            });
+          }
+        });
+      }
 
       // Additional validation for campaigns with both TV and Digital media
       if (hasTvMedia && hasDigitalMedia) {
