@@ -624,7 +624,7 @@ async function processImport(
   // Initialize import tracking
   importResults.autoCreated = {
     campaigns: 0,
-    ranges: 0
+    ranges: 0 // Ranges are not auto-created, only validated
   };
   
   logWithTimestamp('Step 4a: Processing unique range-category pairs with governance...');
@@ -638,16 +638,10 @@ async function processImport(
   for (const [rangeName, categoryName] of uniqueRangeCategoryPairs) {
     if (!processedEntities.ranges.has(rangeName)) {
       try {
-        const rangeResult = await autoCreateValidator.validateOrCreateRange(rangeName, importSource, categoryName);
+        const rangeResult = await autoCreateValidator.validateRange(rangeName);
         processedEntities.ranges.set(rangeName, rangeResult.id);
         
-        if (rangeResult.created) {
-          importResults.rangesCount++;
-          importResults.autoCreated.ranges++;
-          logWithTimestamp(`🆕 Auto-created range: ${rangeName} linked to category: ${categoryName} (ID: ${rangeResult.id})`);
-        } else {
-          logWithTimestamp(`✅ Found existing range: ${rangeName} (ID: ${rangeResult.id})`);
-        }
+        logWithTimestamp(`✅ Found existing range: ${rangeName} (ID: ${rangeResult.id})`);
       } catch (error) {
         logErrorWithTimestamp(`Failed to process range: ${rangeName} for category: ${categoryName}`, error);
         throw new Error(`Failed to process range: ${rangeName} for category: ${categoryName}`);
