@@ -65,6 +65,27 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
     return () => clearTimeout(timer);
   }, []);
 
+  // Auto-poll for validation completion
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+    
+    // If status is 'uploaded' but no validation summary, poll for updates
+    if (sessionData?.status === 'uploaded' && !sessionData.validationSummary) {
+      console.log('Starting validation polling...');
+      pollInterval = setInterval(() => {
+        console.log('Polling for validation completion...');
+        loadSessionData();
+      }, 2000); // Poll every 2 seconds
+    }
+    
+    return () => {
+      if (pollInterval) {
+        console.log('Stopping validation polling');
+        clearInterval(pollInterval);
+      }
+    };
+  }, [sessionData?.status, sessionData?.validationSummary]);
+
   const loadSessionData = async () => {
     try {
       setLoading(true);
@@ -466,7 +487,7 @@ export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps)
                         
                         // Debug logging for specific cells
                         if (displayIndex === 0 && cellIssue) {
-                          console.log(`Cell ${header} has issue:`, cellIssue);
+                          console.log(`Cell ${header} has issue:`, cellIssue.message || cellIssue);
                         }
                         
                         return (
