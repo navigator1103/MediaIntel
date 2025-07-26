@@ -360,6 +360,19 @@
     "pH5 Wannabe"
   ],
   "categoryToRanges": {
+    "Hand Body": [
+      "APC",
+      "Body Aloe",
+      "Body Milk",
+      "Body Star",
+      "Dark Skin",
+      "Extra Bright",
+      "Luminous 630",
+      "Natural Glow",
+      "Q10",
+      "Repair & Care",
+      "Vitamin Range"
+    ],
     "Acne": [
       "Acne"
     ],
@@ -375,12 +388,6 @@
     "Atopi": [
       "Atopi"
     ],
-    "Body Lotion": [
-      "Body Lotion"
-    ],
-    "Body Range": [
-      "Body Range"
-    ],
     "Deo": [
       "Black & White",
       "Bliss",
@@ -395,35 +402,34 @@
       "Skin Hero",
       "X-Range"
     ],
-    "Dry Skin": [
-      "Dry Skin"
+    "Body Lotion": [
+      "Body Lotion"
+    ],
+    "Body Range": [
+      "Body Range"
     ],
     "Face Care": [
+      "C&HYA",
       "Cellular",
       "Epigenetics",
       "Facial",
       "Luminous 630",
-      "Q10",
-      "C&HYA"
+      "Q10"
     ],
     "Face Cleansing": [
-      "Acne",
-      "Rose Care",
+      "C&HYA",
       "Daily Essentials",
       "Micellar",
-      "C&HYA"
+      "Rose Care"
     ],
-    "Hand Body": [
-      "APC",
-      "Body Aloe",
-      "Body Milk",
-      "Dark Skin",
+    "Men": [
+      "Deep",
       "Extra Bright",
-      "Luminous 630",
-      "Natural Glow",
-      "Q10",
-      "Repair & Care",
-      "Vitamin Range"
+      "Men",
+      "Sensitive"
+    ],
+    "Dry Skin": [
+      "Dry Skin"
     ],
     "Hydration": [
       "Hydration"
@@ -431,27 +437,23 @@
     "Lip": [
       "Lip"
     ],
-    "Men": [
-      "Acne",
-      "Deep",
-      "Extra Bright",
-      "Men",
-      "Sensitive"
-    ],
-    "Repair": [
-      "Repair"
-    ],
     "Sun": [
       "Protect & Moisture",
       "Sun",
       "UV Face"
     ],
+    "Repair": [
+      "Repair"
+    ],
     "X-Cat": [
-      "X-Range",
-      "X-Cat"
+      "X-Cat",
+      "X-Range"
     ],
     "pH5": [
       "pH5"
+    ],
+    "Brand (Institutional)": [
+      "Brand (Institutional)"
     ]
   },
   "rangeToCategories": {
@@ -459,8 +461,6 @@
       "Hand Body"
     ],
     "Acne": [
-      "Face Cleansing",
-      "Men",
       "Acne"
     ],
     "Anti Age": [
@@ -608,56 +608,120 @@
     ],
     "pH5": [
       "pH5"
+    ],
+    "Brand (Institutional)": [
+      "Brand (Institutional)"
     ]
   },
   "rangeToCampaigns": {
-    "APC": [
-      "Skin Hero (THA)"
-    ],
-    "Acne": [
-      "Dermopure Body (Bacne)",
-      "Dermopure RL",
-      "Dermo Purifyer",
-      "Gel to Foam",
-      "Triple Effect",
-      "Dermopure Cleansing (Activia)",
-      "Dermopure Cleansing (Yoda)",
-      "Anti-Acne Range"
-    ],
     "Anti Age": [
-      "Elasticity Motown",
-      "Golden Age (Gold Revamp)",
+      "3D Serum",
+      "3D Serum + Dragon",
       "3D Serum + Dragon (Gold)",
       "Club55 Serum",
+      "Elasticity Motown",
       "Epigenetics (Benjamin Button)",
       "Epigenetics (Epi 2.0)",
       "Epigenius RL",
+      "Gold Revamp",
+      "Golden Age (Gold Revamp)",
       "Refillution"
     ],
+    "Cellular": [
+      "50 Shades",
+      "Cellular Bakuchiol",
+      "Midnight Gold",
+      "Polaris",
+      "Sirius",
+      "Social AWON",
+      "Speedy Gonzales",
+      "Stardust",
+      "Stargate"
+    ],
     "Anti Pigment": [
-      "Globe - Body",
-      "Avengers (Search is Over)",
-      "Hidden Spots",
-      "Thiamidol Roof - Face & Body",
-      "Dragon (Boosting Essence)",
-      "Kung Fu Panda (Eyes)",
-      "Power Duo (Serum + Gel)",
-      "Anti-Pigment Range - Face",
-      "Bridge Campaign - Body AP",
+      "AWON Antipigment",
       "Alice - Body",
-      "Trilogy RL",
-      "Bridge Campaign - Face"
+      "Anti-Pigment Range",
+      "Anti-Pigment Range - Face",
+      "Avengers",
+      "Avengers (Search is Over)",
+      "Booster Serum",
+      "Boosting Essence",
+      "Bridge Campaign - Body AP",
+      "Bridge Campaign - Face",
+      "Dragon",
+      "Dragon (Boosting Essence)",
+      "Eyes",
+      "Eyes (KFP)",
+      "Globe",
+      "Globe - Body",
+      "Hidden Spots",
+      "Kung Fu Panda (Eyes)",
+      "Power Duo (Avengers + Gel)",
+      "Power Duo (Serum + Gel)",
+      "Serum (Avengers)",
+      "The Search is Over",
+      "Thiamidol Ramadan",
+      "Thiamidol Roof",
+      "Thiamidol Roof - Face & Body",
+      "Trilogy RL"
+    ],
+    "Acne": [
+      "Acne Control",
+      "Anti-Acne Range",
+      "Derma Skin Clear",
+      "Dermo Purifyer",
+      "Dermopure Body (Bacne)",
+      "Dermopure Cleansing (Activia)",
+      "Dermopure Cleansing (Yoda)",
+      "Dermopure RL",
+      "Gel to Foam",
+      "Triple Effect"
+    ],
+    "Sun": [
+      "Actinic",
+      "Hydro Fluid Tinted (Bacalar)",
+      "Melanoma + Sun Roof",
+      "Sun",
+      "Sun 100",
+      "Sun Oil Control",
+      "Sun Oil Control Core",
+      "Sun Range",
+      "Sun Range HS1",
+      "Sun Range HS2",
+      "Sun Roof",
+      "Sun-Protection Range",
+      "Superstar"
+    ],
+    "Hydration": [
+      "Anti-Redness"
     ],
     "Aquaphor": [
-      "Aquaphor"
+      "Aquaphor",
+      "Aquaphor Club Eucerin"
     ],
-    "Atopi": [
-      "Atopi"
+    "Dry Skin": [
+      "Atopi",
+      "Body Lotion",
+      "Body Roof",
+      "Dry Skin Relief",
+      "Search AWON",
+      "Ultra Hydrating",
+      "Urea",
+      "pH5 Wannabe"
+    ],
+    "Deep": [
+      "Auto-Matic Deep",
+      "Deep",
+      "Deep Cleansing",
+      "Deep Moisturizing",
+      "Deep X-Cat",
+      "NM Moisture Challenge"
     ],
     "Black & White": [
       "Black & White",
-      "Black & White Male",
       "Black & White Female",
+      "Black & White Male",
       "Grand Slam"
     ],
     "Bliss": [
@@ -666,209 +730,165 @@
     "Body Aloe": [
       "Body Aloe Summer"
     ],
-    "Body Lotion": [
-      "Body Lotion",
-      "Urea"
-    ],
     "Body Milk": [
       "Body Milk 5 in 1",
       "Lifecycle"
     ],
-    "Body Range": [
-      "Search AWON"
-    ],
     "Body Star": [
       "Body Star 2"
     ],
-    "Brand (Institutional)": [
+    "X-Cat": [
       "Brand (Institutional)",
-      "Club Eucerin"
+      "Club Eucerin",
+      "Customers AWON",
+      "Eucerin brand AWON",
+      "Genzit",
+      "Lead Capturing AWON",
+      "Yo voy al derm"
+    ],
+    "Luminous 630": [
+      "Bright Oil Clear",
+      "Lucia",
+      "Luminous Launch India",
+      "Potinhos",
+      "Q10 Body",
+      "Q10 Skinclock & Moonlight"
+    ],
+    "Extra Bright": [
+      "Bright Signature",
+      "Extra Bright",
+      "Extra Bright Starwalker"
+    ],
+    "Natural Glow": [
+      "C&AHA and Super C+",
+      "C&E",
+      "C&E Tata",
+      "Core Asean",
+      "Golden Fruit",
+      "Natural Glow",
+      "Super 8 Core"
     ],
     "C&HYA": [
       "C&HYA",
       "Fanta"
     ],
-    "Cellular": [
-      "Cellular Bakuchiol",
-      "50 Shades",
-      "Polaris",
-      "Social AWON",
-      "Midnight Gold",
-      "Sirius",
-      "Speedy Gonzales",
-      "Stardust",
-      "Stargate"
+    "Micellar": [
+      "Claro",
+      "EMUR",
+      "Micellar Aminoacids",
+      "Micellar Core",
+      "Micellar Extra",
+      "Micellar Melange",
+      "Micellar Pearl Bright",
+      "Micellar Siri",
+      "Micellar Siri 2.0",
+      "Micellar+"
     ],
     "Clinical": [
       "Clinical",
       "Fendi",
+      "Sachet",
+      "Zazil"
+    ],
+    "Deo Even Tone": [
       "Clinical Even Tone",
-      "Sachet"
+      "Deo Even Tone Range"
     ],
     "Cool Kick": [
       "Cool Kick"
     ],
+    "Repair & Care": [
+      "Crème",
+      "Crème Round 2",
+      "Neverland",
+      "Repair & Care",
+      "Soft",
+      "Soft UV",
+      "Soft UV Ozonio",
+      "Tetris"
+    ],
+    "Men": [
+      "DSR Range"
+    ],
     "Daily Essentials": [
       "Daily Essentials"
     ],
-    "Dark Skin": [
-      "Radiant Beauty",
-      "Harmattan",
-      "Zuri"
-    ],
-    "Deep": [
-      "Deep",
-      "Deep Cleansing",
-      "Auto-Matic Deep",
-      "Deep Moisturizing",
-      "Deep X-Cat",
-      "Disney",
-      "NM Moisture Challenge"
-    ],
-    "Deo Even Tone": [
-      "Extra Bright",
-      "Deo Even Tone Range"
+    "X-Range": [
+      "Derma Control"
     ],
     "Dettol Star": [
       "Dettol"
+    ],
+    "Lip": [
+      "Disney",
+      "Lip"
     ],
     "Dry Rollon": [
       "Dry Rollon",
       "Rollon Men"
     ],
     "Epigenetics": [
-      "Sirena",
       "Elevator",
       "Elsa",
       "Genie",
       "Next Gen",
+      "Sirena",
       "Swan Lake"
     ],
-    "Extra Bright": [
-      "Extra Bright Starwalker",
-      "Extra Bright",
-      "Bright Signature"
-    ],
-    "Facial": [
-      "Skin Gin"
-    ],
-    "Hijab": [
-      "Hijab Fresh"
-    ],
-    "Hydration": [
-      "Anti-Redness"
-    ],
-    "Lip": [
-      "Lip"
-    ],
-    "Luminous 630": [
-      "Lucia",
-      "Q10 Body",
-      "Bright Oil Clear",
-      "Luminous Launch India",
-      "Potinhos",
-      "Q10 Skinclock & Moonlight"
-    ],
-    "Men": [
-      "DSR Range"
-    ],
-    "Micellar": [
-      "Micellar Core",
-      "Micellar Pearl Bright",
-      "Micellar Siri",
-      "Micellar Siri 2.0",
-      "Claro",
-      "EMUR",
-      "Micellar Aminoacids",
-      "Micellar Extra",
-      "Micellar Melange",
-      "Micellar+"
-    ],
-    "Natural Glow": [
-      "C&E Tata",
-      "Super 8 Core",
-      "Natural Glow",
-      "C&E",
-      "C&AHA and Super C+",
-      "Core Asean",
-      "Golden Fruit"
-    ],
-    "Pearl & Beauty": [
-      "Pearl & Beauty"
-    ],
-    "Protect & Moisture": [
-      "Protect & Moisture"
-    ],
-    "Q10": [
-      "Q10 Range",
-      "Q10 Guardian",
-      "Q10 Skin Diet",
-      "Neige",
-      "Orionis"
-    ],
-    "Repair": [
-      "Body Roof"
-    ],
-    "Repair & Care": [
-      "Crème",
-      "Repair & Care",
-      "Soft UV",
-      "Soft",
-      "Crème Round 2",
-      "Neverland",
-      "Soft UV Ozonio",
-      "Tetris"
-    ],
-    "Rose Care": [
-      "Petals 2022"
-    ],
-    "Sensitive": [
-      "Sensitive Moisture",
-      "Korea",
-      "Nemo"
-    ],
-    "Skin Hero": [
-      "Skin Hero",
-      "Skin Power (Hero)"
-    ],
-    "Sun": [
-      "Hydro Fluid Tinted (Bacalar)",
-      "Sun Range",
-      "Actinic",
-      "Sun Oil Control Core",
-      "Sun-Protection Range",
-      "Superstar",
-      "Sun Oil Control"
-    ],
-    "UV Face": [
-      "UV Face",
-      "UV Specialist",
-      "Subelieavable UV",
-      "Tinder"
-    ],
     "Vitamin Range": [
-      "Super 10",
       "Ghostbuster",
       "Hera",
       "Iconova",
       "Milka",
       "Phoenix",
+      "Super 10",
       "Unicorn Super 10",
       "Vitamin Scrub"
     ],
-    "X-Cat": [
-      "Derma Skin Clear",
-      "Genzit"
+    "Dark Skin": [
+      "Harmattan",
+      "Radiant Beauty",
+      "Zuri"
     ],
-    "X-Range": [
-      "Derma Control"
+    "Hijab": [
+      "Hijab Fresh"
     ],
-    "Dry Skin": [
-      "Dry Skin Relief",
-      "Ultra Hydrating"
+    "Sensitive": [
+      "Korea",
+      "Nemo",
+      "Sensitive Moisture"
     ],
-    "pH5": [
-      "pH5 Wannabe"
+    "Q10": [
+      "Neige",
+      "Orionis",
+      "Q10 Guardian",
+      "Q10 Range",
+      "Q10 Skin Diet"
+    ],
+    "Pearl & Beauty": [
+      "Pearl & Beauty"
+    ],
+    "Rose Care": [
+      "Petals 2022"
+    ],
+    "Protect & Moisture": [
+      "Protect & Moisture"
+    ],
+    "Facial": [
+      "Skin Gin"
+    ],
+    "Skin Hero": [
+      "Skin Hero",
+      "Skin Power (Hero)"
+    ],
+    "APC": [
+      "Skin Hero (THA)"
+    ],
+    "UV Face": [
+      "Subelieavable UV",
+      "Tinder",
+      "UV Face",
+      "UV Specialist"
     ]
   },
   "campaignToRangeMap": {
@@ -883,7 +903,7 @@
     "Anti-Redness": "Hydration",
     "Aquaphor": "Aquaphor",
     "Aquaphor Club Eucerin": "Aquaphor",
-    "Atopi": "Atopi",
+    "Atopi": "Dry Skin",
     "Auto-Matic Deep": "Deep",
     "Avengers": "Anti Pigment",
     "Black & White": "Black & White",
@@ -891,13 +911,13 @@
     "Black & White Male": "Black & White",
     "Bliss": "Bliss",
     "Body Aloe Summer": "Body Aloe",
-    "Body Lotion": "Body Lotion",
+    "Body Lotion": "Dry Skin",
     "Body Milk 5 in 1": "Body Milk",
-    "Body Roof": "Repair",
+    "Body Roof": "Dry Skin",
     "Body Star 2": "Body Star",
     "Booster Serum": "Anti Pigment",
     "Boosting Essence": "Anti Pigment",
-    "Brand (Institutional)": "Brand (Institutional)",
+    "Brand (Institutional)": "X-Cat",
     "Bright Oil Clear": "Luminous 630",
     "Bright Signature": "Extra Bright",
     "C&AHA and Super C+": "Natural Glow",
@@ -908,7 +928,7 @@
     "Claro": "Micellar",
     "Clinical": "Clinical",
     "Clinical Even Tone": "Deo Even Tone",
-    "Club Eucerin": "Brand (Institutional)",
+    "Club Eucerin": "X-Cat",
     "Cool Kick": "Cool Kick",
     "Core Asean": "Natural Glow",
     "Crème": "Repair & Care",
@@ -928,7 +948,7 @@
     "Dermopure Cleansing (Yoda)": "Acne",
     "Dermopure RL": "Acne",
     "Dettol": "Dettol Star",
-    "Disney": "Deep",
+    "Disney": "Lip",
     "Dragon": "Anti Pigment",
     "Dry Rollon": "Dry Rollon",
     "Dry Skin Relief": "Dry Skin",
@@ -995,7 +1015,7 @@
     "Repair & Care": "Repair & Care",
     "Rollon Men": "Dry Rollon",
     "Sachet": "Clinical",
-    "Search AWON": "Body Range",
+    "Search AWON": "Dry Skin",
     "Sensitive Moisture": "Sensitive",
     "Serum (Avengers)": "Anti Pigment",
     "Sirena": "Epigenetics",
@@ -1033,11 +1053,35 @@
     "UV Specialist": "UV Face",
     "Unicorn Super 10": "Vitamin Range",
     "Ultra Hydrating": "Dry Skin",
-    "Urea": "Body Lotion",
+    "Urea": "Dry Skin",
     "Vitamin Scrub": "Vitamin Range",
     "Zazil": "Clinical",
     "Zuri": "Dark Skin",
-    "pH5 Wannabe": "pH5"
+    "pH5 Wannabe": "Dry Skin",
+    "Bridge Campaign - Body AP": "Anti Pigment",
+    "Alice - Body": "Anti Pigment",
+    "Trilogy RL": "Anti Pigment",
+    "Bridge Campaign - Face": "Anti Pigment",
+    "Club55 Serum": "Anti Age",
+    "Epigenetics (Benjamin Button)": "Anti Age",
+    "Epigenetics (Epi 2.0)": "Anti Age",
+    "Epigenius RL": "Anti Age",
+    "Refillution": "Anti Age",
+    "Superstar": "Sun",
+    "Yo voy al derm": "X-Cat",
+    "Customers AWON": "X-Cat",
+    "Lead Capturing AWON": "X-Cat",
+    "Eucerin brand AWON": "X-Cat",
+    "Globe - Body": "Anti Pigment",
+    "Avengers (Search is Over)": "Anti Pigment",
+    "Thiamidol Roof - Face & Body": "Anti Pigment",
+    "Dragon (Boosting Essence)": "Anti Pigment",
+    "Kung Fu Panda (Eyes)": "Anti Pigment",
+    "Power Duo (Serum + Gel)": "Anti Pigment",
+    "Anti-Pigment Range - Face": "Anti Pigment",
+    "Golden Age (Gold Revamp)": "Anti Age",
+    "3D Serum + Dragon (Gold)": "Anti Age",
+    "Sun Oil Control Core": "Sun"
   },
   "categoryToBusinessUnit": {
     "Acne": "Derma",
@@ -1107,7 +1151,12 @@
     "UV Face": "Derma",
     "Vitamin Range": "Nivea",
     "X-Cat": "Derma",
-    "pH5": "Derma"
+    "pH5": "Derma",
+    "Acne": "Derma",
+    "X-Range": "Nivea",
+    "Deo": "Nivea",
+    "Face Care": "Nivea",
+    "Hand Body": "Nivea"
   },
   "campaignToBusinessUnit": {
     "3D Serum": "Derma",

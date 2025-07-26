@@ -96,19 +96,26 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
   protected initializeRules(): void {
     super.initializeRules();
     
-    // Remove ALL campaign and range validation rules - we'll replace them completely
-    this.rules = this.rules.filter(rule => 
-      !(rule.field === 'Campaign' && rule.type === 'relationship') &&
-      !(rule.field === 'Campaign' && rule.type === 'cross_reference') &&
-      !(rule.field === 'Range' && rule.type === 'relationship') &&
-      !(rule.field === 'Range' && rule.type === 'cross_reference')
-    );
+    // Remove ONLY the basic campaign existence rule - keep the campaign-category relationship rule
+    this.rules = this.rules.filter(rule => {
+      // Remove the basic campaign existence rule that just checks if campaign exists
+      if (rule.field === 'Campaign' && rule.type === 'relationship' && 
+          rule.message === 'Campaign does not exist and will be auto-created during import') {
+        return false;
+      }
+      // Remove range validation rules (we'll keep ranges strict)
+      if (rule.field === 'Range' && (rule.type === 'relationship' || rule.type === 'cross_reference')) {
+        return false;
+      }
+      // Keep all other rules including the critical campaign-category relationship rule
+      return true;
+    });
     
-    // Add new auto-creating validation rule only for campaigns
+    // Add new auto-creating validation rule for non-existent campaigns
     this.rules.push({
       field: 'Campaign',
       type: 'relationship',
-      severity: 'warning', // Changed from critical to warning since we auto-create
+      severity: 'warning', // Warning for auto-creation, not blocking
       message: 'Campaign will be auto-created for review',
       validate: (value, record, allRecords, masterData) => {
         if (!value?.toString().trim()) return true; // If empty, let required validation handle it
@@ -126,7 +133,7 @@ export class AutoCreateValidator extends MediaSufficiencyValidator {
           c && typeof c === 'string' && c.toLowerCase() === campaignName.toLowerCase()
         );
         
-        // Return true if exists (no warning), false if doesn't exist (show warning)
+        // Return true if exists (no warning), false if doesn't exist (show warning for auto-creation)
         return exists;
       }
     });

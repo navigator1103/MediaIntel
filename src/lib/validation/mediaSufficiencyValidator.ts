@@ -431,6 +431,16 @@ export class MediaSufficiencyValidator {
           return true;
         }
         
+        // Skip validation if campaign doesn't exist in master data (let auto-creation rule handle it)
+        const campaignToRangeMap = masterData.campaignToRangeMap || {};
+        const campaignExists = Object.keys(campaignToRangeMap).some(
+          key => key.toLowerCase() === campaignName.toLowerCase()
+        );
+        
+        if (!campaignExists) {
+          return true; // Skip this validation, let auto-creation warning handle non-existent campaigns
+        }
+        
         // Check if campaign belongs to range
         const rangeToCampaigns = masterData.rangeToCampaigns || {};
         const validCampaignsForRange = rangeName ? (rangeToCampaigns[rangeName] || []) : [];
@@ -986,22 +996,26 @@ export class MediaSufficiencyValidator {
           key => key.toLowerCase() === campaignInput.toLowerCase()
         );
         
-        // If campaign exists in mappings
-        if (campaignKey) {
-          const campaignRange = campaignToRangeMap[campaignKey];
-          
-          // Get categories that this range belongs to
-          const validCategories = rangeToCategories[campaignRange] || [];
-          
-          // Check if the selected category is valid for this campaign (case-insensitive)
-          const isValidCategory = validCategories.some((cat: string) => 
-            cat.toLowerCase() === categoryInput.toLowerCase()
-          );
-          
-          if (!isValidCategory) {
-            console.log(`Campaign '${campaignInput}' belongs to range '${campaignRange}' which is valid for categories: [${validCategories.join(', ')}], but selected category is '${categoryInput}'`);
-            return false;
-          }
+        // If campaign doesn't exist in mappings, skip this validation 
+        // (let auto-creation warning handle non-existent campaigns)
+        if (!campaignKey) {
+          return true;
+        }
+        
+        // If campaign exists in mappings, validate the category relationship
+        const campaignRange = campaignToRangeMap[campaignKey];
+        
+        // Get categories that this range belongs to
+        const validCategories = rangeToCategories[campaignRange] || [];
+        
+        // Check if the selected category is valid for this campaign (case-insensitive)
+        const isValidCategory = validCategories.some((cat: string) => 
+          cat.toLowerCase() === categoryInput.toLowerCase()
+        );
+        
+        if (!isValidCategory) {
+          console.log(`Campaign '${campaignInput}' belongs to range '${campaignRange}' which is valid for categories: [${validCategories.join(', ')}], but selected category is '${categoryInput}'`);
+          return false;
         }
         
         return true;
@@ -1041,13 +1055,17 @@ export class MediaSufficiencyValidator {
           key => key.toLowerCase() === campaignInput.toLowerCase()
         );
         
+        // If campaign doesn't exist in mappings, skip this validation 
+        // (let auto-creation warning handle non-existent campaigns)
+        if (!campaignKey) {
+          return true;
+        }
+        
         // Check primary mapping first
-        if (campaignKey) {
-          const mappedRange = campaignToRangeMap[campaignKey];
-          // Check if the specified range matches the primary mapping
-          if (mappedRange.toLowerCase() === rangeInput.toLowerCase()) {
-            return true;
-          }
+        const mappedRange = campaignToRangeMap[campaignKey];
+        // Check if the specified range matches the primary mapping
+        if (mappedRange.toLowerCase() === rangeInput.toLowerCase()) {
+          return true;
         }
         
         // Check campaign compatibility mapping for multi-range support
@@ -2088,6 +2106,16 @@ export class MediaSufficiencyValidator {
         const campaignName = value.toString().trim();
         const rangeName = record.Range.toString().trim();
         
+        // Skip validation if campaign doesn't exist in master data (let auto-creation rule handle it)
+        const campaignToRangeMap = masterData.campaignToRangeMap || {};
+        const campaignExists = Object.keys(campaignToRangeMap).some(
+          key => key.toLowerCase() === campaignName.toLowerCase()
+        );
+        
+        if (!campaignExists) {
+          return true; // Skip this validation, let auto-creation warning handle non-existent campaigns
+        }
+        
         // Get range-to-campaigns mapping
         const rangeToCampaigns = masterData.rangeToCampaigns || {};
         
@@ -2162,6 +2190,16 @@ export class MediaSufficiencyValidator {
         }
         
         // Second, verify the campaign belongs to the range
+        // But first check if campaign exists in master data (skip if non-existent)
+        const campaignToRangeMap = masterData.campaignToRangeMap || {};
+        const campaignExists = Object.keys(campaignToRangeMap).some(
+          key => key.toLowerCase() === campaignName.toLowerCase()
+        );
+        
+        if (!campaignExists) {
+          return true; // Skip validation for non-existent campaigns (let auto-creation handle them)
+        }
+        
         const rangeKey = Object.keys(rangeToCampaigns).find(key => 
           key.toLowerCase() === rangeName.toLowerCase()
         );
