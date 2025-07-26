@@ -139,42 +139,50 @@ export default function ReachPlanningUpload({
   };
 
   const validateAndUploadFile = async (file: File) => {
-    // Validate selections first
-    if (!selectedLastUpdateId) {
+    try {
+      // Validate selections first
+      if (!selectedLastUpdateId) {
+        setUploadState({
+          status: 'error',
+          error: 'Please select a financial cycle first'
+        });
+        return;
+      }
+
+      if (!selectedCountry) {
+        setUploadState({
+          status: 'error',
+          error: 'Please select a country first'
+        });
+        return;
+      }
+
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setUploadState({
+          status: 'error',
+          error: 'Only CSV files are supported'
+        });
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadState({
+          status: 'error',
+          error: 'File size must be less than 10MB'
+        });
+        return;
+      }
+
+      await uploadFile(file);
+    } catch (error: any) {
+      console.error('Validation and upload error:', error);
       setUploadState({
         status: 'error',
-        error: 'Please select a financial cycle first'
+        error: error.message || 'Failed to upload file'
       });
-      return;
     }
-
-    if (!selectedCountry) {
-      setUploadState({
-        status: 'error',
-        error: 'Please select a country first'
-      });
-      return;
-    }
-
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setUploadState({
-        status: 'error',
-        error: 'Only CSV files are supported'
-      });
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadState({
-        status: 'error',
-        error: 'File size must be less than 10MB'
-      });
-      return;
-    }
-
-    await uploadFile(file);
   };
 
   const uploadFile = async (file: File) => {
@@ -197,7 +205,10 @@ export default function ReachPlanningUpload({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+        const errorMessage = errorData.details 
+          ? `${errorData.error}: ${errorData.details}`
+          : errorData.error || 'Upload failed';
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -241,7 +252,10 @@ export default function ReachPlanningUpload({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Validation failed');
+        const errorMessage = errorData.details 
+          ? `${errorData.error}: ${errorData.details}`
+          : errorData.error || 'Validation failed';
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
