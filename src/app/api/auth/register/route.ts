@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     console.log('Creating user in database...');
     // Create new user with email verification
     // All new signups get admin role with specific page and country access
-    const restrictedAdminPages = 'media-sufficiency-upload,media-sufficiency-enhanced-upload,media-sufficiency-validate,media-sufficiency-review,media-sufficiency-game-plans,game-plans-upload';
+    const restrictedAdminPages = 'media-sufficiency-upload,media-sufficiency-enhanced-upload,media-sufficiency-validate,media-sufficiency-review,media-sufficiency-game-plans,game-plans-upload,reach-planning';
     
     const user = await prisma.user.create({
       data: {

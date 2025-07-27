@@ -63,11 +63,11 @@ export async function GET(request: NextRequest) {
       const categoryName = (plan as any).category?.name || 'Unknown';
       budgetByCategory[categoryName] = (budgetByCategory[categoryName] || 0) + budget;
 
-      // Budget by quarter
-      budgetByQuarter.Q1 += plan.q1Budget || 0;
-      budgetByQuarter.Q2 += plan.q2Budget || 0;
-      budgetByQuarter.Q3 += plan.q3Budget || 0;
-      budgetByQuarter.Q4 += plan.q4Budget || 0;
+      // Budget by quarter (calculated from monthly budgets)
+      budgetByQuarter.Q1 += (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
+      budgetByQuarter.Q2 += (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
+      budgetByQuarter.Q3 += (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
+      budgetByQuarter.Q4 += (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
 
       // Campaigns by PM Type
       const pmTypeName = plan.pmType?.name || 'Unknown';

@@ -49,6 +49,12 @@ const AdminNavigation = () => {
   // Check if user can access a specific path
   const canAccessPath = (path: string): boolean => {
     if (!userPermissions) return true; // Default to true while permissions are loading
+    
+    // Database backups are only for super admins
+    if (path === '/admin/database-backups') {
+      return userPermissions.isSuperAdmin();
+    }
+    
     return userPermissions.canAccessPath(path);
   };
   
@@ -210,11 +216,20 @@ const AdminNavigation = () => {
       icon: <FiHardDrive className="h-5 w-5" />,
       items: [
         {
-          name: 'Backups',
+          name: 'Game Plan Backups',
           href: '/admin/backups',
           icon: (active) => (
             <svg className={`${active ? 'text-gray-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-5 w-5`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            </svg>
+          )
+        },
+        {
+          name: 'Database Backups',
+          href: '/admin/database-backups',
+          icon: (active) => (
+            <svg className={`${active ? 'text-red-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-5 w-5`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           )
         },
@@ -329,6 +344,7 @@ const AdminNavigation = () => {
                         '/admin/share-of-voice',
                         '/admin/diminishing-returns',
                         '/admin/backups',
+                        '/admin/database-backups',
                         '/admin/financial-cycles',
                         '/admin/governance',
                         '/admin/countries',

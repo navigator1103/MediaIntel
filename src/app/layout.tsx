@@ -4,6 +4,9 @@ import "./globals.css";
 import LayoutClientWrapper from "./LayoutClientWrapper";
 import Script from "next/script";
 
+// Initialize background services (backup scheduler, etc.)
+import '../lib/startup/initializeServices';
+
 const quicksand = Quicksand({
   variable: "--font-quicksand",
   subsets: ["latin"],
