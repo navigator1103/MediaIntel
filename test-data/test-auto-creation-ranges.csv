@@ -1,5 +1,0 @@
-Category,Range,Campaign,Playbook ID,Campaign Archetype,Burst,Media,Media Subtype,Initial Date,End Date,Total Weeks,Total Budget,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec,Total WOA,Total WOFF,Total TRPs,Total R1+ (%),Total R3+ (%)
-Men,New Range Innovation,Innovation Campaign A,NEWR001,Innovation,1,Digital,PM & FF,01-Jan-26,31-Mar-26,13,15000,5000,5000,5000,0,0,0,0,0,0,0,0,0,10,3,0,65%,30%
-Hand Body,New Range Skincare,Skincare Campaign B,NEWR002,Base Business (Maintenance),1,Traditional,Open TV,01-Feb-26,30-Apr-26,12,25000,0,8000,8000,9000,0,0,0,0,0,0,0,0,8,4,700000,70%,45%
-Deo,New Range Fresh,Fresh Campaign C,NEWR003,Innovation,1,Digital,PM & FF,01-Mar-26,31-May-26,13,18000,0,0,6000,6000,6000,0,0,0,0,0,0,0,9,4,0,62%,35%
-Sun,New Range Protection,Protection Campaign D,NEWR004,Base Business (Maintenance),1,Traditional,Open TV,01-Apr-26,30-Jun-26,13,20000,0,0,0,7000,7000,6000,0,0,0,0,0,0,10,3,500000,60%,40%

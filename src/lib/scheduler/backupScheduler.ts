@@ -3,7 +3,7 @@
  * Runs automatic backups and manages scheduling state
  */
 
-import { createDatabaseBackup } from '../../../scripts/backup-database';
+import { createDatabaseBackup } from '../backup/backupDatabase';
 import fs from 'fs';
 import path from 'path';
 

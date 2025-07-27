@@ -912,7 +912,12 @@ async function processImport(
       if (businessUnitValue && !processedEntities.businessUnits.has(businessUnitValue)) {
         try {
           const existingBusinessUnit = await prisma.businessUnit.findFirst({
-            where: { name: businessUnitValue }
+            where: { 
+              name: {
+                equals: businessUnitValue,
+                mode: 'insensitive'
+              }
+            }
           });
           
           if (existingBusinessUnit) {

@@ -611,7 +611,7 @@ export default function MultimediaCurvesTable({
               <div className="bg-white bg-opacity-60 rounded-lg border border-orange-200 p-3">
                 <div className="text-sm text-orange-800">
                   <strong>How it works:</strong> Saturation is detected when the reach increase between consecutive TRP levels 
-                  is ≤ {saturationThreshold}% and > 0%. Lower values detect saturation earlier, higher values allow more reach growth 
+                  is ≤ {saturationThreshold}% and {'>'}0%. Lower values detect saturation earlier, higher values allow more reach growth 
                   before considering it saturated.
                 </div>
                 <div className="mt-2 text-xs text-orange-600">

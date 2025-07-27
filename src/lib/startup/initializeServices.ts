@@ -28,7 +28,9 @@ export function initializeServices() {
 }
 
 // Auto-initialize when this module is imported in a server context
-if (typeof window === 'undefined') {
-  // We're on the server
+// Only initialize once per process, not per import
+if (typeof window === 'undefined' && !global.__servicesInitialized) {
+  // We're on the server and haven't initialized yet
+  global.__servicesInitialized = true;
   initializeServices();
 }

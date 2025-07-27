@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { handleLogout } from '@/lib/auth';
@@ -32,7 +32,7 @@ export const FilterContext = createContext<FilterContextType>({
 interface NavItem {
   name: string;
   href: string;
-  icon: (active: boolean) => JSX.Element;
+  icon: (active: boolean) => React.ReactElement;
 }
 
 interface FilterOption {

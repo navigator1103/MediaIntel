@@ -164,7 +164,12 @@ export async function POST(request: NextRequest) {
           let businessUnitId = null;
           if (campaignData.businessUnit) {
             const businessUnit = await tx.businessUnit.findFirst({
-              where: { name: campaignData.businessUnit }
+              where: { 
+                name: {
+                  equals: campaignData.businessUnit,
+                  mode: 'insensitive'
+                }
+              }
             });
             
             if (businessUnit) {

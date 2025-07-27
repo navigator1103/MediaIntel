@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createDatabaseBackup, listBackups } from '../../../../../scripts/backup-database';
+import { createDatabaseBackup, listBackups } from '../../../../lib/backup/backupDatabase';
 import fs from 'fs';
 import path from 'path';
 import jwt from 'jsonwebtoken';
