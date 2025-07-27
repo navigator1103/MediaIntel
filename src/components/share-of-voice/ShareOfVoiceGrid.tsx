@@ -1,539 +1,1189 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiInfo, FiRefreshCw } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiSave, FiRefreshCw, FiCheckCircle, FiAlertCircle, FiAlertTriangle, FiInfo, FiPlus, FiTrash2 } from 'react-icons/fi';
 
-interface ValidationIssue {
-  rowIndex: number;
-  columnName: string;
-  severity: 'critical' | 'warning' | 'suggestion';
-  message: string;
-  currentValue?: any;
-}
-
-interface SessionData {
-  sessionId: string;
-  fileName: string;
-  totalRecords: number;
-  records: any[];
-  validationIssues?: ValidationIssue[];
-  validationSummary?: {
-    total: number;
-    critical: number;
-    warning: number;
-    suggestion: number;
-    uniqueRows: number;
-  };
-  country?: string;
-  businessUnit?: string;
-  status?: string;
+interface SOVData {
+  id?: number;
+  category: string;
+  company: string;
+  totalTvInvestment?: number;
+  totalTvTrps?: number;
+  totalDigitalSpend?: number;
+  totalDigitalImpressions?: number;
 }
 
 interface ShareOfVoiceGridProps {
-  sessionId: string;
+  countryId: number;
+  businessUnitId: number;
+  mediaType: 'tv' | 'digital';
+  onSave?: (success: boolean) => void;
 }
 
-// SOV template columns - supports both TV and Digital
-const SOV_TEMPLATE_COLUMNS = [
-  'Category',
-  'Company', 
-  'Total TV Investment',
-  'Total TV TRPs',
-  'Total Digital Spend',
-  'Total Digital Impressions'
-];
+// Get default companies based on business unit
+const getDefaultCompanies = (businessUnitName: string) => {
+  const mainBrand = businessUnitName === 'Derma' ? 'Eucerin' : 'Nivea';
+  
+  return [
+    mainBrand,
+    'Competitor 1', 
+    'Competitor 2',
+    'Competitor 3', 
+    'Competitor 4',
+    'Competitor 5'
+  ];
+};
 
-export default function ShareOfVoiceGrid({ sessionId }: ShareOfVoiceGridProps) {
-  const [sessionData, setSessionData] = useState<SessionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importSuccess, setImportSuccess] = useState(false);
-  const [editingCell, setEditingCell] = useState<{rowIndex: number, columnName: string} | null>(null);
-  const [editValue, setEditValue] = useState('');
+export default function ShareOfVoiceGrid({
+  countryId,
+  businessUnitId,
+  mediaType,
+  onSave
+}: ShareOfVoiceGridProps) {
+  const [sovData, setSOVData] = useState<SOVData[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [businessUnitName, setBusinessUnitName] = useState<string>('');
+  const [hasExistingData, setHasExistingData] = useState(false);
+  const [focusedCell, setFocusedCell] = useState<{category: string, company: string, field: string} | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{ [key: string]: { type: 'critical' | 'error' | 'warning', message: string } }>({});
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
 
+  // Load categories and check for existing data when component mounts or dependencies change
   useEffect(() => {
-    loadSessionData();
-  }, [sessionId]);
+    if (countryId && businessUnitId) {
+      loadCategories();
+      checkExistingData();
+    }
+  }, [countryId, businessUnitId, mediaType]);
 
-  // Force reload when component becomes visible
+  // Auto-load existing data when grid is initialized and data is available
   useEffect(() => {
-    // Add a small delay to ensure the validation has completed
-    const timer = setTimeout(() => {
-      loadSessionData();
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (hasExistingData && categories.length > 0 && sovData.length > 0 && !dataLoaded) {
+      console.log('Auto-loading existing data after grid initialization');
+      loadExistingData();
+    }
+  }, [hasExistingData, categories.length, sovData.length, dataLoaded]);
 
-  const loadSessionData = async () => {
+  // Load categories based on business unit
+  const loadCategories = async () => {
     try {
-      setLoading(true);
-      console.log(`Loading SOV session data for sessionId: ${sessionId}`);
-      
-      const response = await fetch(`/api/admin/share-of-voice/session?sessionId=${sessionId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to load session data');
+      const response = await fetch(`/api/admin/share-of-voice/categories?businessUnitId=${businessUnitId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+        setBusinessUnitName(data.businessUnitName || '');
+        
+        // Always initialize grid data with correct business unit
+        initializeGridData(data.categories || [], data.businessUnitName || '');
       }
-      
-      const result = await response.json();
-      console.log('SOV Session data loaded:', {
-        totalRecords: result.session?.totalRecords,
-        validationIssues: result.session?.validationIssues?.length || 0,
-        validationSummary: result.session?.validationSummary,
-        country: result.session?.country,
-        businessUnit: result.session?.businessUnit
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
+  // Initialize grid with categories × companies combinations
+  const initializeGridData = (categoryList: string[], businessUnit?: string) => {
+    const initialData: SOVData[] = [];
+    const buName = businessUnit || businessUnitName;
+    const defaultCompanies = getDefaultCompanies(buName);
+    
+    categoryList.forEach(category => {
+      defaultCompanies.forEach(company => {
+        initialData.push({
+          category,
+          company,
+          totalTvInvestment: 0,
+          totalTvTrps: 0,
+          totalDigitalSpend: 0,
+          totalDigitalImpressions: 0
+        });
       });
+    });
+    
+    setSOVData(initialData);
+  };
+
+  // Check if existing data exists for this combination
+  const checkExistingData = async () => {
+    try {
+      const response = await fetch(
+        `/api/admin/share-of-voice/data?countryId=${countryId}&businessUnitId=${businessUnitId}`
+      );
       
-      setSessionData(result.session);
-      
-    } catch (error: any) {
-      console.error('Error loading SOV session data:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+      if (response.ok) {
+        const existingData = await response.json();
+        setHasExistingData(existingData.length > 0);
+      }
+    } catch (error) {
+      console.error('Error checking existing SOV data:', error);
+      setHasExistingData(false);
     }
   };
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'critical':
-        return <FiAlertCircle className="h-4 w-4 text-red-500" />;
-      case 'warning':
-        return <FiAlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case 'suggestion':
-        return <FiInfo className="h-4 w-4 text-blue-500" />;
-      default:
-        return null;
+  // Load existing SOV data
+  const loadExistingData = async () => {
+    if (!hasExistingData) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/share-of-voice/data?countryId=${countryId}&businessUnitId=${businessUnitId}`
+      );
+      
+      if (response.ok) {
+        const existingData = await response.json();
+        
+        if (existingData.length > 0) {
+          console.log('=== LOAD EXISTING DATA DEBUG ===');
+          console.log('Existing data from API:', existingData.length, 'records');
+          console.log('Existing data companies:', existingData.map(d => `${d.category}-${d.company}`));
+          console.log('Current grid data before merge:', sovData.length, 'rows');
+          console.log('Current grid companies:', sovData.map(d => `${d.category}-${d.company}`));
+          
+          // Rebuild the grid data entirely based on loaded data with correct positioning
+          setSOVData(prevData => {
+            // Group loaded data by category
+            const loadedByCategory = new Map<string, any[]>();
+            existingData.forEach((existing: any) => {
+              if (!loadedByCategory.has(existing.category)) {
+                loadedByCategory.set(existing.category, []);
+              }
+              loadedByCategory.get(existing.category)!.push({
+                id: existing.id,
+                category: existing.category,
+                company: existing.company,
+                position: existing.position || 0, // Use database position
+                totalTvInvestment: existing.totalTvInvestment || 0,
+                totalTvTrps: existing.totalTvTrps || 0,
+                totalDigitalSpend: existing.totalDigitalSpend || 0,
+                totalDigitalImpressions: existing.totalDigitalImpressions || 0
+              });
+            });
+
+            // Sort each category by position
+            loadedByCategory.forEach((rows, category) => {
+              rows.sort((a, b) => a.position - b.position);
+            });
+
+            // Build the final data array in correct order
+            const finalData: any[] = [];
+            
+            // Process each category in alphabetical order
+            const sortedCategories = Array.from(loadedByCategory.keys()).sort();
+            sortedCategories.forEach(category => {
+              const categoryRows = loadedByCategory.get(category)!;
+              finalData.push(...categoryRows);
+            });
+
+            console.log('=== LOAD POSITION DEBUG ===');
+            console.log('Loaded data by category with positions:');
+            loadedByCategory.forEach((rows, category) => {
+              console.log(`${category}:`);
+              rows.forEach(row => {
+                console.log(`  Position ${row.position}: ${row.company}`);
+              });
+            });
+
+            console.log('Final data with position-based ordering:', finalData.length, 'rows');
+            console.log('Categories in final data:', [...new Set(finalData.map(r => r.category))]);
+            console.log('Companies per category:', 
+              Object.fromEntries(
+                [...new Set(finalData.map(r => r.category))].map(cat => [
+                  cat, 
+                  finalData.filter(r => r.category === cat).map(r => r.company)
+                ])
+              )
+            );
+            
+            return finalData;
+          });
+          
+          setDataLoaded(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading existing SOV data:', error);
     }
   };
 
-  const getSeverityBadge = (severity: string) => {
-    const config = {
-      critical: { className: 'bg-red-100 text-red-800', label: 'Critical' },
-      warning: { className: 'bg-yellow-100 text-yellow-800', label: 'Warning' },
-      suggestion: { className: 'bg-blue-100 text-blue-800', label: 'Suggestion' }
+  // Update a specific cell value
+  const updateCellValue = (
+    category: string, 
+    company: string, 
+    field: keyof SOVData, 
+    value: number | string,
+    rowIndex?: number
+  ) => {
+    // Clear error display when user starts editing after failed save
+    // (warnings remain visible as they're allowed)
+    if (showValidationErrors) {
+      setShowValidationErrors(false);
+    }
+    
+    setSOVData(prevData => {
+      return prevData.map((row, index) => {
+        // For company field updates, use row index to avoid key conflicts
+        if (field === 'company' && rowIndex !== undefined) {
+          const targetRow = prevData.find((r, i) => 
+            r.category === category && i === rowIndex
+          );
+          if (row === targetRow) {
+            return { ...row, [field]: value };
+          }
+        } else if (row.category === category && row.company === company) {
+          return { ...row, [field]: value };
+        }
+        return row;
+      });
+    });
+  };
+
+  // Add new competitor row for a category
+  const addCompetitorRow = (category: string) => {
+    const existingCompetitors = sovData
+      .filter(row => row.category === category)
+      .map(row => row.company);
+    
+    // Find the next competitor number
+    const competitorNumbers = existingCompetitors
+      .filter(name => name.startsWith('Competitor '))
+      .map(name => parseInt(name.replace('Competitor ', '')))
+      .filter(num => !isNaN(num));
+    
+    const nextNumber = competitorNumbers.length > 0 ? Math.max(...competitorNumbers) + 1 : existingCompetitors.length;
+    const newCompetitorName = `Competitor ${nextNumber}`;
+    
+    const newRow: SOVData = {
+      category,
+      company: newCompetitorName,
+      totalTvInvestment: 0,
+      totalTvTrps: 0,
+      totalDigitalSpend: 0,
+      totalDigitalImpressions: 0
     };
     
-    const { className, label } = config[severity as keyof typeof config] || config.suggestion;
+    setSOVData(prevData => [...prevData, newRow]);
+  };
+
+  // Remove a competitor row
+  const removeCompetitorRow = (category: string, company: string) => {
+    // Don't allow deletion if it's the last row for a category
+    const categoryRows = sovData.filter(row => row.category === category);
+    if (categoryRows.length <= 1) {
+      alert('Cannot delete the last competitor for a category');
+      return;
+    }
     
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}>
-        {getSeverityIcon(severity)}
-        <span className="ml-1">{label}</span>
-      </span>
+    setSOVData(prevData => 
+      prevData.filter(row => !(row.category === category && row.company === company))
     );
   };
 
-  const isTemplateColumn = (columnName: string): boolean => {
-    // Normalize both strings by removing extra spaces, punctuation, and making lowercase
-    const normalize = (str: string) => str.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ');
-    const normalizedColumn = normalize(columnName);
+  // Get all data cells in order for navigation
+  const getAllDataCells = () => {
+    const cells: {category: string, company: string, field: string}[] = [];
+    const visibleColumns = getVisibleColumns();
     
-    return SOV_TEMPLATE_COLUMNS.some(templateCol => {
-      const normalizedTemplate = normalize(templateCol);
-      return normalizedTemplate === normalizedColumn;
+    sovData.forEach(row => {
+      // Add company field first
+      cells.push({category: row.category, company: row.company, field: 'company'});
+      // Add data fields
+      visibleColumns.forEach(col => {
+        cells.push({category: row.category, company: row.company, field: col.key});
+      });
     });
+    
+    return cells;
   };
 
-  const handleImport = async () => {
-    if (!sessionId) return;
+  // Navigate to a specific cell
+  const navigateToCell = (direction: 'up' | 'down' | 'left' | 'right' | 'enter') => {
+    if (!focusedCell) return;
     
-    try {
-      setImporting(true);
-      const response = await fetch('/api/admin/share-of-voice/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // Include cookies for authentication
-        body: JSON.stringify({
-          sessionId,
-          uploadedBy: 'admin' // This should come from user context
-        })
-      });
-      
-      if (!response.ok) {
-        console.error('Import API Response Status:', response.status, response.statusText);
-        const responseText = await response.text();
-        console.error('Import API Raw Response:', responseText);
-        
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch (e) {
-          errorData = { error: `Non-JSON response: ${responseText}` };
+    const allCells = getAllDataCells();
+    const currentIndex = allCells.findIndex(cell => 
+      cell.category === focusedCell.category && 
+      cell.company === focusedCell.company && 
+      cell.field === focusedCell.field
+    );
+    
+    if (currentIndex === -1) return;
+    
+    let nextIndex = currentIndex;
+    const fieldsPerRow = getVisibleColumns().length + 1; // +1 for company field
+    
+    switch (direction) {
+      case 'up':
+        nextIndex = currentIndex - fieldsPerRow;
+        break;
+      case 'down':
+      case 'enter':
+        nextIndex = currentIndex + fieldsPerRow;
+        break;
+      case 'left':
+        nextIndex = currentIndex - 1;
+        break;
+      case 'right':
+        nextIndex = currentIndex + 1;
+        break;
+    }
+    
+    if (nextIndex >= 0 && nextIndex < allCells.length) {
+      const nextCell = allCells[nextIndex];
+      setFocusedCell(nextCell);
+      // Focus the actual input element
+      setTimeout(() => {
+        const input = document.querySelector(`[data-cell="${nextCell.category}-${nextCell.company}-${nextCell.field}"]`) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.select();
         }
-        
-        console.error('Import API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData
-        });
-        throw new Error(errorData.error || 'Import failed');
-      }
-      
-      const result = await response.json();
-      setImportSuccess(true);
-      
-    } catch (error: any) {
-      console.error('Import error:', error);
-      setError(error.message || 'Import failed');
-    } finally {
-      setImporting(false);
+      }, 0);
     }
   };
 
-  const handleCellClick = (rowIndex: number, columnName: string, currentValue: any) => {
-    setEditingCell({ rowIndex, columnName });
-    setEditValue(currentValue || '');
+  // Handle multi-cell paste
+  const handleMultiPaste = (
+    startCategory: string,
+    startCompany: string,
+    startField: string,
+    pastedText: string
+  ) => {
+    const lines = pastedText.split(/\r?\n/);
+    const allCells = getAllDataCells();
+    const startIndex = allCells.findIndex(cell => 
+      cell.category === startCategory && 
+      cell.company === startCompany && 
+      cell.field === startField
+    );
+    
+    if (startIndex === -1) return;
+    
+    const fieldsPerRow = getVisibleColumns().length + 1; // +1 for company field
+    
+    lines.forEach((line, rowOffset) => {
+      if (line.trim() === '') return;
+      
+      const values = line.split(/\t/);
+      values.forEach((value, colOffset) => {
+        const targetIndex = startIndex + (rowOffset * fieldsPerRow) + colOffset;
+        if (targetIndex < allCells.length) {
+          const targetCell = allCells[targetIndex];
+          if (targetCell.field === 'company') {
+            updateCellValue(targetCell.category, targetCell.company, 'company', value.trim());
+          } else {
+            const numValue = parseFloat(value.replace(/[^0-9.-]/g, ''));
+            if (!isNaN(numValue)) {
+              updateCellValue(targetCell.category, targetCell.company, targetCell.field as keyof SOVData, numValue);
+            }
+          }
+        }
+      });
+    });
   };
 
-  const handleCellSave = () => {
-    if (!editingCell || !sessionData) return;
+  // Comprehensive validation function
+  const validateSOVData = useCallback((): { isValid: boolean, criticalErrors: number, errors: number, warnings: number } => {
+    const errors: { [key: string]: { type: 'critical' | 'error' | 'warning', message: string } } = {};
+    let criticalCount = 0;
+    let errorCount = 0;
+    let warningCount = 0;
+
+    const mainBrand = businessUnitName === 'Derma' ? 'Eucerin' : 'Nivea';
     
-    // Update the record in local state
-    const updatedRecords = [...sessionData.records];
-    updatedRecords[editingCell.rowIndex][editingCell.columnName] = editValue;
+    // Group data by category for validation
+    const dataByCategory = sovData.reduce((acc, row) => {
+      if (!acc[row.category]) acc[row.category] = [];
+      acc[row.category].push(row);
+      return acc;
+    }, {} as { [category: string]: SOVData[] });
+
+    Object.entries(dataByCategory).forEach(([category, rows]) => {
+      const mainBrandRow = rows.find(r => r.company === mainBrand);
+      const competitorRows = rows.filter(r => r.company !== mainBrand);
+
+      // Check if main brand has data
+      const mainBrandHasData = mainBrandRow && (
+        mediaType === 'tv' 
+          ? (mainBrandRow.totalTvInvestment > 0 || mainBrandRow.totalTvTrps > 0)
+          : (mainBrandRow.totalDigitalSpend > 0 || mainBrandRow.totalDigitalImpressions > 0)
+      );
+
+      // Check each competitor row
+      competitorRows.forEach(row => {
+        const hasData = mediaType === 'tv' 
+          ? (row.totalTvInvestment > 0 || row.totalTvTrps > 0)
+          : (row.totalDigitalSpend > 0 || row.totalDigitalImpressions > 0);
+
+        const hasCustomName = row.company && !row.company.startsWith('Competitor ');
+
+        // CRITICAL: Competitor has data but main brand doesn't
+        if (hasData && !mainBrandHasData) {
+          const errorKey = `${category}-${row.company}-critical`;
+          errors[errorKey] = {
+            type: 'critical',
+            message: `${mainBrand} must have data when competitors have data`
+          };
+          criticalCount++;
+        }
+
+        // ERROR: Custom competitor name but no data
+        if (hasCustomName && !hasData) {
+          if (mediaType === 'tv') {
+            const investmentKey = `${category}-${row.company}-totalTvInvestment`;
+            const trpKey = `${category}-${row.company}-totalTvTrps`;
+            errors[investmentKey] = {
+              type: 'error',
+              message: 'Enter investment data for this competitor'
+            };
+            errors[trpKey] = {
+              type: 'error', 
+              message: 'Enter TRP data for this competitor'
+            };
+            errorCount += 2;
+          } else {
+            const spendKey = `${category}-${row.company}-totalDigitalSpend`;
+            const impressionKey = `${category}-${row.company}-totalDigitalImpressions`;
+            errors[spendKey] = {
+              type: 'error',
+              message: 'Enter spend data for this competitor'
+            };
+            errors[impressionKey] = {
+              type: 'error',
+              message: 'Enter impression data for this competitor'
+            };
+            errorCount += 2;
+          }
+        }
+
+        // ERROR: Incomplete data (one field filled but not the other)
+        if (mediaType === 'digital') {
+          const hasSpend = (row.totalDigitalSpend || 0) > 0;
+          const hasImpressions = (row.totalDigitalImpressions || 0) > 0;
+          
+          if (hasSpend && !hasImpressions) {
+            const impressionKey = `${category}-${row.company}-totalDigitalImpressions`;
+            errors[impressionKey] = {
+              type: 'error',
+              message: 'Enter impressions when spend is provided'
+            };
+            errorCount++;
+          }
+          
+          if (hasImpressions && !hasSpend) {
+            const spendKey = `${category}-${row.company}-totalDigitalSpend`;
+            errors[spendKey] = {
+              type: 'error',
+              message: 'Enter spend when impressions are provided'
+            };
+            errorCount++;
+          }
+        } else {
+          const hasInvestment = (row.totalTvInvestment || 0) > 0;
+          const hasTrps = (row.totalTvTrps || 0) > 0;
+          
+          if (hasInvestment && !hasTrps) {
+            const trpKey = `${category}-${row.company}-totalTvTrps`;
+            errors[trpKey] = {
+              type: 'error',
+              message: 'Enter TRPs when investment is provided'
+            };
+            errorCount++;
+          }
+          
+          if (hasTrps && !hasInvestment) {
+            const investmentKey = `${category}-${row.company}-totalTvInvestment`;
+            errors[investmentKey] = {
+              type: 'error',
+              message: 'Enter investment when TRPs are provided'
+            };
+            errorCount++;
+          }
+        }
+
+        // WARNING: Investment > TRP or Spend > Impressions (unusual ratios)
+        if (mediaType === 'tv' && row.totalTvInvestment > 0 && row.totalTvTrps > 0) {
+          if (row.totalTvInvestment > row.totalTvTrps * 1000) { // Rough threshold
+            const investmentWarningKey = `${category}-${row.company}-totalTvInvestment`;
+            const trpWarningKey = `${category}-${row.company}-totalTvTrps`;
+            errors[investmentWarningKey] = {
+              type: 'warning',
+              message: 'Investment seems high compared to TRPs (consider reviewing)'
+            };
+            errors[trpWarningKey] = {
+              type: 'warning',
+              message: 'Investment seems high compared to TRPs (consider reviewing)'
+            };
+            warningCount += 2;
+          }
+        }
+
+        if (mediaType === 'digital' && row.totalDigitalSpend > 0 && row.totalDigitalImpressions > 0) {
+          // Simple check: if spend is higher than impressions, that's definitely unusual
+          if (row.totalDigitalSpend > row.totalDigitalImpressions) {
+            const spendWarningKey = `${category}-${row.company}-totalDigitalSpend`;
+            const impressionsWarningKey = `${category}-${row.company}-totalDigitalImpressions`;
+            errors[spendWarningKey] = {
+              type: 'warning',
+              message: `Spend (${row.totalDigitalSpend}) is higher than impressions (${row.totalDigitalImpressions}) - please review`
+            };
+            errors[impressionsWarningKey] = {
+              type: 'warning',
+              message: `Spend (${row.totalDigitalSpend}) is higher than impressions (${row.totalDigitalImpressions}) - please review`
+            };
+            warningCount += 2;
+          } else {
+            // Calculate CPM for more detailed warnings
+            const costPerMille = (row.totalDigitalSpend / row.totalDigitalImpressions) * 1000;
+            if (costPerMille > 50) { // High CPM warning
+              const spendWarningKey = `${category}-${row.company}-totalDigitalSpend`;
+              const impressionsWarningKey = `${category}-${row.company}-totalDigitalImpressions`;
+              errors[spendWarningKey] = {
+                type: 'warning',
+                message: `High CPM: ${costPerMille.toFixed(2)} (consider reviewing spend vs impressions)`
+              };
+              errors[impressionsWarningKey] = {
+                type: 'warning',
+                message: `High CPM: ${costPerMille.toFixed(2)} (consider reviewing spend vs impressions)`
+              };
+              warningCount += 2;
+            }
+          }
+        }
+      });
+
+      // Additional validations for main brand
+      if (mainBrandRow) {
+        // WARNING: Main brand has zero data in category with competitor data
+        const hasCompetitorData = competitorRows.some(row => 
+          mediaType === 'tv' 
+            ? (row.totalTvInvestment > 0 || row.totalTvTrps > 0)
+            : (row.totalDigitalSpend > 0 || row.totalDigitalImpressions > 0)
+        );
+
+        if (hasCompetitorData && !mainBrandHasData) {
+          const warningKey = `${category}-${mainBrand}-missing-data`;
+          errors[warningKey] = {
+            type: 'warning',
+            message: `Consider adding ${mainBrand} data for complete analysis`
+          };
+          warningCount++;
+        }
+
+        // ERROR: Negative values
+        if (mediaType === 'tv') {
+          if (mainBrandRow.totalTvInvestment < 0) {
+            errors[`${category}-${mainBrand}-totalTvInvestment`] = {
+              type: 'error',
+              message: 'Investment cannot be negative'
+            };
+            errorCount++;
+          }
+          if (mainBrandRow.totalTvTrps < 0) {
+            errors[`${category}-${mainBrand}-totalTvTrps`] = {
+              type: 'error',
+              message: 'TRPs cannot be negative'
+            };
+            errorCount++;
+          }
+        } else {
+          if (mainBrandRow.totalDigitalSpend < 0) {
+            errors[`${category}-${mainBrand}-totalDigitalSpend`] = {
+              type: 'error',
+              message: 'Spend cannot be negative'
+            };
+            errorCount++;
+          }
+          if (mainBrandRow.totalDigitalImpressions < 0) {
+            errors[`${category}-${mainBrand}-totalDigitalImpressions`] = {
+              type: 'error',
+              message: 'Impressions cannot be negative'
+            };
+            errorCount++;
+          }
+        }
+      }
+    });
+
+    console.log('=== VALIDATION ERRORS DEBUG ===');
+    console.log('Generated errors:', errors);
+    console.log('Error keys:', Object.keys(errors));
+    console.log('Counts:', { criticalCount, errorCount, warningCount });
     
-    setSessionData({
-      ...sessionData,
-      records: updatedRecords
+    setValidationErrors(errors);
+    return {
+      isValid: criticalCount === 0 && errorCount === 0,
+      criticalErrors: criticalCount,
+      errors: errorCount,
+      warnings: warningCount
+    };
+  }, [sovData, mediaType, businessUnitName]);
+
+  // Always validate for warnings (immediate feedback), only show errors after save attempt
+  useEffect(() => {
+    if (sovData.length > 0 && businessUnitName) {
+      validateSOVData();
+    }
+  }, [sovData, mediaType, businessUnitName, validateSOVData]);
+
+  // Save SOV data
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+
+    // Show validation errors when user tries to save
+    setShowValidationErrors(true);
+    
+    // Run validation before saving
+    const validation = validateSOVData();
+    
+    console.log('=== VALIDATION DEBUG ===');
+    console.log('Validation result:', validation);
+    console.log('Current validation errors:', validationErrors);
+    console.log('Data being validated:', sovData.slice(0, 3));
+    console.log('Media type:', mediaType);
+    console.log('Business unit:', businessUnitName);
+    
+    // Only block save for critical errors and regular errors, allow warnings
+    if (!validation.isValid) {
+      setSaving(false);
+      // Validation errors are now visible in the UI
+      return;
+    }
+
+    // Save all rows in the grid - this ensures the complete structure is preserved
+    const dataToSave = sovData.filter(row => {
+      // Only filter out completely empty rows (no company name)
+      return row.company && row.company.trim() !== '';
     });
     
-    setEditingCell(null);
-    setEditValue('');
+    console.log('=== SAVE DEBUG INFO ===');
+    console.log('Total rows in grid:', sovData.length);
+    console.log('Rows being saved:', dataToSave.length);
+    console.log('Companies being saved:', dataToSave.map(r => r.company));
+    console.log('Data preview:', dataToSave.slice(0, 3));
+
+    try {
+      const response = await fetch('/api/admin/share-of-voice/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          countryId,
+          businessUnitId,
+          mediaType,
+          data: dataToSave
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', response.status, errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: `Server error ${response.status}: ${errorText}` };
+        }
+        throw new Error(errorData.error || `Failed to save SOV data (${response.status})`);
+      }
+
+      setSaveSuccess(true);
+      setShowValidationErrors(false); // Clear validation errors on successful save
+      onSave?.(true);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
+
+    } catch (error: any) {
+      console.error('=== SAVE ERROR DETAILS ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Data being saved:', dataToSave);
+      console.error('Request payload:', {
+        countryId,
+        businessUnitId,
+        mediaType,
+        dataLength: dataToSave.length
+      });
+      console.error('=== END SAVE ERROR ===');
+      onSave?.(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Get visible columns based on media type
+  const getVisibleColumns = () => {
+    if (mediaType === 'tv') {
+      return [
+        { key: 'totalTvInvestment', label: 'TV Investment', type: 'currency' },
+        { key: 'totalTvTrps', label: 'TV TRPs', type: 'number' }
+      ];
+    } else {
+      return [
+        { key: 'totalDigitalSpend', label: 'Digital Spend', type: 'currency' },
+        { key: 'totalDigitalImpressions', label: 'Digital Impressions', type: 'number' }
+      ];
+    }
+  };
+
+  // Group data by category
+  const getGroupedData = () => {
+    const grouped: { [category: string]: SOVData[] } = {};
     
-    // TODO: Save to session file and re-validate
+    sovData.forEach(row => {
+      if (!grouped[row.category]) {
+        grouped[row.category] = [];
+      }
+      grouped[row.category].push(row);
+    });
+    
+    return grouped;
   };
 
-  const handleCellCancel = () => {
-    setEditingCell(null);
-    setEditValue('');
-  };
-
-  if (loading) {
+  if (categories.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow border border-gray-200">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4">Loading session data...</p>
-        </div>
+      <div className="text-center py-8">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-500">Loading categories...</p>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <div className="flex">
-          <FiAlertCircle className="h-5 w-5 text-red-400" />
-          <div className="ml-3">
-            <div className="text-sm text-red-800">{error}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const visibleColumns = getVisibleColumns();
+  const groupedData = getGroupedData();
 
-  if (!sessionData) {
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <div className="flex">
-          <FiInfo className="h-5 w-5 text-blue-400" />
-          <div className="ml-3">
-            <div className="text-sm text-blue-800">No session data found</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  console.log('=== GRID RENDER DEBUG ===');
+  console.log('Total sovData rows:', sovData.length);
+  console.log('Categories:', Object.keys(groupedData));
+  
+  // Show detailed breakdown per category
+  Object.entries(groupedData).forEach(([category, rows]) => {
+    console.log(`${category} (${(rows as any[]).length} companies):`);
+    (rows as any[]).forEach((row: any, index: number) => {
+      console.log(`  ${index}: ${row.company} (${row.totalDigitalSpend || 0}/${row.totalDigitalImpressions || 0})`);
+    });
+  });
+  
+  console.log('Full sovData companies:', sovData.map((r, i) => `${i}: ${r.category}: ${r.company}`));
 
   return (
     <div className="space-y-6">
-      {/* Validation Summary */}
-      {sessionData.validationSummary && (
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">Share of Voice Validation Summary</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                {sessionData.businessUnit} • {sessionData.country}
-              </p>
-            </div>
-            <button
-              onClick={() => loadSessionData()}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              title="Refresh validation data"
-            >
-              <FiRefreshCw className="h-4 w-4 mr-1" />
-              Refresh
-            </button>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">
-                  {sessionData.validationSummary.critical}
-                </div>
-                <div className="text-sm text-red-700">Critical Issues</div>
-              </div>
-              <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {sessionData.validationSummary.warning}
-                </div>
-                <div className="text-sm text-yellow-700">Warnings</div>
-              </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
-                  {sessionData.validationSummary.suggestion}
-                </div>
-                <div className="text-sm text-blue-700">Suggestions</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-600">
-                  {sessionData.validationSummary.uniqueRows}
-                </div>
-                <div className="text-sm text-gray-700">Affected Rows</div>
-              </div>
-            </div>
+      {/* Action Bar */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <h4 className="font-medium text-gray-900">
+            {businessUnitName === 'Derma' ? 'Eucerin' : businessUnitName} Categories
+            {dataLoaded && <span className="text-sm text-green-600 ml-2">(Existing data loaded)</span>}
+            {hasExistingData && !dataLoaded && <span className="text-sm text-blue-600 ml-2">(Data available - click Load Existing)</span>}
+          </h4>
+          
+          {/* Validation Status - always show warnings, only show errors after save attempt */}
+          {sovData.length > 0 && (() => {
+            // Count validation errors without calling validateSOVData() to avoid infinite renders
+            const criticalCount = showValidationErrors ? Object.values(validationErrors).filter(e => e.type === 'critical').length : 0;
+            const errorCount = showValidationErrors ? Object.values(validationErrors).filter(e => e.type === 'error').length : 0;
+            const warningCount = Object.values(validationErrors).filter(e => e.type === 'warning').length; // Always show warnings
             
-            {sessionData.validationSummary.critical === 0 ? (
-              <div className="bg-green-50 border border-green-200 rounded-md p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex">
-                    <FiCheckCircle className="h-5 w-5 text-green-400" />
-                    <div className="ml-3">
-                      <div className="text-sm text-green-800">
-                        All validation checks passed! The SOV data is ready for import.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleImport}
-                    disabled={importing || importSuccess}
-                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${
-                      importSuccess 
-                        ? 'bg-gray-100 text-green-700 cursor-not-allowed'
-                        : importing
-                        ? 'bg-green-400 text-white cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+            // Only show status if there are visible issues
+            if (criticalCount === 0 && errorCount === 0 && warningCount === 0) {
+              return null;
+            }
+            
+            if (criticalCount > 0) {
+              return (
+                <div className="flex items-center text-red-600">
+                  <FiAlertCircle className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-medium">{criticalCount} Critical</span>
+                </div>
+              );
+            } else if (errorCount > 0) {
+              return (
+                <div className="flex items-center text-orange-600">
+                  <FiAlertCircle className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-medium">{errorCount} Errors</span>
+                </div>
+              );
+            } else if (warningCount > 0) {
+              return (
+                <div className="flex items-center text-yellow-600">
+                  <FiAlertCircle className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-medium">{warningCount} Warnings</span>
+                </div>
+              );
+            } else {
+              return (
+                <div className="flex items-center text-green-600">
+                  <FiCheckCircle className="h-4 w-4 mr-1" />
+                  <span className="text-sm font-medium">Valid</span>
+                </div>
+              );
+            }
+          })()}
+        </div>
+        <div className="flex space-x-2">
+          {saveSuccess && (
+            <div className="flex items-center text-green-600">
+              <FiCheckCircle className="h-4 w-4 mr-1" />
+              <span className="text-sm">Saved</span>
+            </div>
+          )}
+          <button
+            onClick={loadExistingData}
+            disabled={!hasExistingData}
+            className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md ${
+              hasExistingData
+                ? 'border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100'
+                : 'border-gray-300 text-gray-400 bg-gray-50 cursor-not-allowed'
+            }`}
+          >
+            <FiRefreshCw className="h-4 w-4 mr-2" />
+            Load Existing
+          </button>
+          {(() => {
+            // Only count errors when validation is being shown
+            const criticalCount = showValidationErrors ? Object.values(validationErrors).filter(e => e.type === 'critical').length : 0;
+            const errorCount = showValidationErrors ? Object.values(validationErrors).filter(e => e.type === 'error').length : 0;
+            const warningCount = showValidationErrors ? Object.values(validationErrors).filter(e => e.type === 'warning').length : 0;
+            const hasBlockingErrors = criticalCount > 0 || errorCount > 0;
+            
+            return (
+              <button
+                onClick={handleSave}
+                disabled={saving || categories.length === 0 || hasBlockingErrors}
+                className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+                  hasBlockingErrors 
+                    ? 'bg-red-100 text-red-700 border border-red-300 cursor-not-allowed'
+                    : warningCount > 0
+                    ? 'bg-yellow-50 text-yellow-700 border border-yellow-300 hover:bg-yellow-100'
+                    : saving
+                    ? 'bg-blue-400 text-white cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title={
+                  hasBlockingErrors 
+                    ? `Cannot save: ${criticalCount + errorCount} errors must be fixed first`
+                    : warningCount > 0
+                    ? `${warningCount} warnings - click to save anyway`
+                    : 'Save data'
+                }
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                    Saving...
+                  </>
+                ) : hasBlockingErrors ? (
+                  <>
+                    <FiAlertCircle className="h-4 w-4 mr-2" />
+                    Cannot Save ({criticalCount + errorCount} errors)
+                  </>
+                ) : warningCount > 0 ? (
+                  <>
+                    <FiAlertTriangle className="h-4 w-4 mr-2" />
+                    Save ({warningCount} warnings)
+                  </>
+                ) : (
+                  <>
+                    <FiSave className="h-4 w-4 mr-2" />
+                    Save Data
+                  </>
+                )}
+              </button>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-lg">
+        <div className="overflow-auto" style={{ maxHeight: '600px' }}>
+          {/* Header Row */}
+          <div className="sticky top-0 bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-300 grid grid-cols-12 gap-0 shadow-sm z-10">
+            <div className="col-span-2 px-4 py-3 text-sm font-bold text-slate-800 border-r border-slate-200 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+              <span className="tracking-wide">Category</span>
+            </div>
+            <div className="col-span-2 px-4 py-3 text-sm font-bold text-slate-800 border-r border-slate-200 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+              <span className="tracking-wide">Company</span>
+            </div>
+            {visibleColumns.map((column) => (
+              <div key={column.key} className="col-span-3 px-4 py-3 text-sm font-bold text-slate-800 border-r border-slate-200 text-center flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+                <span className="tracking-wide">{column.label}</span>
+              </div>
+            ))}
+            <div className="col-span-2 px-4 py-3 text-sm font-bold text-slate-800 border-r border-slate-200 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm">
+              <span className="tracking-wide">Actions</span>
+            </div>
+          </div>
+          
+          {/* Data Rows */}
+          {Object.entries(groupedData).map(([category, rows]) => (
+            <div key={category}>
+              {rows.map((row, rowIndex) => {
+                const isEvenRow = rowIndex % 2 === 0;
+                const categoryRows = sovData.filter(r => r.category === row.category);
+                const canDelete = categoryRows.length > 1;
+                const mainBrand = businessUnitName === 'Derma' ? 'Eucerin' : 'Nivea';
+                const isMainBrand = row.company === mainBrand;
+                
+                // Find the actual index in sovData by finding the rowIndex-th item in this category
+                const categoryStartIndex = sovData.findIndex(r => r.category === row.category);
+                const globalRowIndex = categoryStartIndex + rowIndex;
+                
+                return (
+                  <div 
+                    key={`${row.category}-${globalRowIndex}`}
+                    className={`grid grid-cols-12 gap-0 border-b border-slate-200 transition-colors duration-150 hover:bg-slate-50 ${
+                      isMainBrand 
+                        ? 'bg-slate-100 border-l-4 border-l-blue-400' // Darker light grey with blue accent for main brand
+                        : isEvenRow ? 'bg-white' : 'bg-slate-25'
                     }`}
                   >
-                    {importing ? (
-                      <>
-                        <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                        Importing...
-                      </>
-                    ) : importSuccess ? (
-                      <>
-                        <FiCheckCircle className="h-4 w-4 mr-2" />
-                        Import Complete
-                      </>
-                    ) : (
-                      <>
-                        <FiCheckCircle className="h-4 w-4 mr-2" />
-                        Import to Database
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <FiAlertCircle className="h-5 w-5 text-red-400" />
-                  <div className="ml-3">
-                    <div className="text-sm text-red-800">
-                      {sessionData.validationSummary.critical} critical issues must be resolved before import.
+                    {/* Category */}
+                    <div className="col-span-2 px-3 py-2 text-sm font-medium text-slate-900 border-r border-slate-200 flex items-center">
+                      {row.category}
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Detailed Issues List */}
-      {sessionData.validationIssues && sessionData.validationIssues.length > 0 && (
-        <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Detailed Validation Issues</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              All validation issues found in your uploaded SOV data. Critical issues must be fixed before import.
-            </p>
-          </div>
-          <div className="p-6">
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {sessionData.validationIssues.map((issue: ValidationIssue, index: number) => (
-                <div 
-                  key={index} 
-                  className={`flex items-start p-3 rounded-lg border ${
-                    issue.severity === 'critical' 
-                      ? 'bg-red-50 border-red-200' 
-                      : issue.severity === 'warning'
-                      ? 'bg-yellow-50 border-yellow-200'
-                      : 'bg-blue-50 border-blue-200'
-                  }`}
-                >
-                  <div className="flex-shrink-0 mr-3 mt-0.5">
-                    {getSeverityIcon(issue.severity)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2 mb-1">
-                      {getSeverityBadge(issue.severity)}
-                      <span className="text-sm font-medium text-gray-900">
-                        Row {issue.rowIndex + 1}, Column "{issue.columnName}"
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700">{issue.message}</p>
-                    {issue.currentValue && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Current value: "{issue.currentValue}"
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Data Preview with Validation Issues */}
-      <div className="bg-white rounded-lg shadow border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">SOV Data Preview with Validation Issues</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Cells with validation issues are highlighted. Hover over highlighted cells to see the issue details.
-            {sessionData.validationIssues && (
-              <span className="ml-2 text-xs text-gray-400">
-                ({sessionData.validationIssues.length} issues loaded)
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="p-6">
-          <div className="overflow-auto max-h-[600px] border border-gray-200 rounded-lg relative">
-            <table className="min-w-full divide-y divide-gray-200" style={{ minWidth: 'max-content' }}>
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 border-r border-gray-200 min-w-16 z-20">
-                    Row
-                  </th>
-                  {sessionData.records && sessionData.records[0] && Object.keys(sessionData.records[0]).map((header) => {
-                    const isCustomColumn = !isTemplateColumn(header);
-                    return (
-                      <th 
-                        key={header} 
-                        className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap min-w-32 ${
-                          isCustomColumn 
-                            ? 'bg-purple-100 text-purple-700 border-b-2 border-purple-300' 
-                            : 'bg-gray-50 text-gray-500'
+                    
+                    {/* Company - Editable */}
+                    <div className="col-span-2 border-r border-slate-200 p-0">
+                      <input
+                        type="text"
+                        value={row.company}
+                        data-cell={`${row.category}-${row.company}-company`}
+                        onChange={(e) => updateCellValue(row.category, row.company, 'company', e.target.value, globalRowIndex)}
+                        onFocus={() => setFocusedCell({category: row.category, company: row.company, field: 'company'})}
+                        onKeyDown={(e) => {
+                          switch(e.key) {
+                            case 'ArrowUp':
+                              e.preventDefault();
+                              navigateToCell('up');
+                              break;
+                            case 'ArrowDown':
+                            case 'Enter':
+                              e.preventDefault();
+                              navigateToCell('down');
+                              break;
+                            case 'ArrowLeft':
+                              if (e.currentTarget.selectionStart === 0) {
+                                e.preventDefault();
+                                navigateToCell('left');
+                              }
+                              break;
+                            case 'ArrowRight':
+                              if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
+                                e.preventDefault();
+                                navigateToCell('right');
+                              }
+                              break;
+                          }
+                        }}
+                        onPaste={(e) => {
+                          const pastedText = e.clipboardData?.getData('text') || '';
+                          if (pastedText.includes('\t') || pastedText.includes('\n')) {
+                            e.preventDefault();
+                            handleMultiPaste(row.category, row.company, 'company', pastedText);
+                          }
+                        }}
+                        className={`w-full h-10 px-3 text-sm border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-transparent ${
+                          isMainBrand ? 'font-semibold text-slate-800' : 'font-normal'
                         }`}
-                        title={isCustomColumn ? 'Custom column - not in standard template' : undefined}
+                        placeholder="Company name"
+                      />
+                    </div>
+                    
+                    {/* Data Cells */}
+                    {visibleColumns.map((column) => {
+                      const value = row[column.key as keyof SOVData] as number || 0;
+                      const displayValue = value === 0 ? '' : value;
+                      
+                      // Check for validation errors on this specific cell
+                      const cellErrorKey = `${row.category}-${row.company}-${column.key}`;
+                      const cellError = validationErrors[cellErrorKey];
+                      const criticalErrorKey = `${row.category}-${row.company}-critical`;
+                      const criticalError = validationErrors[criticalErrorKey];
+                      
+                      // Debug logging for first few cells
+                      if (Object.keys(validationErrors).length > 0 && rowIndex === 0) {
+                        console.log(`Validation check for ${cellErrorKey}:`, {
+                          cellError,
+                          criticalError,
+                          allErrors: Object.keys(validationErrors)
+                        });
+                      }
+                      
+                      // Determine styling based on error type
+                      // Warnings: Always show immediately (user can save with warnings)
+                      // Errors/Critical: Only show after save attempt (blocks save)
+                      const hasValidationIcon = (cellError?.type === 'warning') || (showValidationErrors && (cellError || criticalError));
+                      const paddingRight = hasValidationIcon ? 'pr-8' : 'pr-3'; // Make room for icon
+                      
+                      let inputClasses = `w-full h-10 pl-3 ${paddingRight} text-sm text-center border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
+                      
+                      // Always show warnings immediately
+                      if (cellError?.type === 'warning') {
+                        inputClasses = `w-full h-10 pl-3 ${paddingRight} text-sm text-center border-l-4 border-yellow-500 focus:ring-2 focus:ring-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-yellow-100 text-yellow-900 placeholder-yellow-600`;
+                      }
+                      
+                      // Only show errors/critical after save attempt
+                      if (showValidationErrors) {
+                        if (criticalError) {
+                          inputClasses = `w-full h-10 pl-3 ${paddingRight} text-sm text-center border-l-4 border-red-500 focus:ring-2 focus:ring-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-red-100 text-red-900 placeholder-red-500`;
+                        } else if (cellError?.type === 'error') {
+                          inputClasses = `w-full h-10 pl-3 ${paddingRight} text-sm text-center border-l-4 border-red-500 focus:ring-2 focus:ring-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-red-100 text-red-900 placeholder-red-500`;
+                        }
+                      }
+                      
+                      return (
+                        <div key={column.key} className="col-span-3 border-r border-slate-200 p-0 relative group">
+                          {/* Tooltip: Always show warnings, only show errors/critical after save attempt */}
+                          {((cellError?.type === 'warning') || (showValidationErrors && (cellError || criticalError))) && (
+                            <div className="absolute z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                              {criticalError?.message || cellError?.message}
+                            </div>
+                          )}
+                          
+                          {/* Input wrapper to position icon */}
+                          <div className="relative flex items-center">
+                            <input
+                            type="number"
+                            step={column.type === 'currency' ? '0.01' : '1'}
+                            min="0"
+                            value={displayValue}
+                            data-cell={`${row.category}-${row.company}-${column.key}`}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '') {
+                                updateCellValue(row.category, row.company, column.key as keyof SOVData, 0);
+                              } else {
+                                const numValue = parseFloat(value);
+                                if (!isNaN(numValue)) {
+                                  updateCellValue(row.category, row.company, column.key as keyof SOVData, numValue);
+                                }
+                              }
+                            }}
+                            onFocus={() => setFocusedCell({category: row.category, company: row.company, field: column.key})}
+                            onKeyDown={(e) => {
+                              switch(e.key) {
+                                case 'ArrowUp':
+                                  e.preventDefault();
+                                  navigateToCell('up');
+                                  break;
+                                case 'ArrowDown':
+                                case 'Enter':
+                                  e.preventDefault();
+                                  navigateToCell('down');
+                                  break;
+                                case 'ArrowLeft':
+                                  if (e.currentTarget.selectionStart === 0) {
+                                    e.preventDefault();
+                                    navigateToCell('left');
+                                  }
+                                  break;
+                                case 'ArrowRight':
+                                  if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
+                                    e.preventDefault();
+                                    navigateToCell('right');
+                                  }
+                                  break;
+                              }
+                            }}
+                            onPaste={(e) => {
+                              const pastedText = e.clipboardData?.getData('text') || '';
+                              if (pastedText.includes('\t') || pastedText.includes('\n')) {
+                                e.preventDefault();
+                                handleMultiPaste(row.category, row.company, column.key, pastedText);
+                              }
+                            }}
+                            className={inputClasses}
+                            placeholder={column.type === 'currency' ? '0.00' : '0'}
+                          />
+                          
+                          {/* Small icon inside cell like game plans grid */}
+                          {((cellError?.type === 'warning') || (showValidationErrors && (cellError || criticalError))) && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                              {showValidationErrors && criticalError && <FiAlertCircle className="h-3 w-3 text-red-500" />}
+                              {showValidationErrors && cellError?.type === 'error' && <FiAlertCircle className="h-3 w-3 text-red-500" />}
+                              {cellError?.type === 'warning' && <FiAlertTriangle className="h-3 w-3 text-yellow-600" />}
+                            </div>
+                          )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Actions */}
+                    <div className="col-span-2 border-r border-slate-200 p-1 flex items-center justify-center space-x-1">
+                      <button
+                        onClick={() => addCompetitorRow(row.category)}
+                        disabled={isMainBrand}
+                        className={`p-1 rounded ${
+                          isMainBrand 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-green-600 hover:text-green-800 hover:bg-green-50'
+                        }`}
+                        title={isMainBrand ? "Cannot add competitor for main brand" : "Add competitor"}
                       >
-                        {header}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sessionData.records?.slice(0, 20).map((record, displayIndex) => {
-                  const originalRowIndex = displayIndex;
-                  const rowIssues = sessionData.validationIssues?.filter((issue: any) => issue.rowIndex === originalRowIndex) || [];
-                  
-                  return (
-                    <tr key={displayIndex} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200 min-w-16 z-10">
-                        {originalRowIndex + 1}
-                      </td>
-                      {Object.keys(record).map((header) => {
-                        const cellIssue = rowIssues.find((issue: any) => issue.columnName === header);
-                        const cellValue = record[header] || '-';
-                        const isCustomColumn = !isTemplateColumn(header);
-                        
-                        const isEditing = editingCell?.rowIndex === originalRowIndex && editingCell?.columnName === header;
-                        
-                        return (
-                          <td 
-                            key={header} 
-                            className={`px-4 py-3 text-sm whitespace-nowrap relative min-w-32 cursor-pointer hover:bg-gray-50 ${
-                              cellIssue 
-                                ? cellIssue.severity === 'critical' 
-                                  ? 'bg-red-100 text-red-900 border-l-4 border-red-500' 
-                                  : cellIssue.severity === 'warning'
-                                  ? 'bg-yellow-100 text-yellow-900 border-l-4 border-yellow-500'
-                                  : 'bg-blue-100 text-blue-900 border-l-4 border-blue-500'
-                                : isCustomColumn
-                                ? 'bg-purple-50 text-gray-900'
-                                : 'text-gray-900'
-                            }`}
-                            title={cellIssue ? `${cellIssue.severity.toUpperCase()}: ${cellIssue.message}` : cellValue.length > 20 ? cellValue : undefined}
-                            onClick={() => !isEditing && handleCellClick(originalRowIndex, header, cellValue)}
-                          >
-                            {isEditing ? (
-                              <div className="flex items-center space-x-1">
-                                <input
-                                  type="text"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleCellSave();
-                                    if (e.key === 'Escape') handleCellCancel();
-                                  }}
-                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  autoFocus
-                                />
-                                <button
-                                  onClick={handleCellSave}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Save"
-                                >
-                                  ✓
-                                </button>
-                                <button
-                                  onClick={handleCellCancel}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Cancel"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ) : (
-                              <span className="flex items-center">
-                                <span className="truncate max-w-48">{cellValue}</span>
-                                {cellIssue && (
-                                  <span className="ml-2 flex-shrink-0">
-                                    {cellIssue.severity === 'critical' && <FiAlertCircle className="h-3 w-3 text-red-500" />}
-                                    {cellIssue.severity === 'warning' && <FiAlertTriangle className="h-3 w-3 text-yellow-500" />}
-                                    {cellIssue.severity === 'suggestion' && <FiInfo className="h-3 w-3 text-blue-500" />}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-4 space-y-2">
-            <div className="flex justify-between items-center text-sm text-gray-500">
-              <p>
-                Showing first {Math.min(20, sessionData.records?.length || 0)} of {sessionData.totalRecords} records
-              </p>
-              <p className="text-xs">
-                💡 Scroll horizontally to see all {sessionData.records && sessionData.records[0] ? Object.keys(sessionData.records[0]).length : 0} columns
-              </p>
+                        <FiPlus className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => removeCompetitorRow(row.category, row.company)}
+                        disabled={!canDelete || isMainBrand}
+                        className={`p-1 rounded ${
+                          (canDelete && !isMainBrand)
+                            ? 'text-red-600 hover:text-red-800 hover:bg-red-50' 
+                            : 'text-gray-400 cursor-not-allowed'
+                        }`}
+                        title={
+                          isMainBrand 
+                            ? "Cannot delete main brand" 
+                            : !canDelete 
+                              ? "Cannot delete last competitor" 
+                              : "Delete competitor"
+                        }
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <h4 className="font-medium text-blue-900 mb-2">Instructions</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h5 className="font-medium text-blue-900 mb-1">Data Entry</h5>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• Edit company names directly in the grid</li>
+              <li>• Enter {mediaType === 'tv' ? 'investment and TRP' : 'spend and impression'} values in the data columns</li>
+              <li>• Use the Actions column to add (➕) or delete (🗑️) competitors for each category</li>
+              <li>• Cannot delete the last competitor in a category (at least one must remain)</li>
+              <li>• Use copy-paste to import data from Excel spreadsheets</li>
+              <li>• Only non-zero data will be saved to the database</li>
+              <li>• Data will replace existing {mediaType.toUpperCase()} SOV data for this country/business unit</li>
+            </ul>
+          </div>
+          <div>
+            <h5 className="font-medium text-blue-900 mb-1">Validation Rules</h5>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• <span className="bg-red-100 text-red-800 px-1 rounded">Critical</span>: Competitor data without {businessUnitName === 'Derma' ? 'Eucerin' : 'Nivea'} data</li>
+              <li>• <span className="bg-orange-100 text-orange-800 px-1 rounded">Error</span>: Custom company name without data values</li>
+              <li>• <span className="bg-orange-100 text-orange-800 px-1 rounded">Error</span>: Incomplete data pairs - both fields required</li>
+              <li>• <span className="bg-orange-100 text-orange-800 px-1 rounded">Error</span>: Negative values not allowed</li>
+              <li>• <span className="bg-yellow-100 text-yellow-800 px-1 rounded">Warning</span>: High {mediaType === 'tv' ? 'investment vs TRP ratio' : 'CPM values'}</li>
+              <li>• <span className="bg-yellow-100 text-yellow-800 px-1 rounded">Warning</span>: Missing {businessUnitName === 'Derma' ? 'Eucerin' : 'Nivea'} data when competitors exist</li>
+              <li>• Red/orange errors disable save button; yellow warnings allow saving</li>
+              <li>• Hover over colored cells to see detailed error messages</li>
+            </ul>
           </div>
         </div>
       </div>

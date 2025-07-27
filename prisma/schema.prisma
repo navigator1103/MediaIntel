@@ -355,10 +355,15 @@ model ShareOfVoice {
   businessUnitId         Int         @map("business_unit_id")
   category               String      // "Face Care", "Hand Body", "Face Cleansing", etc. (Nivea) OR "Acne", "Anti Pigment", etc. (Derma)
   company                String      // "Nivea", "Competitor 1", "Competitor 2", etc.
+  position               Int?        // Position within category (0=first, 1=second, etc.) - preserves order
   
-  // Core SOV Data
+  // TV SOV Data
   totalTvInvestment      Float?      @map("total_tv_investment")
   totalTvTrps            Float?      @map("total_tv_trps")
+  
+  // Digital SOV Data
+  totalDigitalSpend      Float?      @map("total_digital_spend")
+  totalDigitalImpressions Float?     @map("total_digital_impressions")
   
   // System Fields
   uploadedBy             String?     @map("uploaded_by")
@@ -370,8 +375,8 @@ model ShareOfVoice {
   country                Country     @relation(fields: [countryId], references: [id])
   businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
   
-  // Ensure unique combination per country and business unit
-  @@unique([countryId, businessUnitId, category, company])
+  // Ensure unique combination per country, business unit, category and position
+  @@unique([countryId, businessUnitId, category, position])
   @@map("share_of_voice")
 }
 

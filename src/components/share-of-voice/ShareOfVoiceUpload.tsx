@@ -25,6 +25,8 @@ interface ShareOfVoiceUploadProps {
   onUploadComplete?: (sessionId: string) => void;
   onValidationComplete?: (sessionId: string, summary: any) => void;
   onBusinessUnitChange?: (businessUnit: string) => void;
+  onCountryBusinessUnitChange?: (countryId: number, businessUnitId: number) => void;
+  showGridOnly?: boolean;
 }
 
 interface Country {
@@ -41,7 +43,9 @@ export default function ShareOfVoiceUpload({
   mediaType,
   onUploadComplete, 
   onValidationComplete,
-  onBusinessUnitChange
+  onBusinessUnitChange,
+  onCountryBusinessUnitChange,
+  showGridOnly = false
 }: ShareOfVoiceUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' });
   const [isDragging, setIsDragging] = useState(false);
@@ -337,7 +341,15 @@ export default function ShareOfVoiceUpload({
                 <div className="relative">
                   <select
                     value={selectedCountry}
-                    onChange={(e) => setSelectedCountry(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedCountry(e.target.value);
+                      // Also notify about country and business unit IDs for grid mode if both are selected
+                      if (e.target.value && selectedBusinessUnit && onCountryBusinessUnitChange) {
+                        const countryId = parseInt(e.target.value);
+                        const businessUnitId = parseInt(selectedBusinessUnit);
+                        onCountryBusinessUnitChange(countryId, businessUnitId);
+                      }
+                    }}
                     disabled={loadingCountries}
                     className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                   >
@@ -370,6 +382,12 @@ export default function ShareOfVoiceUpload({
                       const selectedBU = businessUnits.find(bu => bu.id.toString() === e.target.value);
                       if (selectedBU && onBusinessUnitChange) {
                         onBusinessUnitChange(selectedBU.name);
+                      }
+                      // Also notify about country and business unit IDs for grid mode
+                      if (selectedBU && selectedCountry && onCountryBusinessUnitChange) {
+                        const countryId = parseInt(selectedCountry);
+                        const businessUnitId = selectedBU.id;
+                        onCountryBusinessUnitChange(countryId, businessUnitId);
                       }
                     }}
                     disabled={loadingBusinessUnits}

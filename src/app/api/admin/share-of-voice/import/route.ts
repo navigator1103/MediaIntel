@@ -13,8 +13,8 @@ const FIELD_MAPPING = {
   'Company': 'company',
   'Total TV Investment': 'totalTvInvestment',
   'Total TV TRPs': 'totalTvTrps',
-  'Total Digital Spend': 'totalTvInvestment', // Map to same field as TV Investment
-  'Total Digital Impressions': 'totalTvTrps' // Map to same field as TV TRPs
+  'Total Digital Spend': 'totalDigitalSpend',
+  'Total Digital Impressions': 'totalDigitalImpressions'
 };
 
 function parseNumber(value: any): number | null {
@@ -40,7 +40,8 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
     const value = record[csvField];
     console.log(`Mapping ${csvField} -> ${dbField}:`, value); // Debug log
     
-    if (dbField === 'totalTvInvestment' || dbField === 'totalTvTrps') {
+    if (dbField === 'totalTvInvestment' || dbField === 'totalTvTrps' || 
+        dbField === 'totalDigitalSpend' || dbField === 'totalDigitalImpressions') {
       // Parse numeric fields
       const parsed = parseNumber(value);
       console.log(`Parsed ${csvField}:`, value, '->', parsed); // Debug log
