@@ -185,14 +185,32 @@ export default function GamePlansUploadPage() {
                 <div className="bg-white rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <h3 className="text-lg font-medium text-gray-900">Upload Instructions</h3>
-                    <a
-                      href="/templates/game-plans-template.csv"
-                      download="game-plans-template.csv"
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      <FiFileText className="h-4 w-4 mr-2" />
-                      Download Template
-                    </a>
+                    <div className="flex space-x-3">
+                      <a
+                        href="/templates/game-plans-template.csv"
+                        download="game-plans-template.csv"
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <FiFileText className="h-4 w-4 mr-2" />
+                        Download CSV Template
+                      </a>
+                      <a
+                        href="/templates/NIVEA_ABP2026_Nebula_Templates.xlsx"
+                        download="NIVEA_ABP2026_Nebula_Templates.xlsx"
+                        className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100"
+                      >
+                        <FiFileText className="h-4 w-4 mr-2" />
+                        Download Excel Template for Nivea
+                      </a>
+                      <a
+                        href="/templates/DERMA_ABP2026_Nebula_Templates.xlsx"
+                        download="DERMA_ABP2026_Nebula_Templates.xlsx"
+                        className="inline-flex items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100"
+                      >
+                        <FiFileText className="h-4 w-4 mr-2" />
+                        Download Excel Template for Derma
+                      </a>
+                    </div>
                   </div>
                   <div className="p-6 space-y-4">
                     <div>
@@ -232,12 +250,25 @@ export default function GamePlansUploadPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium mb-2 text-blue-900">File Format Requirements</h4>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• CSV format only</li>
+                        <li>• CSV format only for upload</li>
                         <li>• Maximum file size: 10MB</li>
                         <li>• First row must contain column headers</li>
                         <li>• Date format: YYYY-MM-DD</li>
                         <li>• Budget values should be numeric (no currency symbols)</li>
                         <li>• Burst must be a positive integer (1, 2, 3, etc.)</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="font-medium mb-2 text-green-900">Excel Templates</h4>
+                      <p className="text-sm text-green-800 mb-2">
+                        For your convenience, we provide Excel templates with pre-configured formatting and business unit specific guidance:
+                      </p>
+                      <ul className="text-sm text-green-800 space-y-1">
+                        <li>• <strong>Nivea Template:</strong> Contains Nivea-specific categories, ranges, and campaigns</li>
+                        <li>• <strong>Derma Template:</strong> Contains Derma-specific categories, ranges, and campaigns</li>
+                        <li>• Templates include validation rules and dropdown lists for easier data entry</li>
+                        <li>• Remember to save as CSV before uploading</li>
                       </ul>
                     </div>
                   </div>

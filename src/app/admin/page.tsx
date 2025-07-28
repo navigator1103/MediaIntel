@@ -138,9 +138,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 pt-6">
       <div className="max-w-6xl mx-auto p-6">
         {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage your Media Sufficiency Platform</p>
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Welcome to Nebula</h1>
+          <div className="max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Your comprehensive media planning platform that allows you to efficiently organize, 
+              share, and manage your media planning data with precision and ease.
+            </p>
+            <p className="text-md text-gray-500 mt-2">
+              Streamline your campaigns, optimize your budgets, and unlock powerful insights.
+            </p>
+          </div>
         </div>
 
         {/* Key Stats Overview */}

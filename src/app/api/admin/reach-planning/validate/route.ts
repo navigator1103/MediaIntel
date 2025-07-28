@@ -82,7 +82,7 @@ const FIELD_VALIDATIONS = {
   
   // Percentage fields that must be 1%-100% (cannot be 0%)
   nonZeroPercentageFields: [
-    'Combined Ideal Reach'
+    'Combined Potential Reach'
   ],
   
   // Date fields - should be valid dates
@@ -369,6 +369,30 @@ async function validateAgainstGamePlans(
             });
           }
         });
+      } else if (hasTvMedia && !hasDigitalMedia) {
+        // Campaign is TV-only - warn if Digital demographic fields are filled
+        const digitalDemoFieldsToCheck = [
+          'Digital Demo Gender',
+          'Digital Demo Min. Age', 
+          'Digital Demo Max. Age',
+          'Digital SEL',
+          'Final Digital Target (don\'t fill)'
+        ];
+        
+        digitalDemoFieldsToCheck.forEach(fieldName => {
+          const fieldValue = record[fieldName];
+          const hasValue = fieldValue && fieldValue.toString().trim() !== '';
+          
+          if (hasValue) {
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'warning',
+              message: `${fieldName} should be empty because campaign "${campaignName}" has only TV media in game plans for this country/financial cycle.`,
+              currentValue: fieldValue
+            });
+          }
+        });
       }
 
       // Additional validation for campaigns with both TV and Digital media
@@ -390,15 +414,15 @@ async function validateAgainstGamePlans(
           }
         });
 
-        // Combined Ideal Reach is required when campaign has both TV and Digital media
-        const combinedIdealReach = record['Combined Ideal Reach'];
-        if (!combinedIdealReach || combinedIdealReach.toString().trim() === '') {
+        // Combined Potential Reach is required when campaign has both TV and Digital media
+        const combinedPotentialReach = record['Combined Potential Reach'];
+        if (!combinedPotentialReach || combinedPotentialReach.toString().trim() === '') {
           issues.push({
             rowIndex,
-            columnName: 'Combined Ideal Reach',
+            columnName: 'Combined Potential Reach',
             severity: 'critical',
-            message: `Combined Ideal Reach is required because campaign "${campaignName}" has both TV and Digital media in game plans for this country/financial cycle.`,
-            currentValue: combinedIdealReach || ''
+            message: `Combined Potential Reach is required because campaign "${campaignName}" has both TV and Digital media in game plans for this country/financial cycle.`,
+            currentValue: combinedPotentialReach || ''
           });
         }
 
@@ -410,6 +434,18 @@ async function validateAgainstGamePlans(
             columnName: 'Is Digital target the same than TV?',
             severity: 'critical',
             message: `"Is Digital target the same than TV?" is required because campaign "${campaignName}" has both TV and Digital media in game plans for this country/financial cycle.`,
+            currentValue: isDigitalTargetSameAsTv || ''
+          });
+        }
+      } else if (hasDigitalMedia && !hasTvMedia) {
+        // Digital-only campaign - "Is Digital target the same than TV?" should be warning if blank
+        const isDigitalTargetSameAsTv = record['Is Digital target the same than TV?'];
+        if (!isDigitalTargetSameAsTv || isDigitalTargetSameAsTv.toString().trim() === '') {
+          issues.push({
+            rowIndex,
+            columnName: 'Is Digital target the same than TV?',
+            severity: 'warning',
+            message: `"Is Digital target the same than TV?" should be filled for Digital-only campaigns for consistency.`,
             currentValue: isDigitalTargetSameAsTv || ''
           });
         }
@@ -951,6 +987,97 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         });
       }
     }
+  }
+  
+  // Final TV Target format validation
+  const finalTvTarget = record['Final TV Target (don\'t fill)'];
+  
+  if (finalTvTarget && finalTvTarget.toString().trim() !== '') {
+    const finalTvTargetStr = finalTvTarget.toString().trim();
+    
+    if (isDigitalTargetSameAsTv) {
+      const sameAsTV = isDigitalTargetSameAsTv.toString().toLowerCase() === 'yes' ||
+                       isDigitalTargetSameAsTv.toString().toLowerCase() === 'y' ||
+                       isDigitalTargetSameAsTv.toString().toLowerCase() === 'true';
+      
+      if (!sameAsTV) {
+        // Digital target is different from TV - validate format: "Gender MinAge - MaxAge SEL"
+        const digitalGender = record['Digital Demo Gender'];
+        const digitalMinAge = record['Digital Demo Min. Age'];
+        const digitalMaxAge = record['Digital Demo Max. Age'];
+        const digitalSel = record['Digital SEL'];
+        
+        if (digitalGender && digitalMinAge && digitalMaxAge && digitalSel) {
+          const expectedFormat = `${digitalGender.toString().trim()} ${digitalMinAge.toString().trim()} - ${digitalMaxAge.toString().trim()} ${digitalSel.toString().trim()}`;
+          
+          if (finalTvTargetStr !== expectedFormat) {
+            issues.push({
+              rowIndex: index,
+              columnName: 'Final TV Target (don\'t fill)',
+              severity: 'critical',
+              message: `Final TV Target format should be "${expectedFormat}" when digital target is different from TV target`,
+              currentValue: finalTvTarget
+            });
+          }
+        } else {
+          // Missing digital demographic fields - can't validate format
+          issues.push({
+            rowIndex: index,
+            columnName: 'Final TV Target (don\'t fill)',
+            severity: 'warning',
+            message: 'Cannot validate Final TV Target format - missing digital demographic fields (Gender, Min Age, Max Age, SEL)',
+            currentValue: finalTvTarget
+          });
+        }
+      } else {
+        // Digital target is same as TV - validate format matches TV demographics: "Gender MinAge - MaxAge SEL"
+        const tvGender = record['TV Demo Gender'];
+        const tvMinAge = record['TV Demo Min. Age'];
+        const tvMaxAge = record['TV Demo Max. Age'];
+        const tvSel = record['TV SEL'];
+        
+        if (tvGender && tvMinAge && tvMaxAge && tvSel) {
+          const expectedFormat = `${tvGender.toString().trim()} ${tvMinAge.toString().trim()} - ${tvMaxAge.toString().trim()} ${tvSel.toString().trim()}`;
+          
+          if (finalTvTargetStr !== expectedFormat) {
+            issues.push({
+              rowIndex: index,
+              columnName: 'Final TV Target (don\'t fill)',
+              severity: 'critical',
+              message: `Final TV Target format should be "${expectedFormat}" when digital target is same as TV target`,
+              currentValue: finalTvTarget
+            });
+          }
+        } else {
+          // Missing TV demographic fields - can't validate format
+          issues.push({
+            rowIndex: index,
+            columnName: 'Final TV Target (don\'t fill)',
+            severity: 'warning',
+            message: 'Cannot validate Final TV Target format - missing TV demographic fields (Gender, Min Age, Max Age, SEL)',
+            currentValue: finalTvTarget
+          });
+        }
+      }
+    }
+  }
+  
+  // CPP and Reported Currency validation
+  const cpp2026 = record['CPP 2026'];
+  const reportedCurrency = record['Reported Currency'];
+  
+  const hasCppValue = (cpp2024 && cpp2024.toString().trim() !== '') ||
+                      (cpp2025 && cpp2025.toString().trim() !== '') ||
+                      (cpp2026 && cpp2026.toString().trim() !== '');
+  
+  if (hasCppValue && (!reportedCurrency || reportedCurrency.toString().trim() === '')) {
+    issues.push({
+      rowIndex: index,
+      columnName: 'Reported Currency',
+      severity: 'critical',
+      message: 'Reported Currency is required when CPP values are provided',
+      currentValue: reportedCurrency || ''
+    });
   }
   
   // Media and Media Sub Type compatibility (basic check)

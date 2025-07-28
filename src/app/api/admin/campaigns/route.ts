@@ -11,7 +11,19 @@ export async function GET(request: NextRequest) {
         { name: 'asc' }
       ],
       include: {
-        range: true,
+        range: {
+          include: {
+            categories: {
+              include: {
+                category: {
+                  include: {
+                    businessUnit: true
+                  }
+                }
+              }
+            }
+          }
+        },
         _count: {
           select: {
             gamePlans: true
@@ -21,15 +33,23 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform to match the expected interface
-    const campaignsData = campaigns.map(campaign => ({
-      id: campaign.id,
-      name: campaign.name,
-      range: campaign.range?.name || null,
-      rangeId: campaign.rangeId,
-      createdAt: campaign.createdAt.toISOString(),
-      updatedAt: campaign.updatedAt.toISOString(),
-      gamePlansCount: campaign._count.gamePlans
-    }));
+    const campaignsData = campaigns.map(campaign => {
+      // Extract categories and business units from the nested relationship
+      const categories = campaign.range?.categories?.map(ct => ct.category.name) || [];
+      const businessUnits = campaign.range?.categories?.map(ct => ct.category.businessUnit?.name).filter(Boolean) || [];
+      
+      return {
+        id: campaign.id,
+        name: campaign.name,
+        range: campaign.range?.name || null,
+        rangeId: campaign.rangeId,
+        categories: [...new Set(categories)], // Remove duplicates
+        businessUnits: [...new Set(businessUnits)], // Remove duplicates
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString(),
+        gamePlansCount: campaign._count.gamePlans
+      };
+    });
 
     return NextResponse.json(campaignsData);
   } catch (error) {

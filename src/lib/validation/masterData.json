@@ -417,6 +417,7 @@
       "Q10"
     ],
     "Face Cleansing": [
+      "Acne",
       "C&HYA",
       "Daily Essentials",
       "Micellar",
@@ -461,7 +462,8 @@
       "Hand Body"
     ],
     "Acne": [
-      "Acne"
+      "Acne",
+      "Face Cleansing"
     ],
     "Anti Age": [
       "Anti Age"
@@ -676,6 +678,7 @@
       "Dermopure Cleansing (Yoda)",
       "Dermopure RL",
       "Gel to Foam",
+      "Genzit",
       "Triple Effect"
     ],
     "Sun": [
@@ -742,7 +745,6 @@
       "Club Eucerin",
       "Customers AWON",
       "Eucerin brand AWON",
-      "Genzit",
       "Lead Capturing AWON",
       "Yo voy al derm"
     ],
@@ -964,7 +966,7 @@
     "Fendi": "Clinical",
     "Gel to Foam": "Acne",
     "Genie": "Epigenetics",
-    "Genzit": "X-Cat",
+    "Genzit": "Acne",
     "Ghostbuster": "Vitamin Range",
     "Globe": "Anti Pigment",
     "Gold Revamp": "Anti Age",
@@ -1421,5 +1423,5 @@
       "Turkey"
     ]
   },
-  "lastUpdated": "2025-07-20T21:54:26.320Z"
+  "lastUpdated": "2025-07-28T12:30:00.000Z"
 }
