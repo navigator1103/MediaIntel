@@ -37,6 +37,11 @@ interface Country {
   name: string;
 }
 
+interface BusinessUnit {
+  id: number;
+  name: string;
+}
+
 export default function ReachPlanningUpload({ 
   onUploadComplete, 
   onValidationComplete 
@@ -50,6 +55,9 @@ export default function ReachPlanningUpload({
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [loadingCountries, setLoadingCountries] = useState(false);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
+  const [loadingBusinessUnits, setLoadingBusinessUnits] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -96,10 +104,11 @@ export default function ReachPlanningUpload({
     }
   };
 
-  // Load last updates and countries when component mounts
+  // Load last updates, countries and business units when component mounts
   useEffect(() => {
     loadLastUpdates();
     loadCountries();
+    loadBusinessUnits();
   }, []);
 
   const loadLastUpdates = async () => {
@@ -138,6 +147,24 @@ export default function ReachPlanningUpload({
     }
   };
 
+  const loadBusinessUnits = async () => {
+    try {
+      setLoadingBusinessUnits(true);
+      const response = await fetch('/api/data/business-units');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch business units');
+      }
+      
+      const data = await response.json();
+      setBusinessUnits(data);
+    } catch (error) {
+      console.error('Error loading business units:', error);
+    } finally {
+      setLoadingBusinessUnits(false);
+    }
+  };
+
   const validateAndUploadFile = async (file: File) => {
     try {
       // Validate selections first
@@ -153,6 +180,14 @@ export default function ReachPlanningUpload({
         setUploadState({
           status: 'error',
           error: 'Please select a country first'
+        });
+        return;
+      }
+
+      if (!selectedBusinessUnit) {
+        setUploadState({
+          status: 'error',
+          error: 'Please select a business unit first'
         });
         return;
       }
@@ -197,6 +232,7 @@ export default function ReachPlanningUpload({
       formData.append('file', file);
       formData.append('lastUpdateId', selectedLastUpdateId);
       formData.append('countryId', selectedCountry);
+      formData.append('businessUnitId', selectedBusinessUnit);
 
       const response = await fetch('/api/admin/reach-planning/upload', {
         method: 'POST',
@@ -390,10 +426,37 @@ export default function ReachPlanningUpload({
                   )}
                 </div>
               </div>
+
+              {/* Business Unit Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Unit
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedBusinessUnit}
+                    onChange={(e) => setSelectedBusinessUnit(e.target.value)}
+                    disabled={loadingBusinessUnits}
+                    className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Choose a business unit...</option>
+                    {businessUnits.map((businessUnit) => (
+                      <option key={businessUnit.id} value={businessUnit.id.toString()}>
+                        {businessUnit.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingBusinessUnits && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           )}
 
-          {uploadState.status === 'idle' && selectedLastUpdateId && selectedCountry && (
+          {uploadState.status === 'idle' && selectedLastUpdateId && selectedCountry && selectedBusinessUnit && (
             <div
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}

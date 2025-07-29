@@ -30,6 +30,11 @@ interface LastUpdate {
   updatedAt: string;
 }
 
+interface BusinessUnit {
+  id: number;
+  name: string;
+}
+
 export default function ReachPlanningPage() {
   const [currentSession, setCurrentSession] = useState<string | null>(null);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
@@ -40,12 +45,16 @@ export default function ReachPlanningPage() {
   const [lastUpdates, setLastUpdates] = useState<LastUpdate[]>([]);
   const [selectedLastUpdateId, setSelectedLastUpdateId] = useState<string>('');
   const [loadingLastUpdates, setLoadingLastUpdates] = useState(false);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<string>('');
+  const [loadingBusinessUnits, setLoadingBusinessUnits] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // Load countries and last updates on component mount since default tab is 'export'
+  // Load countries, last updates and business units on component mount since default tab is 'export'
   React.useEffect(() => {
     loadCountries();
     loadLastUpdates();
+    loadBusinessUnits();
   }, []);
 
   const handleUploadComplete = (sessionId: string) => {
@@ -112,11 +121,34 @@ export default function ReachPlanningPage() {
     }
   };
 
+  const loadBusinessUnits = async () => {
+    if (businessUnits.length > 0) return; // Already loaded
+    
+    try {
+      setLoadingBusinessUnits(true);
+      const response = await fetch('/api/data/business-units');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch business units');
+      }
+      
+      const businessUnitsData = await response.json();
+      setBusinessUnits(businessUnitsData);
+    } catch (error) {
+      console.error('Error loading business units:', error);
+      alert(`Error loading business units: ${error.message}`);
+    } finally {
+      setLoadingBusinessUnits(false);
+    }
+  };
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     if (tab === 'export') {
       loadCountries();
       loadLastUpdates();
+      loadBusinessUnits();
     }
   };
 
@@ -131,6 +163,11 @@ export default function ReachPlanningPage() {
       return;
     }
 
+    if (!selectedBusinessUnit) {
+      alert('Please select a business unit first');
+      return;
+    }
+
     try {
       setExporting(true);
       const response = await fetch('/api/admin/reach-planning/export', {
@@ -140,7 +177,8 @@ export default function ReachPlanningPage() {
         },
         body: JSON.stringify({
           countryId: selectedCountry,
-          lastUpdateId: selectedLastUpdateId
+          lastUpdateId: selectedLastUpdateId,
+          businessUnitId: selectedBusinessUnit
         }),
       });
 
@@ -452,10 +490,35 @@ export default function ReachPlanningPage() {
                         )}
                       </div>
                       
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Business Unit
+                        </label>
+                        {loadingBusinessUnits ? (
+                          <div className="flex items-center px-3 py-2 border border-gray-300 rounded-md">
+                            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full mr-2"></div>
+                            <span className="text-sm text-gray-500">Loading business units...</span>
+                          </div>
+                        ) : (
+                          <select 
+                            className="block w-full pl-3 pr-10 py-2 text-base bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                            value={selectedBusinessUnit}
+                            onChange={(e) => setSelectedBusinessUnit(e.target.value)}
+                          >
+                            <option value="">Choose a business unit...</option>
+                            {businessUnits.map((businessUnit) => (
+                              <option key={businessUnit.id} value={businessUnit.id.toString()}>
+                                {businessUnit.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      
                       <button 
                         onClick={handleExport}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!selectedCountry || !selectedLastUpdateId || exporting}
+                        disabled={!selectedCountry || !selectedLastUpdateId || !selectedBusinessUnit || exporting}
                       >
                         {exporting ? (
                           <>
