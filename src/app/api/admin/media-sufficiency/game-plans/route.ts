@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
         pmType: true,
         campaignArchetype: true,
         lastUpdate: true,
+        businessUnit: true,
         category: {
           include: {
             businessUnit: true
