@@ -143,10 +143,19 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
     transformed.campaign = record['Campaign'];
   }
   
-  // BU can be auto-populated from business logic or left empty
-  // For now, leave as null since it's not required and can be set later
-  transformed.buId = null;
-  transformed.bu = null;
+  // Set business unit from session data
+  const businessUnitId = sessionData.businessUnitId;
+  transformed.buId = businessUnitId;
+  
+  // Look up business unit name
+  if (businessUnitId) {
+    const businessUnit = await prisma.businessUnit.findUnique({
+      where: { id: businessUnitId }
+    });
+    transformed.bu = businessUnit?.name || null;
+  } else {
+    transformed.bu = null;
+  }
   
   // Map other fields
   Object.entries(FIELD_MAPPING).forEach(([csvField, dbField]) => {
@@ -223,33 +232,36 @@ export async function POST(request: NextRequest) {
     const records = sessionData.records || [];
     console.log(`Importing ${records.length} records to MediaSufficiency table`);
     
-    // DELETE EXISTING DATA for this country/lastUpdate combination
-    // This ensures complete replacement rather than addition
+    // DELETE EXISTING DATA for this country/lastUpdate/businessUnit combination
+    // This ensures complete replacement rather than addition while preserving other business units
     const countryId = sessionData.countryId;
     const lastUpdateId = sessionData.lastUpdateId;
+    const businessUnitId = sessionData.businessUnitId;
     
-    if (countryId && lastUpdateId) {
-      console.log(`Deleting existing MediaSufficiency records for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}`);
+    if (countryId && lastUpdateId && businessUnitId) {
+      console.log(`Deleting existing MediaSufficiency records for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}, businessUnitId: ${businessUnitId}`);
       
       // Check how many records exist before deletion
       const existingCount = await prisma.mediaSufficiency.count({
         where: {
           countryId: countryId,
-          lastUpdateId: lastUpdateId
+          lastUpdateId: lastUpdateId,
+          buId: businessUnitId
         }
       });
-      console.log(`Found ${existingCount} existing MediaSufficiency records to delete`);
+      console.log(`Found ${existingCount} existing MediaSufficiency records to delete for this business unit`);
       
-      // Delete existing records for this specific country and financial cycle
+      // Delete existing records for this specific country, financial cycle, and business unit
       const deleteResult = await prisma.mediaSufficiency.deleteMany({
         where: {
           countryId: countryId,
-          lastUpdateId: lastUpdateId
+          lastUpdateId: lastUpdateId,
+          buId: businessUnitId
         }
       });
-      console.log(`Successfully deleted ${deleteResult.count} existing MediaSufficiency records`);
+      console.log(`Successfully deleted ${deleteResult.count} existing MediaSufficiency records for this business unit`);
     } else {
-      console.log('Skipping deletion - missing countryId or lastUpdateId in session data');
+      console.log('Skipping deletion - missing countryId, lastUpdateId, or businessUnitId in session data');
     }
     
     const importResults = [];

@@ -77,7 +77,7 @@ const FIELD_VALIDATIONS = {
   // Percentage fields - should be 0%-100% format only (reach fields can be 0%)
   reachPercentageFields: [
     'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+', 'Total Digital Planned R1+', 'Total Digital Optimal R1+',
-    'Planned Combined Reach (Don\'t fill)', 'Combined Potential Reach'
+    'Combined Potential Reach'
   ],
   
   // Percentage fields that must be 1%-100% (cannot be 0%)
@@ -395,6 +395,18 @@ async function validateAgainstGamePlans(
             });
           }
         });
+        
+        // TV-only campaign - "Is Digital target the same than TV?" should be warning if blank
+        const isDigitalTargetSameAsTv = record['Is Digital target the same than TV?'];
+        if (!isDigitalTargetSameAsTv || isDigitalTargetSameAsTv.toString().trim() === '') {
+          issues.push({
+            rowIndex,
+            columnName: 'Is Digital target the same than TV?',
+            severity: 'warning',
+            message: `"Is Digital target the same than TV?" should be filled for TV-only campaigns for consistency.`,
+            currentValue: isDigitalTargetSameAsTv || ''
+          });
+        }
       }
 
       // Additional validation for campaigns with both TV and Digital media
