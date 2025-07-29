@@ -187,14 +187,6 @@ export default function GamePlansUploadPage() {
                     <h3 className="text-lg font-medium text-gray-900">Upload Instructions</h3>
                     <div className="flex space-x-3">
                       <a
-                        href="/templates/game-plans-template.csv"
-                        download="game-plans-template.csv"
-                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        <FiFileText className="h-4 w-4 mr-2" />
-                        Download CSV Template
-                      </a>
-                      <a
                         href="/templates/NIVEA_ABP2026_Nebula_Templates.xlsx"
                         download="NIVEA_ABP2026_Nebula_Templates.xlsx"
                         className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100"
@@ -250,7 +242,7 @@ export default function GamePlansUploadPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium mb-2 text-blue-900">File Format Requirements</h4>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• CSV format only for upload</li>
+                        <li>• Upload must be in CSV format (use Excel templates above, then save as CSV)</li>
                         <li>• Maximum file size: 10MB</li>
                         <li>• First row must contain column headers</li>
                         <li>• Date format: YYYY-MM-DD</li>
