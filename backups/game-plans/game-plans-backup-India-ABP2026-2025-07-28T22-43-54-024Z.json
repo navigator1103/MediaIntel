@@ -1,0 +1,103 @@
+{
+  "timestamp": "2025-07-28T22-43-54-024Z",
+  "countryId": 33,
+  "countryName": "India",
+  "lastUpdateId": 11,
+  "lastUpdateName": "ABP 2026",
+  "recordCount": 1,
+  "backupFile": "game-plans-backup-India-ABP2026-2025-07-28T22-43-54-024Z.json",
+  "gamePlans": [
+    {
+      "id": 350,
+      "campaignId": 131,
+      "mediaSubTypeId": 1,
+      "pmTypeId": null,
+      "campaignArchetypeId": 2,
+      "burst": 1,
+      "startDate": "2026-09-30T20:00:00.000Z",
+      "endDate": "2026-12-14T20:00:00.000Z",
+      "totalBudget": 12,
+      "janBudget": 1,
+      "febBudget": 2,
+      "marBudget": 2,
+      "aprBudget": 1,
+      "mayBudget": 1,
+      "junBudget": 1,
+      "julBudget": 1,
+      "augBudget": 1,
+      "sepBudget": 1,
+      "octBudget": 1,
+      "novBudget": null,
+      "decBudget": null,
+      "totalTrps": null,
+      "totalR1Plus": 0.79,
+      "totalR3Plus": null,
+      "totalWoa": 8,
+      "totalWoff": 3,
+      "totalWeeks": 11,
+      "weeksOffAir": null,
+      "nsVsWm": null,
+      "createdAt": "2025-07-28T22:43:11.968Z",
+      "updatedAt": "2025-07-28T22:43:11.968Z",
+      "year": null,
+      "countryId": 33,
+      "business_unit_id": null,
+      "region_id": null,
+      "sub_region_id": null,
+      "category_id": 11,
+      "range_id": 24,
+      "last_update_id": 11,
+      "playbook_id": "GL019",
+      "weeksLive": 10.71,
+      "campaign": {
+        "id": 131,
+        "name": "Aquaphor",
+        "createdAt": "2025-06-22T11:41:29.582Z",
+        "updatedAt": "2025-07-20T21:47:39.567Z",
+        "rangeId": 24,
+        "status": "active",
+        "createdBy": "manual",
+        "reviewedBy": null,
+        "reviewedAt": null,
+        "originalName": null,
+        "mergedInto": null,
+        "notes": null
+      },
+      "mediaSubType": {
+        "id": 1,
+        "name": "PM & FF",
+        "createdAt": "2025-05-13T04:23:03.000Z",
+        "updatedAt": "2025-05-13T04:23:03.000Z",
+        "mediaTypeId": 2,
+        "mediaType": {
+          "id": 2,
+          "name": "Digital",
+          "createdAt": "2025-05-13T04:26:23.000Z",
+          "updatedAt": "2025-05-13T04:26:23.000Z"
+        }
+      },
+      "pmType": null,
+      "country": {
+        "id": 33,
+        "name": "India",
+        "regionId": 2,
+        "createdAt": "2025-03-08T19:20:00.732Z",
+        "subRegionId": 4,
+        "clusterId": 1
+      },
+      "lastUpdate": {
+        "id": 11,
+        "name": "ABP 2026",
+        "createdAt": "2025-07-25T23:29:41.299Z",
+        "updatedAt": "2025-07-25T23:29:41.299Z"
+      },
+      "category": {
+        "id": 11,
+        "name": "Aquaphor",
+        "createdAt": "2025-05-11T14:23:10.000Z",
+        "updatedAt": "2025-07-20T21:09:23.477Z",
+        "businessUnitId": 2
+      }
+    }
+  ]
+}

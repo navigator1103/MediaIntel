@@ -95,10 +95,10 @@ export default function GamePlansAdmin() {
   useEffect(() => {
     let filtered = gamePlans;
     
-    // Apply business unit filter first
+    // Apply business unit filter first - use direct businessUnit relationship from user selection
     if (selectedBusinessUnit) {
       filtered = filtered.filter(plan => 
-        plan.category?.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
+        plan.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
       );
     }
     
@@ -159,10 +159,10 @@ export default function GamePlansAdmin() {
     // Re-apply filtering (both business unit and search)
     let filtered = updatedGamePlans;
     
-    // Apply business unit filter
+    // Apply business unit filter - use direct businessUnit relationship from user selection
     if (selectedBusinessUnit) {
       filtered = filtered.filter(plan => 
-        plan.category?.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
+        plan.businessUnit?.name?.toLowerCase() === selectedBusinessUnit.toLowerCase()
       );
     }
     

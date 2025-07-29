@@ -102,7 +102,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
         item.campaign?.name || '',
         item.mediaSubType?.name || '',
         item.country?.name || '',
-        item.category?.businessUnit?.name || '',
+        item.businessUnit?.name || '',
         item.category?.name || '',
         item.pmType?.name || '',
         item.startDate || '',
@@ -447,7 +447,7 @@ const SimpleEditableGrid: React.FC<SimpleEditableGridProps> = ({ data, onSave, o
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.lastUpdate?.name || 'N/A'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.country?.name || 'N/A'}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.category?.businessUnit?.name || 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.businessUnit?.name || 'N/A'}</td>
               </tr>
             ))
           ) : (
