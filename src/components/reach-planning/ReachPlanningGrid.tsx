@@ -35,12 +35,12 @@ const TEMPLATE_COLUMNS = [
   'Last Update', 'Sub Region', 'Country', 'BU', 'Category', 'Range', 'Campaign',
   'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
   'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
-  'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
+  'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+',
   'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
   'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
   'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)',
-  'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
-  'Planned Combined Reach', 'Combined Potential Reach'
+  'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Optimal R1+',
+  'Planned Combined Reach (Don\'t fill)', 'Combined Potential Reach'
 ];
 
 export default function ReachPlanningGrid({ sessionId }: ReachPlanningGridProps) {

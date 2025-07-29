@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { countryId, lastUpdateId } = await request.json();
+    const { countryId, lastUpdateId, businessUnitId } = await request.json();
 
     if (!countryId) {
       return NextResponse.json(
@@ -19,7 +19,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Export request for countryId:', countryId, 'lastUpdateId:', lastUpdateId);
+    if (!businessUnitId) {
+      return NextResponse.json(
+        { error: 'Business Unit is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Export request for countryId:', countryId, 'lastUpdateId:', lastUpdateId, 'businessUnitId:', businessUnitId);
 
     // Fetch the last update to get sub region and other data
     const lastUpdate = await prisma.lastUpdate.findUnique({
@@ -45,11 +52,12 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Fetch game plans for the selected country and financial cycle with all related data
+    // Fetch game plans for the selected country, financial cycle, and business unit with all related data
     const gamePlans = await prisma.gamePlan.findMany({
       where: {
         countryId: parseInt(countryId),
-        last_update_id: parseInt(lastUpdateId)
+        last_update_id: parseInt(lastUpdateId),
+        business_unit_id: parseInt(businessUnitId)
       },
       include: {
         campaign: {
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     if (gamePlans.length === 0) {
       return NextResponse.json(
-        { error: `No game plans found for the selected country (ID: ${countryId}) and financial cycle (ID: ${lastUpdateId})` },
+        { error: `No game plans found for the selected country (ID: ${countryId}), financial cycle (ID: ${lastUpdateId}), and business unit (ID: ${businessUnitId})` },
         { status: 404 }
       );
     }
@@ -170,12 +178,12 @@ export async function POST(request: NextRequest) {
       'Category', 'Range', 'Campaign',
       'TV Demo Gender', 'TV Demo Min. Age', 'TV Demo Max. Age', 'TV SEL', 
       'Final TV Target (don\'t fill)', 'TV Target Size', 'TV Copy Length',
-      'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+',
+      'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+',
       'CPP 2024', 'CPP 2025', 'CPP 2026', 'Reported Currency',
       'Is Digital target the same than TV?', 'Digital Demo Gender', 'Digital Demo Min. Age', 
       'Digital Demo Max. Age', 'Digital SEL', 'Final Digital Target (don\'t fill)',
-      'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
-      'Planned Combined Reach', 'Combined Potential Reach'
+      'Digital Target Size (Abs)', 'Total Digital Planned R1+', 'Total Digital Optimal R1+',
+      'Planned Combined Reach (Don\'t fill)', 'Combined Potential Reach'
     ];
 
     const csvRows = [

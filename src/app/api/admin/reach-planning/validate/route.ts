@@ -24,7 +24,7 @@ const FIELD_MAPPING = {
   // TV Performance Metrics
   'Total TV Planned R1+ (%)': 'tvPlannedR1Plus',
   'Total TV Planned R3+ (%)': 'tvPlannedR3Plus',
-  'TV Potential R1+': 'tvPotentialR1Plus',
+  'TV Optimal R1+': 'tvPotentialR1Plus',
   'CPP 2024': 'cpp2024',
   'CPP 2025': 'cpp2025',
   'CPP 2026': 'cpp2026',
@@ -39,9 +39,9 @@ const FIELD_MAPPING = {
   'Digital Target Size (Abs)': 'digitalTargetSizeAbs',
   // Digital Performance Metrics
   'Total Digital Planned R1+': 'digitalPlannedR1Plus',
-  'Total Digital Potential R1+': 'digitalPotentialR1Plus',
+  'Total Digital Optimal R1+': 'digitalPotentialR1Plus',
   // Combined Metrics
-  'Planned Combined Reach': 'plannedCombinedReach',
+  'Planned Combined Reach (Don\'t fill)': 'plannedCombinedReach',
   'Combined Potential Reach': 'combinedPotentialReach'
 };
 
@@ -76,8 +76,8 @@ const FIELD_VALIDATIONS = {
   
   // Percentage fields - should be 0%-100% format only (reach fields can be 0%)
   reachPercentageFields: [
-    'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+', 'Total Digital Planned R1+', 'Total Digital Potential R1+',
-    'Planned Combined Reach', 'Combined Potential Reach'
+    'Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+', 'Total Digital Planned R1+', 'Total Digital Optimal R1+',
+    'Planned Combined Reach (Don\'t fill)', 'Combined Potential Reach'
   ],
   
   // Percentage fields that must be 1%-100% (cannot be 0%)
@@ -117,7 +117,7 @@ const TV_FIELDS = [
   // TV Performance Metrics
   'Total TV Planned R1+ (%)',
   'Total TV Planned R3+ (%)',
-  'TV Potential R1+',
+  'TV Optimal R1+',
   'CPP 2024',
   'CPP 2025',
   'CPP 2026'
@@ -130,7 +130,7 @@ const DIGITAL_FIELDS = [
   'Digital Target Size (Abs)',
   // Digital Performance Metrics
   'Total Digital Planned R1+',
-  'Total Digital Potential R1+'
+  'Total Digital Optimal R1+'
 ];
 
 // Digital demographic fields (only required if different from TV)
@@ -287,7 +287,7 @@ async function validateAgainstGamePlans(
         } else if (!hasTvMedia && hasValue) {
           // Campaign has NO TV media in game plans but TV field has value
           // Check if this is a TV reach field - those should be critical errors for Digital-only campaigns
-          const tvReachFields = ['Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Potential R1+'];
+          const tvReachFields = ['Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+'];
           const severity = tvReachFields.includes(fieldName) ? 'critical' : 'warning';
           const message = tvReachFields.includes(fieldName) 
             ? `${fieldName} must be empty because campaign "${campaignName}" has no TV media in game plans for this country/financial cycle.`
@@ -320,7 +320,7 @@ async function validateAgainstGamePlans(
         } else if (!hasDigitalMedia && hasValue) {
           // Campaign has NO Digital media in game plans but Digital field has value
           // Check if this is a Digital reach field - those should be critical errors for TV-only campaigns
-          const digitalReachFields = ['Total Digital Planned R1+', 'Total Digital Potential R1+'];
+          const digitalReachFields = ['Total Digital Planned R1+', 'Total Digital Optimal R1+'];
           const severity = digitalReachFields.includes(fieldName) ? 'critical' : 'warning';
           const message = digitalReachFields.includes(fieldName)
             ? `${fieldName} must be empty because campaign "${campaignName}" has no Digital media in game plans for this country/financial cycle.`
@@ -454,7 +454,7 @@ async function validateAgainstGamePlans(
       // Planned Combined Reach validation - required when both TV and Digital planned reach values are present
       const tvPlannedR1Plus = record['Total TV Planned R1+ (%)'];
       const digitalPlannedR1Plus = record['Total Digital Planned R1+'];
-      const plannedCombinedReach = record['Planned Combined Reach'];
+      const plannedCombinedReach = record['Planned Combined Reach (Don\'t fill)'];
       
       const hasTvPlannedR1Plus = tvPlannedR1Plus && tvPlannedR1Plus.toString().trim() !== '';
       const hasDigitalPlannedR1Plus = digitalPlannedR1Plus && digitalPlannedR1Plus.toString().trim() !== '';
@@ -465,9 +465,9 @@ async function validateAgainstGamePlans(
         if (hasTvPlannedR1Plus && hasDigitalPlannedR1Plus && !hasPlannedCombinedReach) {
           issues.push({
             rowIndex,
-            columnName: 'Planned Combined Reach',
+            columnName: 'Planned Combined Reach (Don\'t fill)',
             severity: 'critical',
-            message: 'Planned Combined Reach is required when both Total TV Planned R1+ (%) and Total Digital Planned R1+ have values.',
+            message: 'Planned Combined Reach (Don\'t fill) is required when both Total TV Planned R1+ (%) and Total Digital Planned R1+ have values.',
             currentValue: plannedCombinedReach || ''
           });
         }
@@ -476,17 +476,17 @@ async function validateAgainstGamePlans(
         if (hasPlannedCombinedReach) {
           issues.push({
             rowIndex,
-            columnName: 'Planned Combined Reach',
+            columnName: 'Planned Combined Reach (Don\'t fill)',
             severity: 'critical',
-            message: `Planned Combined Reach should only be filled for campaigns with both TV and Digital media. Campaign "${campaignName}" only has ${hasTvMedia ? 'TV' : 'Digital'} media.`,
+            message: `Planned Combined Reach (Don't fill) should only be filled for campaigns with both TV and Digital media. Campaign "${campaignName}" only has ${hasTvMedia ? 'TV' : 'Digital'} media.`,
             currentValue: plannedCombinedReach
           });
         }
       }
 
       // Combined Potential Reach validation - required when both TV and Digital potential reach values are present
-      const tvPotentialR1Plus = record['TV Potential R1+'];
-      const digitalPotentialR1Plus = record['Total Digital Potential R1+'];
+      const tvPotentialR1Plus = record['TV Optimal R1+'];
+      const digitalPotentialR1Plus = record['Total Digital Optimal R1+'];
       const combinedPotentialReach = record['Combined Potential Reach'];
       
       const hasTvPotentialR1Plus = tvPotentialR1Plus && tvPotentialR1Plus.toString().trim() !== '';
@@ -500,7 +500,7 @@ async function validateAgainstGamePlans(
             rowIndex,
             columnName: 'Combined Potential Reach',
             severity: 'critical',
-            message: 'Combined Potential Reach is required when both TV Potential R1+ and Total Digital Potential R1+ have values.',
+            message: 'Combined Potential Reach is required when both TV Optimal R1+ and Total Digital Optimal R1+ have values.',
             currentValue: combinedPotentialReach || ''
           });
         }
