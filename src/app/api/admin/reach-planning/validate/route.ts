@@ -145,18 +145,20 @@ const DIGITAL_DEMO_FIELDS = [
 async function validateAgainstGamePlans(
   records: any[], 
   countryId: number, 
-  lastUpdateId: number
+  lastUpdateId: number,
+  businessUnitId: number
 ): Promise<ValidationIssue[]> {
   const issues: ValidationIssue[] = [];
   
   try {
-    console.log(`Querying game plans for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}`);
+    console.log(`Querying game plans for countryId: ${countryId}, lastUpdateId: ${lastUpdateId}, businessUnitId: ${businessUnitId}`);
     
-    // Get all game plans for this country + financial cycle (with limit to prevent memory issues)
+    // Get all game plans for this country + financial cycle + business unit (with limit to prevent memory issues)
     const gamePlans = await prisma.gamePlan.findMany({
       where: {
         countryId: countryId,
-        last_update_id: lastUpdateId
+        last_update_id: lastUpdateId,
+        business_unit_id: businessUnitId
       },
       include: {
         campaign: {
@@ -1248,11 +1250,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Add cross-reference validation against game plans with timeout
-    if (sessionData.countryId && sessionData.lastUpdateId) {
-      console.log(`Performing cross-reference validation for countryId: ${sessionData.countryId}, lastUpdateId: ${sessionData.lastUpdateId}`);
+    if (sessionData.countryId && sessionData.lastUpdateId && sessionData.businessUnitId) {
+      console.log(`Performing cross-reference validation for countryId: ${sessionData.countryId}, lastUpdateId: ${sessionData.lastUpdateId}, businessUnitId: ${sessionData.businessUnitId}`);
       try {
         // Add timeout to prevent hanging
-        const validationPromise = validateAgainstGamePlans(records, sessionData.countryId, sessionData.lastUpdateId);
+        const validationPromise = validateAgainstGamePlans(records, sessionData.countryId, sessionData.lastUpdateId, sessionData.businessUnitId);
         const timeoutPromise = new Promise<ValidationIssue[]>((_, reject) => 
           setTimeout(() => reject(new Error('Game plan validation timeout')), 30000) // 30 second timeout
         );
@@ -1272,7 +1274,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } else {
-      console.log('Skipping cross-reference validation - missing countryId or lastUpdateId in session data');
+      console.log('Skipping cross-reference validation - missing countryId, lastUpdateId, or businessUnitId in session data');
     }
     
     // Create validation summary
