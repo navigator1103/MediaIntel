@@ -356,16 +356,8 @@ export default function ReachPlanningPage() {
                 
                 {/* Upload Instructions */}
                 <div className="bg-white rounded-lg border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                  <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-medium text-gray-900">Upload Instructions</h3>
-                    <a
-                      href="/templates/media-sufficiency-import-template.csv"
-                      download="media-sufficiency-import-template.csv"
-                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      <FiFileText className="h-4 w-4 mr-2" />
-                      Download Template
-                    </a>
                   </div>
                   <div className="p-6 space-y-4">
                     <div>
