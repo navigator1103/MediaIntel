@@ -10,6 +10,8 @@ interface GamePlanBackup {
   countryName: string;
   lastUpdateId: number;
   lastUpdateName: string;
+  businessUnitId?: number;
+  businessUnitName?: string;
   recordCount: number;
   backupFile: string;
   gamePlans: any[];
@@ -18,7 +20,8 @@ interface GamePlanBackup {
 export async function createGamePlanBackup(
   countryId: number, 
   lastUpdateId: number,
-  reason: string = 'import'
+  reason: string = 'import',
+  businessUnitId?: number
 ): Promise<string> {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -29,22 +32,29 @@ export async function createGamePlanBackup(
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
-    // Get country and lastUpdate info for the filename
-    const [country, lastUpdate] = await Promise.all([
+    // Get country, lastUpdate, and business unit info for the filename
+    const [country, lastUpdate, businessUnit] = await Promise.all([
       prisma.country.findUnique({ where: { id: countryId } }),
-      prisma.lastUpdate.findUnique({ where: { id: lastUpdateId } })
+      prisma.lastUpdate.findUnique({ where: { id: lastUpdateId } }),
+      businessUnitId ? prisma.businessUnit.findUnique({ where: { id: businessUnitId } }) : null
     ]);
 
     if (!country || !lastUpdate) {
       throw new Error(`Country (ID: ${countryId}) or LastUpdate (ID: ${lastUpdateId}) not found`);
     }
 
-    // Get all game plans for this country and lastUpdate
+    // Get all game plans for this country, lastUpdate, and optionally business unit
+    const whereClause: any = {
+      countryId: countryId,
+      last_update_id: lastUpdateId
+    };
+    
+    if (businessUnitId) {
+      whereClause.business_unit_id = businessUnitId;
+    }
+    
     const gamePlans = await prisma.gamePlan.findMany({
-      where: {
-        countryId: countryId,
-        last_update_id: lastUpdateId
-      },
+      where: whereClause,
       include: {
         campaign: true,
         mediaSubType: {
@@ -55,7 +65,8 @@ export async function createGamePlanBackup(
         pmType: true,
         country: true,
         lastUpdate: true,
-        category: true
+        category: true,
+        businessUnit: true
       }
     });
 
@@ -65,12 +76,15 @@ export async function createGamePlanBackup(
       countryName: country.name,
       lastUpdateId,
       lastUpdateName: lastUpdate.name,
+      businessUnitId: businessUnitId || undefined,
+      businessUnitName: businessUnit?.name || undefined,
       recordCount: gamePlans.length,
       backupFile: '',
       gamePlans
     };
 
-    const fileName = `game-plans-backup-${country.name.replace(/[^a-zA-Z0-9]/g, '')}-${lastUpdate.name.replace(/[^a-zA-Z0-9]/g, '')}-${timestamp}.json`;
+    const businessUnitSuffix = businessUnit ? `-${businessUnit.name.replace(/[^a-zA-Z0-9]/g, '')}` : '';
+    const fileName = `game-plans-backup-${country.name.replace(/[^a-zA-Z0-9]/g, '')}-${lastUpdate.name.replace(/[^a-zA-Z0-9]/g, '')}${businessUnitSuffix}-${timestamp}.json`;
     const backupFile = path.join(backupDir, fileName);
     
     backup.backupFile = fileName;
@@ -80,6 +94,7 @@ export async function createGamePlanBackup(
     console.log(`✅ Game plans backup created: ${fileName}`);
     console.log(`   - Country: ${country.name} (ID: ${countryId})`);
     console.log(`   - LastUpdate: ${lastUpdate.name} (ID: ${lastUpdateId})`);
+    console.log(`   - Business Unit: ${businessUnit ? `${businessUnit.name} (ID: ${businessUnitId})` : 'All business units'}`);
     console.log(`   - Records backed up: ${gamePlans.length}`);
     console.log(`   - Reason: ${reason}`);
 

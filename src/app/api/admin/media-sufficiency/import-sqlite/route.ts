@@ -172,6 +172,9 @@ export async function POST(request: NextRequest) {
     const lastUpdateId = sessionData.lastUpdateId;
     const selectedCountry = sessionData.country;
     
+    // Debug log session context for business unit-specific replacement
+    logWithTimestamp(`📋 Session Info - Country: ${selectedCountry}, Financial Cycle ID: ${lastUpdateId}, Business Unit ID: ${sessionData.businessUnitId}`);
+    
     if (records.length === 0) {
       return NextResponse.json({ error: 'No records found in session' }, { status: 400 });
     }
@@ -470,19 +473,28 @@ async function processImport(
       if (country) {
         logWithTimestamp(`Found matching country in database: ${country.name} (ID: ${country.id})`);
         
-        // Check if there are existing game plans to backup for this country and financial cycle
+        // Check if there are existing game plans to backup for this country, financial cycle, and business unit
+        const businessUnitId = sessionData.businessUnitId;
+        const whereClause: any = {
+          countryId: country.id,
+          last_update_id: lastUpdateId
+        };
+        
+        if (businessUnitId) {
+          whereClause.business_unit_id = businessUnitId;
+        }
+        
         const existingCount = await prisma.gamePlan.count({
-          where: {
-            countryId: country.id,
-            last_update_id: lastUpdateId
-          }
+          where: whereClause
         });
         
         if (existingCount > 0) {
-          backupFile = await createGamePlanBackup(country.id, lastUpdateId, 'pre-import-backup');
-          logWithTimestamp(`✅ Backup created: ${existingCount} game plans backed up to ${path.basename(backupFile)}`);
+          backupFile = await createGamePlanBackup(country.id, lastUpdateId, 'pre-import-backup', businessUnitId);
+          const businessUnitName = businessUnitId ? ` for business unit ID ${businessUnitId}` : '';
+          logWithTimestamp(`✅ Backup created: ${existingCount} game plans backed up${businessUnitName} to ${path.basename(backupFile)}`);
         } else {
-          logWithTimestamp('ℹ️ No existing game plans to backup');
+          const businessUnitContext = businessUnitId ? ` for business unit ID ${businessUnitId}` : '';
+          logWithTimestamp(`ℹ️ No existing game plans to backup${businessUnitContext}`);
         }
         
         // Store the country ID for later use
@@ -508,8 +520,10 @@ async function processImport(
   fs.writeFileSync(sessionFilePath, JSON.stringify(sessionData));
   
   // CRITICAL DEBUGGING: Log the exact values being used for deletion
+  const businessUnitId = sessionData.businessUnitId;
   logWithTimestamp(`🔍 DELETION DEBUG - selectedCountry: "${selectedCountry}" (type: ${typeof selectedCountry})`);
   logWithTimestamp(`🔍 DELETION DEBUG - lastUpdateId: "${lastUpdateId}" (type: ${typeof lastUpdateId})`);
+  logWithTimestamp(`🔍 DELETION DEBUG - businessUnitId: "${businessUnitId}" (type: ${typeof businessUnitId})`);
   logWithTimestamp(`🔍 DELETION DEBUG - Condition check: selectedCountry && lastUpdateId = ${selectedCountry && lastUpdateId}`);
   
   if (selectedCountry && lastUpdateId) {
@@ -531,19 +545,28 @@ async function processImport(
         logWithTimestamp(`🔍 DELETION DEBUG - About to delete game plans with:`);
         logWithTimestamp(`🔍 DELETION DEBUG - countryId: ${country.id} (type: ${typeof country.id})`);
         logWithTimestamp(`🔍 DELETION DEBUG - last_update_id: ${lastUpdateId} (type: ${typeof lastUpdateId})`);
+        logWithTimestamp(`🔍 DELETION DEBUG - business_unit_id: ${businessUnitId} (type: ${typeof businessUnitId})`);
         
         // First, let's check what records exist that match our criteria
+        const deletionWhereClause: any = {
+          countryId: country.id,
+          last_update_id: lastUpdateId
+        };
+        
+        if (businessUnitId) {
+          deletionWhereClause.business_unit_id = businessUnitId;
+        }
+        
         const existingRecords = await prisma.gamePlan.findMany({
-          where: {
-            countryId: country.id,
-            last_update_id: lastUpdateId
-          },
+          where: deletionWhereClause,
           select: {
             id: true,
             countryId: true,
             last_update_id: true,
+            business_unit_id: true,
             country: { select: { name: true } },
-            lastUpdate: { select: { name: true } }
+            lastUpdate: { select: { name: true } },
+            businessUnit: { select: { name: true } }
           }
         });
         
@@ -556,15 +579,13 @@ async function processImport(
         const totalRecords = await prisma.gamePlan.count();
         logWithTimestamp(`🔍 DELETION DEBUG - Total game plans in database: ${totalRecords}`);
         
-        // Delete existing game plans for this specific country and financial cycle only
+        // Delete existing game plans for this specific country, financial cycle, and business unit only
         const deleteResult = await prisma.gamePlan.deleteMany({
-          where: {
-            countryId: country.id,
-            last_update_id: lastUpdateId
-          }
+          where: deletionWhereClause
         });
         
-        logWithTimestamp(`✅ Deleted ${deleteResult.count} existing game plans for country: ${country.name} and financial cycle ${lastUpdateId}`);
+        const businessUnitInfo = businessUnitId ? ` and business unit ID ${businessUnitId}` : '';
+        logWithTimestamp(`✅ Deleted ${deleteResult.count} existing game plans for country: ${country.name}, financial cycle ${lastUpdateId}${businessUnitInfo}`);
         
         // Verify deletion worked correctly
         const remainingRecords = await prisma.gamePlan.count();
@@ -1278,12 +1299,12 @@ async function processImport(
                 logWithTimestamp(`Using sub-region ID ${subRegionId} for ${subRegionValue}`);
               }
               
-              // Get business unit ID if available with flexible column name handling
-              let businessUnitId = null;
-              const businessUnitValue = record.BusinessUnit || record['Business Unit'] || record.BU || record['BU'] || record.BUSINESSUNIT;
-              if (businessUnitValue && processedEntities.businessUnits.has(businessUnitValue)) {
-                businessUnitId = processedEntities.businessUnits.get(businessUnitValue);
-                logWithTimestamp(`Using business unit ID ${businessUnitId} for ${businessUnitValue}`);
+              // Use business unit ID from session data (user selection)
+              let businessUnitId = sessionData.businessUnitId || null;
+              if (businessUnitId) {
+                logWithTimestamp(`Using business unit ID ${businessUnitId} from user selection`);
+              } else {
+                logWithTimestamp(`No business unit ID found in session data`);
               }
               
               // Get Playbook ID if available with flexible column name handling

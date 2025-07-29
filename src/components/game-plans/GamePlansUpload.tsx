@@ -16,6 +16,11 @@ interface LastUpdate {
   updatedAt: string;
 }
 
+interface BusinessUnit {
+  id: number;
+  name: string;
+}
+
 export default function GamePlansUpload({ onUploadComplete, onValidationComplete }: GamePlansUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -29,6 +34,9 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
   const [countries, setCountries] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
+  const [selectedBusinessUnitId, setSelectedBusinessUnitId] = useState<string>('');
+  const [isLoadingBusinessUnits, setIsLoadingBusinessUnits] = useState(false);
 
   // Fetch last updates when component mounts
   useEffect(() => {
@@ -72,6 +80,28 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
     };
 
     fetchCountries();
+  }, []);
+
+  // Fetch business units when component mounts
+  useEffect(() => {
+    const fetchBusinessUnits = async () => {
+      setIsLoadingBusinessUnits(true);
+      try {
+        const response = await fetch('/api/data/business-units');
+        if (!response.ok) {
+          throw new Error('Failed to fetch business units');
+        }
+        const data = await response.json();
+        setBusinessUnits(data);
+      } catch (err) {
+        console.error('Error fetching business units:', err);
+        setError('Failed to load business units. Please try refreshing the page.');
+      } finally {
+        setIsLoadingBusinessUnits(false);
+      }
+    };
+
+    fetchBusinessUnits();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,8 +156,8 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
   };
 
   const handleUpload = async () => {
-    if (!file || !selectedLastUpdateId || !selectedCountry) {
-      setError('Please select a financial cycle, country, and file before uploading');
+    if (!file || !selectedLastUpdateId || !selectedCountry || !selectedBusinessUnitId) {
+      setError('Please select a financial cycle, country, business unit, and file before uploading');
       return;
     }
     
@@ -139,6 +169,7 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
     formData.append('file', file);
     formData.append('lastUpdateId', selectedLastUpdateId);
     formData.append('country', selectedCountry);
+    formData.append('businessUnitId', selectedBusinessUnitId);
     
     try {
       // Simulate progress
@@ -215,6 +246,20 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
         onChange={setSelectedCountry}
         placeholder="Choose a country..."
         loading={isLoadingCountries}
+        searchable={true}
+      />
+
+      {/* Business Unit Selection */}
+      <ModernDropdown
+        label="Business Unit"
+        options={businessUnits.map(bu => ({
+          value: bu.id.toString(),
+          label: bu.name
+        }))}
+        value={selectedBusinessUnitId}
+        onChange={setSelectedBusinessUnitId}
+        placeholder="Choose a business unit..."
+        loading={isLoadingBusinessUnits}
         searchable={true}
       />
 
@@ -302,7 +347,7 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
       )}
 
       {/* Upload Button */}
-      {file && selectedLastUpdateId && selectedCountry && !isUploading && (
+      {file && selectedLastUpdateId && selectedCountry && selectedBusinessUnitId && !isUploading && (
         <button
           onClick={handleUpload}
           className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

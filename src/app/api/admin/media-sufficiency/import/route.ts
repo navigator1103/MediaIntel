@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
     const sessionDataRaw = fs.readFileSync(sessionFilePath, 'utf8');
     const sessionData = JSON.parse(sessionDataRaw);
     
+    // Debug log business unit ID
+    logWithTimestamp(`Session business unit ID: ${sessionData.businessUnitId}`);
+    
     // Check if the session has been validated
     logWithTimestamp(`Checking if session has been validated...`);
     if (sessionData.status !== 'validated') {
@@ -270,13 +273,14 @@ export async function POST(request: NextRequest) {
                   gamePlanData.mediaSubTypeId = mediaSubType.id;
                   gamePlanData.pmTypeId = pmType?.id;
                   gamePlanData.countryId = country?.id;
+                  gamePlanData.businessUnitId = sessionData.businessUnitId || null;
 
                   await prisma.gamePlan.create({
                     data: gamePlanData
                   });
                   importResults.gamePlansCount++;
                   
-                  logWithTimestamp(`Created GamePlan for campaign: ${record.campaign}`);
+                  logWithTimestamp(`Created GamePlan for campaign: ${record.campaign} with business unit ID: ${sessionData.businessUnitId}`);
                 }
                 
               } catch (recordError: any) {

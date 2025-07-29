@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       const jsonData = await request.json();
       
       // Validate required fields
-      const { filePath, lastUpdateId, country } = jsonData;
+      const { filePath, lastUpdateId, country, businessUnitId } = jsonData;
       
       if (!filePath) {
         console.error('No file path provided in JSON request');
@@ -176,6 +176,11 @@ export async function POST(request: NextRequest) {
       if (!country) {
         console.error('No country provided in JSON request');
         return NextResponse.json({ error: 'Country is required' }, { status: 400 });
+      }
+      
+      if (!businessUnitId) {
+        console.error('No business unit provided in JSON request');
+        return NextResponse.json({ error: 'Business unit is required' }, { status: 400 });
       }
       
       console.log(`Attempting to read file from server path: ${filePath}`);
@@ -256,6 +261,7 @@ export async function POST(request: NextRequest) {
         recordCount: records.length,
         lastUpdateId,
         country,
+        businessUnitId: parseInt(businessUnitId),
         abpCycle: abpCycleName,
         status: 'pending',
         data: {
@@ -286,6 +292,7 @@ export async function POST(request: NextRequest) {
           recordCount: records.length,
           lastUpdateId,
           country,
+          businessUnitId: parseInt(businessUnitId),
           abpCycle: abpCycleName,
           createdAt: new Date().toISOString(),
           status: 'pending'
@@ -311,6 +318,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const lastUpdateId = formData.get('lastUpdateId') as string;
     const country = formData.get('country') as string;
+    const businessUnitId = formData.get('businessUnitId') as string;
     
     if (!file) {
       console.error('No file found in form data');
@@ -327,6 +335,13 @@ export async function POST(request: NextRequest) {
     if (!country) {
       return NextResponse.json(
         { error: 'Country selection is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!businessUnitId) {
+      return NextResponse.json(
+        { error: 'Business unit selection is required' },
         { status: 400 }
       );
     }
@@ -443,6 +458,7 @@ export async function POST(request: NextRequest) {
       status: 'uploaded',
       lastUpdateId: parseInt(lastUpdateId, 10), // Store the selected lastUpdateId
       country: country, // Store the selected country
+      businessUnitId: parseInt(businessUnitId, 10), // Store the selected business unit
       abpCycle: abpCycleName, // Store the ABP cycle name
       data: {
         records,
@@ -692,7 +708,8 @@ export async function GET(request: NextRequest) {
         importResults: session.importResults || null,
         abpCycle: session.abpCycle,
         lastUpdateId: session.lastUpdateId,
-        country: session.country
+        country: session.country,
+        businessUnitId: session.businessUnitId
       });
     } else {
       // Return session metadata without the full records
@@ -708,7 +725,8 @@ export async function GET(request: NextRequest) {
         importResults: session.importResults || null,
         abpCycle: session.abpCycle,
         lastUpdateId: session.lastUpdateId,
-        country: session.country
+        country: session.country,
+        businessUnitId: session.businessUnitId
       });
     }
   } catch (error) {
