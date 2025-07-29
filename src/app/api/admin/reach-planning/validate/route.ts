@@ -1001,31 +1001,31 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
                        isDigitalTargetSameAsTv.toString().toLowerCase() === 'true';
       
       if (!sameAsTV) {
-        // Digital target is different from TV - validate format: "Gender MinAge - MaxAge SEL"
-        const digitalGender = record['Digital Demo Gender'];
-        const digitalMinAge = record['Digital Demo Min. Age'];
-        const digitalMaxAge = record['Digital Demo Max. Age'];
-        const digitalSel = record['Digital SEL'];
+        // Digital target is different from TV - Final TV Target should be based on TV demographics: "Gender MinAge - MaxAge SEL"
+        const tvGender = record['TV Demo Gender'];
+        const tvMinAge = record['TV Demo Min. Age'];
+        const tvMaxAge = record['TV Demo Max. Age'];
+        const tvSel = record['TV SEL'];
         
-        if (digitalGender && digitalMinAge && digitalMaxAge && digitalSel) {
-          const expectedFormat = `${digitalGender.toString().trim()} ${digitalMinAge.toString().trim()} - ${digitalMaxAge.toString().trim()} ${digitalSel.toString().trim()}`;
+        if (tvGender && tvMinAge && tvMaxAge && tvSel) {
+          const expectedFormat = `${tvGender.toString().trim()} ${tvMinAge.toString().trim()} - ${tvMaxAge.toString().trim()} ${tvSel.toString().trim()}`;
           
           if (finalTvTargetStr !== expectedFormat) {
             issues.push({
               rowIndex: index,
               columnName: 'Final TV Target (don\'t fill)',
               severity: 'critical',
-              message: `Final TV Target format should be "${expectedFormat}" when digital target is different from TV target`,
+              message: `Final TV Target format should be "${expectedFormat}" based on TV demographics when digital target is different from TV target`,
               currentValue: finalTvTarget
             });
           }
         } else {
-          // Missing digital demographic fields - can't validate format
+          // Missing TV demographic fields - can't validate format
           issues.push({
             rowIndex: index,
             columnName: 'Final TV Target (don\'t fill)',
             severity: 'warning',
-            message: 'Cannot validate Final TV Target format - missing digital demographic fields (Gender, Min Age, Max Age, SEL)',
+            message: 'Cannot validate Final TV Target format - missing TV demographic fields (Gender, Min Age, Max Age, SEL)',
             currentValue: finalTvTarget
           });
         }

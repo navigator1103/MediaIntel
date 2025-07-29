@@ -120,10 +120,10 @@ export default function RegisterPage() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
               <p className="text-sm text-gray-600 mb-3">
-                We've sent a verification email to <strong>{formData.email}</strong>.
+                Your account has been created for <strong>{formData.email}</strong>.
               </p>
               <p className="text-sm text-gray-600 mb-4">
-                Please check your inbox and click the verification link to activate your account.
+                You can now directly login with your credentials.
               </p>
               <Link
                 href="/login"
