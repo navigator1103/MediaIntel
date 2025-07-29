@@ -126,7 +126,6 @@ const TV_FIELDS = [
 // Digital fields that must be validated against game plans
 const DIGITAL_FIELDS = [
   // Always required for Digital campaigns
-  'Is Digital target the same than TV?',
   'Digital Target Size (Abs)',
   // Digital Performance Metrics
   'Total Digital Planned R1+',
@@ -440,7 +439,7 @@ async function validateAgainstGamePlans(
           });
         }
 
-        // "Is Digital target the same than TV?" is required when campaign has both TV and Digital media
+        // "Is Digital target the same than TV?" is MANDATORY (critical) for TV+Digital campaigns
         const isDigitalTargetSameAsTv = record['Is Digital target the same than TV?'];
         if (!isDigitalTargetSameAsTv || isDigitalTargetSameAsTv.toString().trim() === '') {
           issues.push({
@@ -465,38 +464,7 @@ async function validateAgainstGamePlans(
         }
       }
 
-      // Planned Combined Reach validation - required when both TV and Digital planned reach values are present
-      const tvPlannedR1Plus = record['Total TV Planned R1+ (%)'];
-      const digitalPlannedR1Plus = record['Total Digital Planned R1+'];
-      const plannedCombinedReach = record['Planned Combined Reach (Don\'t fill)'];
-      
-      const hasTvPlannedR1Plus = tvPlannedR1Plus && tvPlannedR1Plus.toString().trim() !== '';
-      const hasDigitalPlannedR1Plus = digitalPlannedR1Plus && digitalPlannedR1Plus.toString().trim() !== '';
-      const hasPlannedCombinedReach = plannedCombinedReach && plannedCombinedReach.toString().trim() !== '';
-
-      if (hasTvMedia && hasDigitalMedia) {
-        // For campaigns with both TV and Digital, combined reach fields should only be filled for mixed campaigns
-        if (hasTvPlannedR1Plus && hasDigitalPlannedR1Plus && !hasPlannedCombinedReach) {
-          issues.push({
-            rowIndex,
-            columnName: 'Planned Combined Reach (Don\'t fill)',
-            severity: 'critical',
-            message: 'Planned Combined Reach (Don\'t fill) is required when both Total TV Planned R1+ (%) and Total Digital Planned R1+ have values.',
-            currentValue: plannedCombinedReach || ''
-          });
-        }
-      } else {
-        // For single-media campaigns, combined reach fields should be empty
-        if (hasPlannedCombinedReach) {
-          issues.push({
-            rowIndex,
-            columnName: 'Planned Combined Reach (Don\'t fill)',
-            severity: 'critical',
-            message: `Planned Combined Reach (Don't fill) should only be filled for campaigns with both TV and Digital media. Campaign "${campaignName}" only has ${hasTvMedia ? 'TV' : 'Digital'} media.`,
-            currentValue: plannedCombinedReach
-          });
-        }
-      }
+      // Planned Combined Reach validation - REMOVED (no validation applied to this field)
 
       // Combined Potential Reach validation - required when both TV and Digital potential reach values are present
       const tvPotentialR1Plus = record['TV Optimal R1+'];
