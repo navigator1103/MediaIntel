@@ -201,6 +201,7 @@ model BusinessUnit {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at")
   categories   Category[]
+  gamePlans    GamePlan[]
   shareOfVoice ShareOfVoice[]
   tvTargetAudiences TvTargetAudience[]
   tvDiminishingReturns TvDiminishingReturns[]
@@ -290,6 +291,7 @@ model GamePlan {
   country          Country?           @relation(fields: [countryId], references: [id])
   lastUpdate       LastUpdate?        @relation(fields: [last_update_id], references: [id])
   category         Category?          @relation(fields: [category_id], references: [id])
+  businessUnit     BusinessUnit?      @relation(fields: [business_unit_id], references: [id])
 
   @@map("game_plans")
 }
