@@ -14,6 +14,7 @@ export function middleware(request: NextRequest) {
     '/api/auth/login',
     '/api/auth/logout',
     '/api/auth/register',
+    '/api/auth/countries', // Allow countries API for signup page
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
     '/api/auth/verify-email',
