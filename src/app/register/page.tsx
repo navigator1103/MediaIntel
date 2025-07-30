@@ -25,7 +25,7 @@ export default function RegisterPage() {
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const response = await fetch('/api/admin/countries');
+        const response = await fetch('/api/auth/countries');
         if (response.ok) {
           const data = await response.json();
           console.log('Countries loaded:', data.length, 'countries');
