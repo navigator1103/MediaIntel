@@ -27,21 +27,9 @@ export async function GET(request: NextRequest) {
       // Don't reset whereClause completely, just don't add lastUpdateId filter
     } else if (lastUpdateId) {
       whereClause.last_update_id = parseInt(lastUpdateId);
-    } else {
-      // Get the most recent lastUpdateId from game plans
-      const mostRecentGamePlan = await prisma.gamePlan.findFirst({
-        where: {
-          last_update_id: { not: null }
-        },
-        orderBy: {
-          id: 'desc'
-        }
-      });
-      
-      if (mostRecentGamePlan?.last_update_id) {
-        whereClause.last_update_id = mostRecentGamePlan.last_update_id;
-      }
     }
+    // Remove the else block that was filtering by most recent lastUpdateId
+    // This will show all game plans when no specific filter is provided
     
     // Fetch game plans with related data
     const gamePlans = await prisma.gamePlan.findMany({

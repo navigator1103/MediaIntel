@@ -391,7 +391,23 @@ const AdminNavigation = () => {
         </nav>
       </div>
       
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 space-y-2">
+        {/* Switch to User Dashboard */}
+        <a
+          href="/dashboard/media-sufficiency"
+          onClick={(e) => {
+            e.preventDefault();
+            router.push('/dashboard/media-sufficiency');
+          }}
+          className={`w-full flex ${expanded ? 'justify-between' : 'justify-center'} items-center px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-md`}
+        >
+          <span className={`${expanded ? 'block' : 'hidden'}`}>User Dashboard</span>
+          <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </a>
+        
+        {/* Logout Button */}
         <button 
           onClick={onLogout}
           className={`w-full flex ${expanded ? 'justify-between' : 'justify-center'} items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md`}

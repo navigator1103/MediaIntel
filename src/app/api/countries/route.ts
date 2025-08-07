@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserFromRequest, filterCountriesByAccess } from '@/lib/auth/countryAccess';
 
-// GET - List all countries
+// GET - List countries based on user access
 export async function GET(request: NextRequest) {
   try {
-    const countries = await prisma.country.findMany({
-      select: {
-        id: true,
-        name: true,
-        regionId: true,
-        region: {
-          select: {
-            id: true,
-            name: true
+    // Get user access information for country filtering
+    const userAccess = await getUserFromRequest(request);
+    
+    // Get accessible countries for the user
+    const countries = userAccess 
+      ? await filterCountriesByAccess(userAccess)
+      : await prisma.country.findMany({
+          include: {
+            region: true
+          },
+          orderBy: {
+            name: 'asc'
           }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+        });
 
     return NextResponse.json(countries);
   } catch (error) {

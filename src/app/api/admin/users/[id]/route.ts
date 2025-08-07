@@ -30,6 +30,7 @@ export async function GET(
         accessibleCountries: true,
         accessibleBrands: true,
         accessiblePages: true,
+        canAccessUserDashboard: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -89,6 +90,7 @@ export async function PUT(
       accessibleCountries: data.accessibleCountries,
       accessibleBrands: data.accessibleBrands,
       accessiblePages: data.accessiblePages,
+      canAccessUserDashboard: data.canAccessUserDashboard,
     };
     
     // Only update password if provided
@@ -108,6 +110,7 @@ export async function PUT(
         accessibleCountries: true,
         accessibleBrands: true,
         accessiblePages: true,
+        canAccessUserDashboard: true,
         createdAt: true,
         updatedAt: true,
       },

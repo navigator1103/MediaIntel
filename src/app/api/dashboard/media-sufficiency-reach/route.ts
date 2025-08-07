@@ -3,6 +3,30 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
+    // Check if MediaSufficiency table has data
+    const count = await prisma.mediaSufficiency.count();
+    
+    if (count === 0) {
+      // Return empty structure if no data
+      return NextResponse.json({
+        summary: {
+          totalRecords: 0,
+          countries: 0,
+          campaigns: 0,
+          lastUpdated: null,
+          woaOpenTv: 0,
+          woaPaidTv: 0,
+          woaPmFf: 0,
+          woaInfluencersAmplification: 0
+        },
+        tvReachData: [],
+        digitalReachData: [],
+        combinedReachData: [],
+        countryReachAnalysis: [],
+        categoryReachAnalysis: []
+      });
+    }
+    
     // Fetch all MediaSufficiency records with their reach data
     const mediaSufficiencyData = await prisma.mediaSufficiency.findMany({
       select: {
@@ -407,9 +431,24 @@ export async function GET() {
 
   } catch (error) {
     console.error('Error fetching media sufficiency reach data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch media sufficiency reach data' },
-      { status: 500 }
-    );
+    
+    // Return empty structure on error
+    return NextResponse.json({
+      summary: {
+        totalRecords: 0,
+        countries: 0,
+        campaigns: 0,
+        lastUpdated: null,
+        woaOpenTv: 0,
+        woaPaidTv: 0,
+        woaPmFf: 0,
+        woaInfluencersAmplification: 0
+      },
+      tvReachData: [],
+      digitalReachData: [],
+      combinedReachData: [],
+      countryReachAnalysis: [],
+      categoryReachAnalysis: []
+    });
   }
 }

@@ -24,6 +24,7 @@ interface GamePlanData {
     Q4: number;
   };
   campaignsByPMType: Record<string, number>;
+  accessibleCountries?: string[] | null;  // Countries the user has access to
   summary: {
     totalBudget: number;
     campaignCount: number;
@@ -173,6 +174,12 @@ interface GamePlan {
 }
 
 export default function MediaSufficiencyDashboard() {
+  // Helper to get auth headers
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+  
   // State for data
   const [gamePlanData, setGamePlanData] = useState<GamePlanData | null>(null);
   const [gamePlans, setGamePlans] = useState<GamePlan[]>([]);
@@ -236,7 +243,9 @@ export default function MediaSufficiencyDashboard() {
   const fetchMediaSufficiencyReachData = async () => {
     try {
       setIsLoadingReach(true);
-      const response = await axios.get('/api/dashboard/media-sufficiency-reach');
+      const response = await axios.get('/api/dashboard/media-sufficiency-reach', {
+        headers: getAuthHeaders()
+      });
       setMediaSufficiencyReachData(response.data);
     } catch (error) {
       console.error('Error fetching media sufficiency reach data:', error);
@@ -245,45 +254,6 @@ export default function MediaSufficiencyDashboard() {
     }
   };
   
-  // Fetch all available filter options from database
-  const fetchAllFilterOptions = async () => {
-    try {
-      // Fetch all countries
-      const countriesResponse = await axios.get('/api/countries');
-      const countries = countriesResponse.data.map((c: any) => c.name).sort();
-      setAllCountries(countries);
-      
-      // Fetch all media types
-      const mediaTypesResponse = await axios.get('/api/media-types');
-      const mediaTypes = mediaTypesResponse.data.map((mt: any) => mt.name).sort();
-      setAllMediaTypes(mediaTypes);
-      
-      // Fetch all business units with their categories
-      const businessUnitsResponse = await axios.get('/api/business-units');
-      const businessUnits = businessUnitsResponse.data;
-      setAllBusinessUnits(businessUnits);
-      
-      // Extract all unique categories from business units
-      const allCats = new Set<string>();
-      businessUnits.forEach((bu: any) => {
-        bu.categories.forEach((cat: any) => {
-          allCats.add(cat.name);
-        });
-      });
-      const categories = Array.from(allCats).sort();
-      setAllCategories(categories);
-      setFilteredCategories(categories); // Initially show all categories
-      
-      console.log('Loaded filter options:', {
-        countries: countries.length,
-        mediaTypes: mediaTypes.length,
-        businessUnits: businessUnits.length,
-        categories: categories.length
-      });
-    } catch (error) {
-      console.error('Error fetching filter options:', error);
-    }
-  };
   
   // Fetch Game Plan data
   useEffect(() => {
@@ -291,11 +261,10 @@ export default function MediaSufficiencyDashboard() {
       try {
         setIsLoading(true);
         
-        // Fetch all available filter options first
-        await fetchAllFilterOptions();
-        
-        // Fetch aggregated dashboard data
-        const dashboardResponse = await axios.get('/api/dashboard/media-sufficiency');
+        // Fetch aggregated dashboard data first
+        const dashboardResponse = await axios.get('/api/dashboard/media-sufficiency', {
+          headers: getAuthHeaders()
+        });
         
         // Add lastUpdate field if not present
         if (dashboardResponse.data && dashboardResponse.data.summary && !dashboardResponse.data.summary.lastUpdate) {
@@ -305,9 +274,49 @@ export default function MediaSufficiencyDashboard() {
         setGamePlanData(dashboardResponse.data);
         setFilteredData(dashboardResponse.data); // Initialize filtered data with all data
         
+        // Set accessible countries from dashboard response
+        if (dashboardResponse.data.accessibleCountries && dashboardResponse.data.accessibleCountries.length > 0) {
+          // User has restricted access - use only these countries
+          setAllCountries(dashboardResponse.data.accessibleCountries.sort());
+          console.log('User has restricted access to countries:', dashboardResponse.data.accessibleCountries);
+        } else {
+          // User has full access or countries not specified - fetch from API
+          const headers = getAuthHeaders();
+          const countriesResponse = await axios.get('/api/countries', { headers });
+          const countries = countriesResponse.data.map((c: any) => c.name).sort();
+          setAllCountries(countries);
+          console.log('User has access to all countries or fetched from API:', countries.length, 'countries');
+        }
+        
+        // Fetch other filter options (media types, business units, etc.)
+        const headers = getAuthHeaders();
+        
+        // Fetch all media types
+        const mediaTypesResponse = await axios.get('/api/media-types', { headers });
+        const mediaTypes = mediaTypesResponse.data.map((mt: any) => mt.name).sort();
+        setAllMediaTypes(mediaTypes);
+        
+        // Fetch all business units with their categories
+        const businessUnitsResponse = await axios.get('/api/business-units', { headers });
+        const businessUnits = businessUnitsResponse.data;
+        setAllBusinessUnits(businessUnits);
+        
+        // Extract all unique categories from business units
+        const allCats = new Set<string>();
+        businessUnits.forEach((bu: any) => {
+          bu.categories.forEach((cat: any) => {
+            allCats.add(cat.name);
+          });
+        });
+        const categories = Array.from(allCats).sort();
+        setAllCategories(categories);
+        setFilteredCategories(categories); // Initially show all categories
+        
         try {
           // Fetch raw game plans data for the Campaign by Quarter table
-          const gamePlansResponse = await axios.get('/api/admin/media-sufficiency/game-plans');
+          const gamePlansResponse = await axios.get('/api/admin/media-sufficiency/game-plans', {
+            headers: getAuthHeaders()
+          });
           
           // Use the actual start and end date fields from the game plans table
           // Handle the API response structure which returns an object with gamePlans property
@@ -797,12 +806,49 @@ export default function MediaSufficiencyDashboard() {
     }
   }, [selectedBusinessUnits, allBusinessUnits, allCategories]);
 
+  // Get user data for navigation
+  const getUserData = () => {
+    if (typeof window !== 'undefined') {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          return JSON.parse(user);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    }
+    return null;
+  };
+
+  const userData = getUserData();
+  const userRole = userData?.role;
+  const canAccessAdmin = userRole && ['admin', 'super_admin'].includes(userRole);
+
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen">
       {/* Dashboard Header */}
       <div className="border-b border-gray-200 px-6 py-6 bg-white shadow-sm">
-        <h1 className="text-3xl font-bold text-gray-900">Media Intelligence Dashboard</h1>
-        <p className="text-gray-600 mt-2 text-lg">Comprehensive analytics and insights for global media operations</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Media Intelligence Dashboard</h1>
+            <p className="text-gray-600 mt-2 text-lg">Comprehensive analytics and insights for global media operations</p>
+          </div>
+          {canAccessAdmin && (
+            <div>
+              <button
+                onClick={() => window.location.href = '/admin'}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md flex items-center"
+              >
+                <svg className="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Admin Panel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Main Content with Sidebar */}

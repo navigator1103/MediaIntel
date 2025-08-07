@@ -11,6 +11,7 @@ interface User {
   accessibleCountries: string | null;
   accessibleBrands: string | null;
   accessiblePages: string | null;
+  canAccessUserDashboard?: boolean;
 }
 
 interface Country {
@@ -43,6 +44,7 @@ export default function UserForm({
     name: '',
     password: '',
     role: 'user',
+    canAccessUserDashboard: true,
     selectedPages: [] as string[],
     selectedCountries: [] as string[],
   });
@@ -65,6 +67,7 @@ export default function UserForm({
         name: user.name || '',
         password: '', // Don't populate password for security reasons
         role: user.role,
+        canAccessUserDashboard: user.canAccessUserDashboard !== undefined ? user.canAccessUserDashboard : true,
         selectedPages,
         selectedCountries,
       });
@@ -131,6 +134,7 @@ export default function UserForm({
       email: formData.email,
       name: formData.name || null,
       role: formData.role,
+      canAccessUserDashboard: formData.canAccessUserDashboard,
       accessiblePages: formData.selectedPages.length > 0 
         ? formData.selectedPages.join(',') 
         : null,
@@ -242,6 +246,33 @@ export default function UserForm({
                 </p>
               )}
             </div>
+
+            {/* User Dashboard Access for Admin Users */}
+            {(formData.role === 'admin' || formData.role === 'super_admin') && (
+              <div className="col-span-6 sm:col-span-3 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="canAccessUserDashboard"
+                      name="canAccessUserDashboard"
+                      type="checkbox"
+                      checked={formData.canAccessUserDashboard}
+                      onChange={(e) => setFormData(prev => ({ ...prev, canAccessUserDashboard: e.target.checked }))}
+                      className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="canAccessUserDashboard" className="font-medium text-gray-700">
+                      Allow User Dashboard Access
+                    </label>
+                    <p className="text-gray-500">
+                      Enable this to allow the admin user to also login and access the user dashboard. 
+                      When enabled, they can switch between admin panel and user dashboard.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         

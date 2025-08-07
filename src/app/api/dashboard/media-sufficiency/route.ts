@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserFromRequest, createCountryWhereClause, filterCountriesByAccess } from '@/lib/auth/countryAccess';
 
 export async function GET(request: NextRequest) {
   try {
-    // Fetch game plans with related data
+    // Get user access information for country filtering
+    const userAccess = await getUserFromRequest(request);
+    
+    // Build query filter based on accessible countries
+    const whereClause = userAccess ? createCountryWhereClause(userAccess) : {};
+    
+    // Fetch game plans with related data, filtered by accessible countries
     const gamePlans = await prisma.gamePlan.findMany({
+      where: whereClause,
       include: {
         campaign: true,
         mediaSubType: {
@@ -87,6 +95,9 @@ export async function GET(request: NextRequest) {
         : 0;
     });
 
+    // Get list of accessible countries for the frontend filter
+    const accessibleCountries = userAccess ? await filterCountriesByAccess(userAccess) : null;
+    
     const dashboardData = {
       budgetByMediaType,
       budgetByCountry,
@@ -94,6 +105,7 @@ export async function GET(request: NextRequest) {
       budgetByCategoryPercentage,
       budgetByQuarter,
       campaignsByPMType,
+      accessibleCountries: accessibleCountries?.map(c => c.name) || null, // Include accessible country names for frontend
       summary: {
         totalBudget,
         campaignCount: campaigns.size,

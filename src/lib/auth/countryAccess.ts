@@ -14,33 +14,34 @@ export async function getUserFromRequest(request: NextRequest): Promise<UserCoun
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) return null;
 
-    // For demo tokens, return hardcoded permissions
+    // Handle special admin token (keeping this for backward compatibility)
     if (token === 'demo-super-admin-token') {
       return { userId: 1, role: 'super_admin', accessibleCountries: null };
     }
-    if (token === 'demo-restricted-admin-token') {
-      return { userId: 3, role: 'admin', accessibleCountries: '4,33' };
+
+    // For all other tokens, decode JWT and get user from database
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret-here') as any;
+      
+      // Always get user from database to get latest permissions
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, role: true, accessibleCountries: true }
+      });
+
+      if (!user) return null;
+
+      return {
+        userId: user.id,
+        role: user.role,
+        accessibleCountries: user.accessibleCountries
+      };
+    } catch (jwtError) {
+      // If JWT verification fails, it might be an old demo token
+      // Try to extract user ID from the token format
+      console.error('JWT verification failed, token might be invalid:', jwtError);
+      return null;
     }
-    if (token === 'demo-user-token') {
-      return { userId: 2, role: 'user', accessibleCountries: null };
-    }
-
-    // Decode JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret-here') as any;
-    
-    // Get user from database to get latest permissions
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, role: true, accessibleCountries: true }
-    });
-
-    if (!user) return null;
-
-    return {
-      userId: user.id,
-      role: user.role,
-      accessibleCountries: user.accessibleCountries
-    };
   } catch (error) {
     console.error('Error extracting user from request:', error);
     return null;

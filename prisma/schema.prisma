@@ -9,19 +9,20 @@ datasource db {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  email               String               @unique
-  name                String?
-  password            String
-  role                String               @default("user")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  accessibleBrands    String?              @map("accessible_brands")
-  accessibleCountries String?              @map("accessible_countries")
-  accessiblePages     String?              @map("accessible_pages")
-  emailVerified       Boolean?             @default(false) @map("email_verified")
-  verificationToken   String?              @map("verification_token")
-  passwordResetTokens PasswordResetToken[]
+  id                     Int                  @id @default(autoincrement())
+  email                  String               @unique
+  name                   String?
+  password               String
+  role                   String               @default("user")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  accessibleBrands       String?              @map("accessible_brands")
+  accessibleCountries    String?              @map("accessible_countries")
+  accessiblePages        String?              @map("accessible_pages")
+  canAccessUserDashboard Boolean              @default(true) @map("can_access_user_dashboard")
+  emailVerified          Boolean?             @default(false) @map("email_verified")
+  verificationToken      String?              @map("verification_token")
+  passwordResetTokens    PasswordResetToken[]
 
   @@map("users")
 }

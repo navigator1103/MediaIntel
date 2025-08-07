@@ -130,21 +130,31 @@ export default function Login() {
             return;
           }
           
-          // CRITICAL: Prevent admin users from accessing user dashboard
+          // Check if admin users have permission to access user dashboard
           if (type === 'user' && ['super_admin', 'admin'].includes(data.user.role)) {
-            console.log('=== CLIENT-SIDE USER ACCESS DENIED FOR ADMIN ===');
-            console.log('Requested: user dashboard, User role:', data.user.role);
-            console.log('Admin users cannot access user dashboard');
-            setError('Admin users cannot access the user dashboard. Please use "Login as Admin" instead.');
-            setIsLoading(false);
+            console.log('=== ADMIN ACCESSING USER DASHBOARD ===');
+            console.log('User role:', data.user.role);
+            console.log('Can access user dashboard:', data.user.canAccessUserDashboard);
             
-            // Clear any stored authentication data to prevent confusion
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('loginType');
-            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+            // Check if they have permission (default to true if undefined for backward compatibility)
+            const hasPermission = data.user.canAccessUserDashboard !== false;
             
-            return;
+            if (!hasPermission) {
+              console.log('Admin does not have permission to access user dashboard');
+              setError('You do not have permission to access the user dashboard. Please contact your administrator to enable dual dashboard access.');
+              setIsLoading(false);
+              
+              // Clear any stored authentication data to prevent confusion
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              localStorage.removeItem('loginType');
+              document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+              
+              return;
+            }
+            
+            console.log('Admin has permission to access user dashboard');
+            // Continue with login - admin can access user dashboard
           }
           
           console.log('=== PERMISSION CHECK PASSED ===');

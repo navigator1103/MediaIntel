@@ -16,6 +16,7 @@ export async function GET() {
         accessibleCountries: true,
         accessibleBrands: true,
         accessiblePages: true,
+        canAccessUserDashboard: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
         accessibleCountries: data.accessibleCountries,
         accessibleBrands: data.accessibleBrands,
         accessiblePages: data.accessiblePages,
+        canAccessUserDashboard: data.canAccessUserDashboard !== undefined ? data.canAccessUserDashboard : true,
         emailVerified: true, // Auto-verify admin-created users
       },
       select: {
@@ -83,6 +85,7 @@ export async function POST(request: NextRequest) {
         accessibleCountries: true,
         accessibleBrands: true,
         accessiblePages: true,
+        canAccessUserDashboard: true,
         createdAt: true,
         updatedAt: true,
       },

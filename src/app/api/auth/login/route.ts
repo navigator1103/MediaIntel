@@ -18,7 +18,8 @@ export async function POST(request: Request) {
     console.log('Login attempt for:', email);
 
     // Check for demo accounts first (maintain backward compatibility)
-    if (email === 'admin@example.com' && password === 'admin') {
+    // Use case-insensitive comparison to handle database conflicts
+    if (email.toLowerCase() === 'admin@example.com' && password === 'admin') {
       const superAdminUser = {
         id: 1,
         email: 'admin@example.com',
@@ -41,6 +42,58 @@ export async function POST(request: Request) {
         token: 'demo-super-admin-token',
         user: superAdminUser
       });
+    }
+    
+    // Check for demo user password, but get actual access from database
+    if (email.toLowerCase() === 'user@example.com' && password === 'user') {
+      // Get the actual user from database to get their current access settings
+      const dbUser = await prisma.user.findUnique({
+        where: { email: 'user@example.com' }
+      });
+      
+      if (dbUser) {
+        // Use database values for access control
+        const demoUser = {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name || 'Demo User',
+          role: dbUser.role,
+          accessibleCountries: dbUser.accessibleCountries,
+          accessibleBrands: dbUser.accessibleBrands,
+          accessiblePages: dbUser.accessiblePages,
+          canAccessUserDashboard: dbUser.canAccessUserDashboard
+        };
+        
+        // Validate admin permissions
+        if (loginType === 'admin' && !['super_admin', 'admin'].includes(demoUser.role)) {
+          return NextResponse.json(
+            { error: 'You do not have admin privileges. Please login as a regular user.' },
+            { status: 403 }
+          );
+        }
+        
+        // Generate real JWT token with actual user data
+        const token = jwt.sign(
+          { 
+            userId: dbUser.id, 
+            email: dbUser.email, 
+            role: dbUser.role 
+          },
+          process.env.JWT_SECRET || 'your-jwt-secret-here',
+          { expiresIn: '7d' }
+        );
+        
+        return NextResponse.json({
+          token,
+          user: demoUser
+        });
+      } else {
+        // Fallback if user doesn't exist in database
+        return NextResponse.json(
+          { error: 'User not found in database' },
+          { status: 404 }
+        );
+      }
     }
 
     // Check database for real users
@@ -100,7 +153,8 @@ export async function POST(request: Request) {
         emailVerified: user.emailVerified,
         accessibleCountries: user.accessibleCountries,
         accessibleBrands: user.accessibleBrands,
-        accessiblePages: user.accessiblePages
+        accessiblePages: user.accessiblePages,
+        canAccessUserDashboard: user.canAccessUserDashboard
       }
     });
 
