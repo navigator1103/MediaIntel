@@ -53,6 +53,8 @@ interface MediaSufficiencyReachData {
     currentReach: number;
     idealReach: number;
     gap: number;
+    reachAbs?: number;
+    potential?: number;
   }>;
   digitalReachData: Array<{
     campaign: string;
@@ -61,6 +63,8 @@ interface MediaSufficiencyReachData {
     currentReach: number;
     idealReach: number;
     gap: number;
+    reachAbs?: number;
+    potential?: number;
   }>;
   combinedReachData: Array<{
     campaign: string;
@@ -69,6 +73,8 @@ interface MediaSufficiencyReachData {
     currentReach: number;
     idealReach: number;
     gap: number;
+    reachAbs?: number;
+    potential?: number;
   }>;
   countryReachAnalysis: Array<{
     country: string;
@@ -125,10 +131,19 @@ interface GamePlan {
     id: number;
     name: string;
   };
+  businessUnitId?: number;
+  businessUnit?: {
+    id: number;
+    name: string;
+  };
   category_id?: number;
   category?: {
     id: number;
     name: string;
+    businessUnit?: {
+      id: number;
+      name: string;
+    };
   };
   last_update_id?: number;
   lastUpdate?: {
@@ -140,8 +155,21 @@ interface GamePlan {
   q2Budget: number;
   q3Budget: number;
   q4Budget: number;
+  janBudget?: number;
+  febBudget?: number;
+  marBudget?: number;
+  aprBudget?: number;
+  mayBudget?: number;
+  junBudget?: number;
+  julBudget?: number;
+  augBudget?: number;
+  sepBudget?: number;
+  octBudget?: number;
+  novBudget?: number;
+  decBudget?: number;
   startDate?: string;
   endDate?: string;
+  burst?: string;
 }
 
 export default function MediaSufficiencyDashboard() {
@@ -159,9 +187,9 @@ export default function MediaSufficiencyDashboard() {
   // State for filters
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(['India']);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
-  const [selectedPMTypes, setSelectedPMTypes] = useState<string[]>([]);
+  const [selectedBusinessUnits, setSelectedBusinessUnits] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLastUpdates, setSelectedLastUpdates] = useState<string[]>([]);
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 1000000]);
@@ -182,6 +210,13 @@ export default function MediaSufficiencyDashboard() {
   
   // State for country budget by quarter table
   const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  
+  // State for all available filter options (from database)
+  const [allCountries, setAllCountries] = useState<string[]>([]);
+  const [allMediaTypes, setAllMediaTypes] = useState<string[]>([]);
+  const [allBusinessUnits, setAllBusinessUnits] = useState<Array<{name: string, categories: Array<{id: number, name: string}>}>>([]);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<string[]>([]);
   
   // Toggle country expansion
   const toggleCountryExpansion = (country: string) => {
@@ -210,11 +245,54 @@ export default function MediaSufficiencyDashboard() {
     }
   };
   
+  // Fetch all available filter options from database
+  const fetchAllFilterOptions = async () => {
+    try {
+      // Fetch all countries
+      const countriesResponse = await axios.get('/api/countries');
+      const countries = countriesResponse.data.map((c: any) => c.name).sort();
+      setAllCountries(countries);
+      
+      // Fetch all media types
+      const mediaTypesResponse = await axios.get('/api/media-types');
+      const mediaTypes = mediaTypesResponse.data.map((mt: any) => mt.name).sort();
+      setAllMediaTypes(mediaTypes);
+      
+      // Fetch all business units with their categories
+      const businessUnitsResponse = await axios.get('/api/business-units');
+      const businessUnits = businessUnitsResponse.data;
+      setAllBusinessUnits(businessUnits);
+      
+      // Extract all unique categories from business units
+      const allCats = new Set<string>();
+      businessUnits.forEach((bu: any) => {
+        bu.categories.forEach((cat: any) => {
+          allCats.add(cat.name);
+        });
+      });
+      const categories = Array.from(allCats).sort();
+      setAllCategories(categories);
+      setFilteredCategories(categories); // Initially show all categories
+      
+      console.log('Loaded filter options:', {
+        countries: countries.length,
+        mediaTypes: mediaTypes.length,
+        businessUnits: businessUnits.length,
+        categories: categories.length
+      });
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+  
   // Fetch Game Plan data
   useEffect(() => {
     const fetchGamePlanData = async () => {
       try {
         setIsLoading(true);
+        
+        // Fetch all available filter options first
+        await fetchAllFilterOptions();
         
         // Fetch aggregated dashboard data
         const dashboardResponse = await axios.get('/api/dashboard/media-sufficiency');
@@ -286,6 +364,21 @@ export default function MediaSufficiencyDashboard() {
           });
           
           setGamePlans(gamePlansWithDates);
+          
+          // Extract unique last update options from game plans
+          const uniqueLastUpdates = Array.from(new Set(
+            gamePlansWithDates
+              .filter((plan: GamePlan) => plan.lastUpdate?.name)
+              .map((plan: GamePlan) => plan.lastUpdate!.name)
+          )).sort();
+          
+          // Set available update options
+          const updateOptions = uniqueLastUpdates.map((name, index) => ({
+            id: index + 1,
+            name: String(name)
+          }));
+          setAvailableUpdateOptions(updateOptions);
+          
         } catch (gamePlansError) {
           console.error('Error fetching game plans:', gamePlansError);
           // Continue with the dashboard even if game plans fetch fails
@@ -372,15 +465,6 @@ export default function MediaSufficiencyDashboard() {
     );
   };
   
-  // Handle PM type selection
-  const togglePMType = (pmType: string) => {
-    setSelectedPMTypes(prev => 
-      prev.includes(pmType) 
-        ? prev.filter(type => type !== pmType) 
-        : [...prev, pmType]
-    );
-  };
-  
   // Handle category selection
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev => 
@@ -417,11 +501,15 @@ export default function MediaSufficiencyDashboard() {
       );
     }
     
-    // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType?.name && selectedPMTypes.includes(plan.pmType.name)
-      );
+    // Apply Business Unit filter
+    if (selectedBusinessUnits.length > 0) {
+      filteredPlans = filteredPlans.filter(plan => {
+        // Check if the plan's category belongs to the selected business units
+        const categoryBU = plan.category?.businessUnit?.name;
+        const directBU = plan.businessUnit?.name;
+        return (categoryBU && selectedBusinessUnits.includes(categoryBU)) ||
+               (directBU && selectedBusinessUnits.includes(directBU));
+      });
     }
     
     // Apply category filter
@@ -431,7 +519,12 @@ export default function MediaSufficiencyDashboard() {
       );
     }
     
-    // Last Update filter removed
+    // Apply Last Update filter
+    if (selectedLastUpdates.length > 0) {
+      filteredPlans = filteredPlans.filter(plan => 
+        plan.lastUpdate?.name && selectedLastUpdates.includes(plan.lastUpdate.name)
+      );
+    }
     
     return filteredPlans;
   };
@@ -450,7 +543,7 @@ export default function MediaSufficiencyDashboard() {
           const budgetValue = Number(budget) || 0;
           totalBudget += budgetValue;
           
-          if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaType)) {
+          if (['TV', 'Radio', 'Print', 'OOH', 'Traditional'].includes(mediaType)) {
             tvBudget += budgetValue;
           } else {
             digitalBudget += budgetValue;
@@ -488,7 +581,7 @@ export default function MediaSufficiencyDashboard() {
       totalBudget += budget;
       
       // Check if the media type is traditional (TV) or digital
-      if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaTypeName)) {
+      if (['TV', 'Radio', 'Print', 'OOH', 'Traditional'].includes(mediaTypeName)) {
         tvBudget += budget;
         console.log(`Added ${budget} to TV budget (${mediaTypeName})`);
       } else if (mediaTypeName) {
@@ -546,9 +639,9 @@ export default function MediaSufficiencyDashboard() {
   // Clear all filters
   const clearAllFilters = () => {
     setSelectedMediaTypes([]);
-    setSelectedCountries(['India']); // Keep India selected by default
+    setSelectedCountries([]);
     setSelectedSubRegions([]);
-    setSelectedPMTypes([]);
+    setSelectedBusinessUnits([]);
     setSelectedCategories([]);
     setSelectedLastUpdates([]);
     if (gamePlanData && gamePlanData.summary) {
@@ -562,138 +655,99 @@ export default function MediaSufficiencyDashboard() {
   // Note: We need to include selectedCategories in the dependency array from the beginning
   // to avoid React errors about changing dependency array size
   useEffect(() => {
-    if (!gamePlanData) return;
+    if (!gamePlanData || !gamePlans) return;
     
     // Start with all data
     let filtered = { ...gamePlanData };
     
-    // Apply media type filter
-    if (selectedMediaTypes.length > 0) {
-      // Filter budget by media type
-      const filteredBudgetByMediaType: Record<string, number> = {};
-      Object.entries(gamePlanData.budgetByMediaType).forEach(([mediaType, budget]) => {
-        if (selectedMediaTypes.includes(mediaType)) {
-          filteredBudgetByMediaType[mediaType] = budget;
+    // Check if any filters are active
+    const hasActiveFilters = selectedMediaTypes.length > 0 || selectedCountries.length > 0 || 
+                            selectedBusinessUnits.length > 0 || selectedCategories.length > 0 ||
+                            selectedLastUpdates.length > 0;
+    
+    if (hasActiveFilters) {
+      // Apply all filters to get filtered game plans
+      const filteredPlans = applyAllFilters(gamePlans);
+      
+      // Recalculate all aggregations from filtered plans
+      const recalculatedBudgetByMediaType: Record<string, number> = {};
+      const recalculatedBudgetByCountry: Record<string, number> = {};
+      const recalculatedBudgetByCategory: Record<string, number> = {};
+      const recalculatedBudgetByQuarter = { Q1: 0, Q2: 0, Q3: 0, Q4: 0 };
+      let totalFilteredBudget = 0;
+      
+      filteredPlans.forEach(plan => {
+        const budget = plan.totalBudget || 0;
+        totalFilteredBudget += budget;
+        
+        // Aggregate by media type
+        if (plan.mediaSubType?.mediaType?.name) {
+          const mediaTypeName = plan.mediaSubType.mediaType.name;
+          recalculatedBudgetByMediaType[mediaTypeName] = (recalculatedBudgetByMediaType[mediaTypeName] || 0) + budget;
         }
+        
+        // Aggregate by country
+        if (plan.country?.name) {
+          const countryName = plan.country.name;
+          recalculatedBudgetByCountry[countryName] = (recalculatedBudgetByCountry[countryName] || 0) + budget;
+        }
+        
+        // Aggregate by category
+        if (plan.category?.name) {
+          const categoryName = plan.category.name;
+          recalculatedBudgetByCategory[categoryName] = (recalculatedBudgetByCategory[categoryName] || 0) + budget;
+        }
+        
+        // Aggregate by quarter (assuming Jan-Mar = Q1, Apr-Jun = Q2, Jul-Sep = Q3, Oct-Dec = Q4)
+        recalculatedBudgetByQuarter.Q1 += (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
+        recalculatedBudgetByQuarter.Q2 += (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
+        recalculatedBudgetByQuarter.Q3 += (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
+        recalculatedBudgetByQuarter.Q4 += (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
       });
-      filtered.budgetByMediaType = filteredBudgetByMediaType;
+      
+      // Update filtered data with recalculated values
+      filtered.budgetByMediaType = recalculatedBudgetByMediaType;
+      filtered.budgetByCountry = recalculatedBudgetByCountry;
+      filtered.budgetByCategory = recalculatedBudgetByCategory;
+      filtered.budgetByQuarter = recalculatedBudgetByQuarter;
+      
+      // Update summary
+      filtered.summary = {
+        ...filtered.summary,
+        totalBudget: totalFilteredBudget,
+        campaignCount: filteredPlans.length,
+        mediaTypeCount: Object.keys(recalculatedBudgetByMediaType).length,
+        countryCount: Object.keys(recalculatedBudgetByCountry).length,
+        gamePlanCount: filteredPlans.length
+      };
       
       // Log the filter being applied
-      console.log('Applying media type filter:', selectedMediaTypes);
-      console.log('Filtered budget by media type:', filteredBudgetByMediaType);
-      
-      // Also need to filter categories by media type
-      // This is crucial for the campaign distribution chart to respond to media type filter
-      if (gamePlans && gamePlans.length > 0) {
-        const filteredPlans = applyAllFilters(gamePlans);
-        
-        // Recalculate budget by category based on filtered plans
-        const recalculatedBudgetByCategory: Record<string, number> = {};
-        
-        filteredPlans.forEach(plan => {
-          const categoryName = plan.category?.name || 'Unknown';
-          // Calculate the total budget from quarterly budgets
-          const budget = (plan.q1Budget || 0) + (plan.q2Budget || 0) + (plan.q3Budget || 0) + (plan.q4Budget || 0);
-          
-          if (!recalculatedBudgetByCategory[categoryName]) {
-            recalculatedBudgetByCategory[categoryName] = 0;
-          }
-          
-          recalculatedBudgetByCategory[categoryName] += budget;
-        });
-        
-        console.log('Recalculated budget by category:', recalculatedBudgetByCategory);
-        filtered.budgetByCategory = recalculatedBudgetByCategory;
-      }
-    }
-    
-    // Apply country filter
-    if (selectedCountries.length > 0) {
-      // Filter budget by country
-      const filteredBudgetByCountry: Record<string, number> = {};
-      Object.entries(gamePlanData.budgetByCountry).forEach(([country, budget]) => {
-        if (selectedCountries.includes(country)) {
-          filteredBudgetByCountry[country] = budget;
-        }
+      console.log('Active filters:', {
+        mediaTypes: selectedMediaTypes,
+        countries: selectedCountries,
+        businessUnits: selectedBusinessUnits,
+        categories: selectedCategories
       });
-      filtered.budgetByCountry = filteredBudgetByCountry;
-    }
-    
-    // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      // Filter campaigns by PM type
-      const filteredCampaignsByPMType: Record<string, number> = {};
-      Object.entries(gamePlanData.campaignsByPMType).forEach(([pmType, count]) => {
-        if (selectedPMTypes.includes(pmType)) {
-          filteredCampaignsByPMType[pmType] = count;
-        }
-      });
-      filtered.campaignsByPMType = filteredCampaignsByPMType;
-    }
-    
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      // Filter budget by category
-      const filteredBudgetByCategory: Record<string, number> = {};
-      Object.entries(gamePlanData.budgetByCategory).forEach(([category, budget]) => {
-        if (selectedCategories.includes(category)) {
-          filteredBudgetByCategory[category] = budget;
-        }
-      });
-      filtered.budgetByCategory = filteredBudgetByCategory;
-      
-      // Also filter the category percentages
-      const filteredBudgetByCategoryPercentage: Record<string, number> = {};
-      Object.entries(gamePlanData.budgetByCategoryPercentage).forEach(([category, percentage]) => {
-        if (selectedCategories.includes(category)) {
-          filteredBudgetByCategoryPercentage[category] = percentage as number;
-        }
-      });
-      filtered.budgetByCategoryPercentage = filteredBudgetByCategoryPercentage;
-    }
-    
-    // Always update the campaign distribution data based on the current filtered data
-    // This ensures the chart responds to all filters
-    let totalFilteredBudget = 0;
-    let filteredBudgetByCategory: Record<string, number> = {};
-    
-    // First, determine which categories to include based on filters
-    if (selectedMediaTypes.length > 0 || selectedCountries.length > 0 || selectedPMTypes.length > 0 || selectedCategories.length > 0) {
-      // Apply all filters using the helper function
-      let filteredPlans = applyAllFilters(gamePlans);
-      
-      // Calculate budget by category from filtered plans
-      filteredPlans.forEach(plan => {
-        if (!plan.category || !plan.category.name || !plan.totalBudget) return;
-        
-        const categoryName = plan.category.name;
-        const budget = Number(plan.totalBudget) || 0;
-        
-        if (!filteredBudgetByCategory[categoryName]) {
-          filteredBudgetByCategory[categoryName] = 0;
-        }
-        
-        filteredBudgetByCategory[categoryName] += budget;
-        totalFilteredBudget += budget;
+      console.log('Recalculated budgets:', {
+        byMediaType: recalculatedBudgetByMediaType,
+        total: totalFilteredBudget
       });
     } else {
-      // If no filters are applied, use the original data
-      filteredBudgetByCategory = { ...gamePlanData.budgetByCategory };
-      Object.values(filteredBudgetByCategory).forEach(budget => {
-        totalFilteredBudget += budget as number;
-      });
+      // No filters active, use original data
+      filtered = { ...gamePlanData };
     }
     
-    // Calculate new percentages
+    // Calculate category percentages based on filtered data
+    const categoryBudget = filtered.budgetByCategory || {};
+    const totalCategoryBudget = Object.values(categoryBudget).reduce((sum, budget) => sum + (budget as number), 0);
     const filteredBudgetByCategoryPercentage: Record<string, number> = {};
-    Object.entries(filteredBudgetByCategory).forEach(([category, budget]) => {
-      filteredBudgetByCategoryPercentage[category] = totalFilteredBudget > 0 
-        ? (budget / totalFilteredBudget) * 100 
+    
+    Object.entries(categoryBudget).forEach(([category, budget]) => {
+      filteredBudgetByCategoryPercentage[category] = totalCategoryBudget > 0 
+        ? ((budget as number) / totalCategoryBudget) * 100 
         : 0;
     });
     
-    // Update filtered data
-    filtered.budgetByCategory = filteredBudgetByCategory;
     filtered.budgetByCategoryPercentage = filteredBudgetByCategoryPercentage;
     
     // Update campaign distribution data
@@ -705,7 +759,7 @@ export default function MediaSufficiencyDashboard() {
         return {
           name,
           value: validPercentage,
-          absoluteBudget: filteredBudgetByCategory[name],
+          absoluteBudget: categoryBudget[name],
           color: COLORS[index % COLORS.length]
         };
       })
@@ -717,7 +771,31 @@ export default function MediaSufficiencyDashboard() {
     setFilteredData(filtered);
     
   // We need to include all filter dependencies from the beginning to avoid React errors
-  }, [gamePlanData, selectedMediaTypes, selectedCountries, selectedSubRegions, selectedPMTypes, selectedCategories]);
+  }, [gamePlanData, gamePlans, selectedMediaTypes, selectedCountries, selectedBusinessUnits, selectedCategories, selectedLastUpdates]);
+  
+  // Update filtered categories when business units change
+  useEffect(() => {
+    if (selectedBusinessUnits.length === 0) {
+      // Show all categories if no business unit is selected
+      setFilteredCategories(allCategories);
+    } else {
+      // Filter categories based on selected business units
+      const relevantCategories = new Set<string>();
+      allBusinessUnits.forEach(bu => {
+        if (selectedBusinessUnits.includes(bu.name)) {
+          bu.categories.forEach(cat => {
+            relevantCategories.add(cat.name);
+          });
+        }
+      });
+      setFilteredCategories(Array.from(relevantCategories).sort());
+      
+      // Remove any selected categories that are no longer relevant
+      setSelectedCategories(prev => 
+        prev.filter(cat => relevantCategories.has(cat))
+      );
+    }
+  }, [selectedBusinessUnits, allBusinessUnits, allCategories]);
 
   return (
     <div className="flex flex-col bg-gray-50 min-h-screen">
@@ -755,11 +833,11 @@ export default function MediaSufficiencyDashboard() {
             {/* Last Update filter removed */}
             
             {/* Media Type Filter */}
-            {gamePlanData && (
+            {allMediaTypes.length > 0 && (
               <div className="p-4">
                 <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Media Type</h3>
                 <div className="space-y-2">
-                  {Object.keys(gamePlanData.budgetByMediaType).map(mediaType => (
+                  {allMediaTypes.map(mediaType => (
                     <div key={mediaType} className="flex items-center">
                       <input
                         id={`media-${mediaType}`}
@@ -781,11 +859,11 @@ export default function MediaSufficiencyDashboard() {
             )}
             
             {/* Country Filter */}
-            {gamePlanData && (
+            {allCountries.length > 0 && (
               <div className="p-4">
                 <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Country</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {Object.keys(gamePlanData.budgetByCountry).map(country => (
+                  {allCountries.map(country => (
                     <div key={country} className="flex items-center">
                       <input
                         id={`country-${country}`}
@@ -832,22 +910,28 @@ export default function MediaSufficiencyDashboard() {
               </div>
             )}
             
-            {/* PM Type Filter */}
-            {gamePlanData && (
-              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">PM Type</h3>
+            {/* Business Unit Filter */}
+            {allBusinessUnits.length > 0 && (
+              <div className="p-4">
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Business Unit</h3>
                 <div className="space-y-2">
-                  {gamePlanData && Object.keys(gamePlanData.campaignsByPMType).map((pmType) => (
-                    <div key={pmType} className="flex items-center">
+                  {allBusinessUnits.map((bu) => (
+                    <div key={bu.name} className="flex items-center">
                       <input
                         type="checkbox"
-                        id={`pmType-${pmType}`}
-                        checked={selectedPMTypes.includes(pmType)}
-                        onChange={() => togglePMType(pmType)}
+                        id={`bu-${bu.name}`}
+                        checked={selectedBusinessUnits.includes(bu.name)}
+                        onChange={() => {
+                          if (selectedBusinessUnits.includes(bu.name)) {
+                            setSelectedBusinessUnits(prev => prev.filter(b => b !== bu.name));
+                          } else {
+                            setSelectedBusinessUnits(prev => [...prev, bu.name]);
+                          }
+                        }}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
-                      <label htmlFor={`pmType-${pmType}`} className="ml-2 text-sm text-gray-700">
-                        {pmType}
+                      <label htmlFor={`bu-${bu.name}`} className={`ml-2 text-sm text-gray-700 ${sidebarExpanded ? 'block' : 'hidden'}`}>
+                        {bu.name}
                       </label>
                     </div>
                   ))}
@@ -856,11 +940,18 @@ export default function MediaSufficiencyDashboard() {
             )}
             
             {/* Category Filter */}
-            {gamePlanData && (
+            {filteredCategories.length > 0 && (
               <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Category</h3>
-                <div className="space-y-2">
-                  {gamePlanData && Object.keys(gamePlanData.budgetByCategory).map((category) => (
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  Category 
+                  {selectedBusinessUnits.length > 0 && (
+                    <span className="text-xs text-gray-500 ml-1">
+                      ({selectedBusinessUnits.join(', ')})
+                    </span>
+                  )}
+                </h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {filteredCategories.map((category) => (
                     <div key={category} className="flex items-center">
                       <input
                         type="checkbox"
@@ -871,6 +962,29 @@ export default function MediaSufficiencyDashboard() {
                       />
                       <label htmlFor={`category-${category}`} className="ml-2 text-sm text-gray-700">
                         {category}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Last Update / Financial Cycle Filter */}
+            {availableUpdateOptions.length > 0 && (
+              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Financial Cycle</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {availableUpdateOptions.map((option) => (
+                    <div key={option.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`lastupdate-${option.id}`}
+                        checked={selectedLastUpdates.includes(option.name)}
+                        onChange={() => toggleLastUpdate(option.name)}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor={`lastupdate-${option.id}`} className="ml-2 text-sm text-gray-700">
+                        {option.name}
                       </label>
                     </div>
                   ))}
@@ -955,7 +1069,7 @@ export default function MediaSufficiencyDashboard() {
                     const budgetValue = Number(budget) || 0;
                     totalBudget += budgetValue;
                     
-                    if (['TV', 'Radio', 'Print', 'OOH'].includes(mediaType)) {
+                    if (['TV', 'Radio', 'Print', 'OOH', 'Traditional'].includes(mediaType)) {
                       tvBudget += budgetValue;
                     } else {
                       digitalBudget += budgetValue;
@@ -1034,7 +1148,7 @@ export default function MediaSufficiencyDashboard() {
                 );
               })()}
               
-              {/* Charts Row 1 */}
+              {/* Top Row: Campaign Distribution + Country Budget by Quarter */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* Campaign Distribution Chart */}
                 <div className="bg-white rounded-lg shadow p-4" ref={campaignChartRef}>
@@ -1117,9 +1231,10 @@ export default function MediaSufficiencyDashboard() {
                   )}
                 </div>
                 
-                {/* Country Budget by Quarter */}
+                {/* Country Budget by Quarter Table */}
                 <div className="bg-white rounded-lg shadow p-4">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Country Budget by Quarter</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Country Budget by Quarter</h2>
+                <div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
                       <Spinner />
@@ -1166,22 +1281,14 @@ export default function MediaSufficiencyDashboard() {
                               );
                             }
                             
-                            // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType && 
-        selectedPMTypes.includes(plan.pmType.name)
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.category && 
-        plan.category.name && 
-        selectedCategories.includes(plan.category.name)
-      );
-    }
+                            // Apply category filter
+                            if (selectedCategories.length > 0) {
+                              filteredPlans = filteredPlans.filter(plan => 
+                                plan.category && 
+                                plan.category.name && 
+                                selectedCategories.includes(plan.category.name)
+                              );
+                            }
                             
                             // Get unique countries from filtered plans
                             const filteredCountries = Array.from(new Set(filteredPlans
@@ -1200,11 +1307,15 @@ export default function MediaSufficiencyDashboard() {
                               // Calculate total budget for this country
                               const countryTotalBudget = countryPlans.reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
                               
-                              // Calculate quarterly budgets for this country
-                              const countryQ1Budget = countryPlans.reduce((sum, plan) => sum + (Number(plan.q1Budget) || 0), 0);
-                              const countryQ2Budget = countryPlans.reduce((sum, plan) => sum + (Number(plan.q2Budget) || 0), 0);
-                              const countryQ3Budget = countryPlans.reduce((sum, plan) => sum + (Number(plan.q3Budget) || 0), 0);
-                              const countryQ4Budget = countryPlans.reduce((sum, plan) => sum + (Number(plan.q4Budget) || 0), 0);
+                              // Calculate quarterly budgets from monthly budgets for this country
+                              const countryQ1Budget = countryPlans.reduce((sum, plan) => 
+                                sum + (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0), 0);
+                              const countryQ2Budget = countryPlans.reduce((sum, plan) => 
+                                sum + (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0), 0);
+                              const countryQ3Budget = countryPlans.reduce((sum, plan) => 
+                                sum + (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0), 0);
+                              const countryQ4Budget = countryPlans.reduce((sum, plan) => 
+                                sum + (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0), 0);
                               
                               // Calculate quarterly percentages
                               const q1Percentage = countryTotalBudget > 0 ? Math.round((countryQ1Budget / countryTotalBudget) * 100) : 0;
@@ -1239,10 +1350,10 @@ export default function MediaSufficiencyDashboard() {
                                 }
                                 
                                 categoryPlans[categoryName].total += Number(plan.totalBudget) || 0;
-                                categoryPlans[categoryName].q1 += Number(plan.q1Budget) || 0;
-                                categoryPlans[categoryName].q2 += Number(plan.q2Budget) || 0;
-                                categoryPlans[categoryName].q3 += Number(plan.q3Budget) || 0;
-                                categoryPlans[categoryName].q4 += Number(plan.q4Budget) || 0;
+                                categoryPlans[categoryName].q1 += (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0);
+                                categoryPlans[categoryName].q2 += (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0);
+                                categoryPlans[categoryName].q3 += (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0);
+                                categoryPlans[categoryName].q4 += (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0);
                               });
                               
                               // Convert to array and sort by total budget
@@ -1308,10 +1419,15 @@ export default function MediaSufficiencyDashboard() {
                     </div>
                   )}
                 </div>
-                
+                </div>
+              </div>
+              
+              {/* Middle Row: Country Performance by Sub-Media Type + Campaign by Quarter */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* Country Performance by Sub-Media Type */}
                 <div className="bg-white rounded-lg shadow p-4">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">Country Performance by Sub-Media Type</h2>
+                  <div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
                       <Spinner />
@@ -1351,22 +1467,14 @@ export default function MediaSufficiencyDashboard() {
                                 );
                               }
                               
-                              // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType && 
-        selectedPMTypes.includes(plan.pmType.name)
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.category && 
-        plan.category.name && 
-        selectedCategories.includes(plan.category.name)
-      );
-    }
+                              // Apply category filter
+                              if (selectedCategories.length > 0) {
+                                filteredPlans = filteredPlans.filter(plan => 
+                                  plan.category && 
+                                  plan.category.name && 
+                                  selectedCategories.includes(plan.category.name)
+                                );
+                              }
                               
                               // Get unique sub-media types
                               const subMediaTypes = Array.from(new Set(
@@ -1409,22 +1517,14 @@ export default function MediaSufficiencyDashboard() {
                               );
                             }
                             
-                            // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType && 
-        selectedPMTypes.includes(plan.pmType.name)
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.category && 
-        plan.category.name && 
-        selectedCategories.includes(plan.category.name)
-      );
-    }
+                            // Apply category filter
+                            if (selectedCategories.length > 0) {
+                              filteredPlans = filteredPlans.filter(plan => 
+                                plan.category && 
+                                plan.category.name && 
+                                selectedCategories.includes(plan.category.name)
+                              );
+                            }
                             
                             // Get unique countries
                             const countries = Array.from(new Set(
@@ -1502,11 +1602,13 @@ export default function MediaSufficiencyDashboard() {
                       </table>
                     </div>
                   )}
+                  </div>
                 </div>
                 
                 {/* Campaign by Quarter */}
                 <div className="bg-white rounded-lg shadow p-4">
                   <h2 className="text-lg font-semibold text-gray-800 mb-4">Campaign by Quarter</h2>
+                  <div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
                       <Spinner />
@@ -1554,22 +1656,14 @@ export default function MediaSufficiencyDashboard() {
                               );
                             }
                             
-                            // Apply PM type filter
-    if (selectedPMTypes.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.pmType && 
-        selectedPMTypes.includes(plan.pmType.name)
-      );
-    }
-    
-    // Apply category filter
-    if (selectedCategories.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.category && 
-        plan.category.name && 
-        selectedCategories.includes(plan.category.name)
-      );
-    }
+                            // Apply category filter
+                            if (selectedCategories.length > 0) {
+                              filteredPlans = filteredPlans.filter(plan => 
+                                plan.category && 
+                                plan.category.name && 
+                                selectedCategories.includes(plan.category.name)
+                              );
+                            }
                             
                             // Get unique countries from filtered plans
                             const filteredCountries = Array.from(new Set(filteredPlans
@@ -1619,10 +1713,10 @@ export default function MediaSufficiencyDashboard() {
                                 }
                                 
                                 campaignGroups[campaignName].total += Number(plan.totalBudget) || 0;
-                                campaignGroups[campaignName].q1 += Number(plan.q1Budget) || 0;
-                                campaignGroups[campaignName].q2 += Number(plan.q2Budget) || 0;
-                                campaignGroups[campaignName].q3 += Number(plan.q3Budget) || 0;
-                                campaignGroups[campaignName].q4 += Number(plan.q4Budget) || 0;
+                                campaignGroups[campaignName].q1 += (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0);
+                                campaignGroups[campaignName].q2 += (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0);
+                                campaignGroups[campaignName].q3 += (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0);
+                                campaignGroups[campaignName].q4 += (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0);
                               });
                               
                               // Convert to array and sort by total budget
@@ -1684,11 +1778,11 @@ export default function MediaSufficiencyDashboard() {
                       </table>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
               
-              
-              {/* Budget Timeline Chart - New Addition */}
+              {/* Bottom: Budget Timeline */}
               <div className="bg-white rounded-lg shadow p-4 mb-6">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Budget Timeline</h2>
                 <div className="h-64">
