@@ -1,12 +1,12 @@
 {
   "lastSync": {
     "success": true,
-    "timestamp": "2025-08-09T21:11:04.720Z",
+    "timestamp": "2025-08-09T22:47:16.976Z",
     "tablesSync": {
       "users": {
-        "added": 1,
+        "added": 0,
         "updated": 0,
-        "skipped": 61,
+        "skipped": 62,
         "errors": 0
       },
       "campaigns": {
@@ -52,11 +52,68 @@
         "errors": 0
       }
     },
-    "totalRecords": 1,
-    "duration": 4512,
+    "totalRecords": 0,
+    "duration": 5748,
     "errors": []
   },
   "history": [
+    {
+      "success": true,
+      "timestamp": "2025-08-09T22:47:16.976Z",
+      "tablesSync": {
+        "users": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 62,
+          "errors": 0
+        },
+        "campaigns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 247,
+          "errors": 0
+        },
+        "game_plans": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 22,
+          "errors": 0
+        },
+        "media_sufficiency": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "share_of_voice": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "tv_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "digital_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "multimedia_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        }
+      },
+      "totalRecords": 0,
+      "duration": 5748,
+      "errors": []
+    },
     {
       "success": true,
       "timestamp": "2025-08-09T21:11:04.720Z",

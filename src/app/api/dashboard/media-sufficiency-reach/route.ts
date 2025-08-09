@@ -13,12 +13,42 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Fetch full user data from database to get accessibleCountries
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        role: true,
+        accessibleCountries: true
+      }
+    });
+    
+    if (!fullUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
     // Parse accessible countries
-    const accessibleCountryIds = user.accessibleCountries 
-      ? (typeof user.accessibleCountries === 'string' 
-          ? JSON.parse(user.accessibleCountries) 
-          : user.accessibleCountries)
-      : [];
+    let accessibleCountryIds: number[] = [];
+    if (fullUser.accessibleCountries) {
+      try {
+        const parsed = typeof fullUser.accessibleCountries === 'string' 
+          ? JSON.parse(fullUser.accessibleCountries) 
+          : fullUser.accessibleCountries;
+        
+        // Handle both single number and array formats
+        if (Array.isArray(parsed)) {
+          accessibleCountryIds = parsed;
+        } else if (typeof parsed === 'number') {
+          accessibleCountryIds = [parsed];
+        }
+      } catch (e) {
+        console.error('Error parsing accessible countries:', e);
+        accessibleCountryIds = [];
+      }
+    }
     // Check if MediaSufficiency table has data
     const count = await prisma.mediaSufficiency.count();
     

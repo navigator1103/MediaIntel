@@ -12,24 +12,34 @@ export interface UserCountryAccess {
 export async function getUserFromRequest(request: NextRequest): Promise<UserCountryAccess | null> {
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) return null;
+    if (!token) {
+      console.log('[CountryAccess] No authorization token found in request');
+      return null;
+    }
 
     // Handle special admin token (keeping this for backward compatibility)
     if (token === 'demo-super-admin-token') {
+      console.log('[CountryAccess] Demo super admin token detected - full access');
       return { userId: 1, role: 'super_admin', accessibleCountries: null };
     }
 
     // For all other tokens, decode JWT and get user from database
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret-here') as any;
+      console.log('[CountryAccess] JWT decoded - userId:', decoded.userId, 'email:', decoded.email);
       
       // Always get user from database to get latest permissions
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
-        select: { id: true, role: true, accessibleCountries: true }
+        select: { id: true, email: true, role: true, accessibleCountries: true }
       });
 
-      if (!user) return null;
+      if (!user) {
+        console.log('[CountryAccess] User not found in database for ID:', decoded.userId);
+        return null;
+      }
+
+      console.log('[CountryAccess] User found:', user.email, 'role:', user.role, 'accessibleCountries:', user.accessibleCountries);
 
       return {
         userId: user.id,
@@ -39,7 +49,7 @@ export async function getUserFromRequest(request: NextRequest): Promise<UserCoun
     } catch (jwtError) {
       // If JWT verification fails, it might be an old demo token
       // Try to extract user ID from the token format
-      console.error('JWT verification failed, token might be invalid:', jwtError);
+      console.error('[CountryAccess] JWT verification failed, token might be invalid:', jwtError);
       return null;
     }
   } catch (error) {
