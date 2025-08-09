@@ -195,7 +195,7 @@ export default function MediaSufficiencyDashboard() {
   const [selectedYear, setSelectedYear] = useState('2025');
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [selectedSubRegions, setSelectedSubRegions] = useState<string[]>([]);
+  const [selectedRanges, setSelectedRanges] = useState<string[]>([]);
   const [selectedBusinessUnits, setSelectedBusinessUnits] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLastUpdates, setSelectedLastUpdates] = useState<string[]>([]);
@@ -222,6 +222,7 @@ export default function MediaSufficiencyDashboard() {
   const [allCountries, setAllCountries] = useState<string[]>([]);
   const [allMediaTypes, setAllMediaTypes] = useState<string[]>([]);
   const [allBusinessUnits, setAllBusinessUnits] = useState<Array<{name: string, categories: Array<{id: number, name: string}>}>>([]);
+  const [allRanges, setAllRanges] = useState<string[]>([]);
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<string[]>([]);
   
@@ -274,27 +275,27 @@ export default function MediaSufficiencyDashboard() {
         setGamePlanData(dashboardResponse.data);
         setFilteredData(dashboardResponse.data); // Initialize filtered data with all data
         
-        // Set accessible countries from dashboard response
-        if (dashboardResponse.data.accessibleCountries && dashboardResponse.data.accessibleCountries.length > 0) {
-          // User has restricted access - use only these countries
-          setAllCountries(dashboardResponse.data.accessibleCountries.sort());
-          console.log('User has restricted access to countries:', dashboardResponse.data.accessibleCountries);
-        } else {
-          // User has full access or countries not specified - fetch from API
-          const headers = getAuthHeaders();
-          const countriesResponse = await axios.get('/api/countries', { headers });
-          const countries = countriesResponse.data.map((c: any) => c.name).sort();
-          setAllCountries(countries);
-          console.log('User has access to all countries or fetched from API:', countries.length, 'countries');
-        }
+        // Countries will be extracted from actual game plans data
+        // This happens after game plans are fetched (see below)
+        // This ensures we only show countries that have actual data
         
         // Fetch other filter options (media types, business units, etc.)
         const headers = getAuthHeaders();
         
+        // Note: Filter options are now extracted from actual game plans data
+        // This ensures users only see filters for data that actually exists
+        // Commenting out old API calls that fetched ALL possible values
+        
+        /* OLD CODE - Replaced with dynamic extraction from game plans
         // Fetch all media types
         const mediaTypesResponse = await axios.get('/api/media-types', { headers });
         const mediaTypes = mediaTypesResponse.data.map((mt: any) => mt.name).sort();
         setAllMediaTypes(mediaTypes);
+        
+        // Fetch all ranges
+        const rangesResponse = await axios.get('/api/ranges', { headers });
+        const ranges = rangesResponse.data.map((r: any) => r.name).sort();
+        setAllRanges(ranges);
         
         // Fetch all business units with their categories
         const businessUnitsResponse = await axios.get('/api/business-units', { headers });
@@ -311,6 +312,7 @@ export default function MediaSufficiencyDashboard() {
         const categories = Array.from(allCats).sort();
         setAllCategories(categories);
         setFilteredCategories(categories); // Initially show all categories
+        */
         
         try {
           // Fetch raw game plans data for the Campaign by Quarter table
@@ -374,6 +376,59 @@ export default function MediaSufficiencyDashboard() {
           
           setGamePlans(gamePlansWithDates);
           
+          // Extract unique filter options from actual game plans data
+          // This ensures we only show filters for data that exists
+          
+          // Extract unique countries from game plans
+          const uniqueCountries = Array.from(new Set(
+            gamePlansWithDates
+              .filter((plan: GamePlan) => plan.country?.name)
+              .map((plan: GamePlan) => plan.country!.name)
+          )).sort();
+          
+          // Extract unique media types from game plans
+          const uniqueMediaTypes = Array.from(new Set(
+            gamePlansWithDates
+              .filter((plan: GamePlan) => plan.mediaSubType?.mediaType?.name)
+              .map((plan: GamePlan) => plan.mediaSubType!.mediaType!.name)
+          )).sort();
+          
+          // Extract unique ranges from game plans
+          const uniqueRanges = Array.from(new Set(
+            gamePlansWithDates
+              .filter((plan: GamePlan) => plan.range?.name)
+              .map((plan: GamePlan) => plan.range!.name)
+          )).sort();
+          
+          // Extract unique categories from game plans
+          const uniqueCategories = Array.from(new Set(
+            gamePlansWithDates
+              .filter((plan: GamePlan) => plan.category?.name)
+              .map((plan: GamePlan) => plan.category!.name)
+          )).sort();
+          
+          // Extract unique business units from game plans
+          const uniqueBusinessUnits = new Map<string, Set<string>>();
+          gamePlansWithDates.forEach((plan: GamePlan) => {
+            const buName = plan.category?.businessUnit?.name || plan.businessUnit?.name;
+            const categoryName = plan.category?.name;
+            
+            if (buName) {
+              if (!uniqueBusinessUnits.has(buName)) {
+                uniqueBusinessUnits.set(buName, new Set());
+              }
+              if (categoryName) {
+                uniqueBusinessUnits.get(buName)!.add(categoryName);
+              }
+            }
+          });
+          
+          // Convert business units map to array format
+          const businessUnitsArray = Array.from(uniqueBusinessUnits.entries()).map(([name, categories]) => ({
+            name,
+            categories: Array.from(categories).map((catName, idx) => ({ id: idx, name: catName }))
+          })).sort((a, b) => a.name.localeCompare(b.name));
+          
           // Extract unique last update options from game plans
           const uniqueLastUpdates = Array.from(new Set(
             gamePlansWithDates
@@ -381,12 +436,28 @@ export default function MediaSufficiencyDashboard() {
               .map((plan: GamePlan) => plan.lastUpdate!.name)
           )).sort();
           
+          // Set all filter options based on actual data
+          setAllCountries(uniqueCountries);
+          setAllMediaTypes(uniqueMediaTypes);
+          setAllRanges(uniqueRanges);
+          setAllCategories(uniqueCategories);
+          setAllBusinessUnits(businessUnitsArray);
+          
           // Set available update options
           const updateOptions = uniqueLastUpdates.map((name, index) => ({
             id: index + 1,
             name: String(name)
           }));
           setAvailableUpdateOptions(updateOptions);
+          
+          console.log('Filter options extracted from game plans:', {
+            countries: uniqueCountries.length,
+            mediaTypes: uniqueMediaTypes.length,
+            ranges: uniqueRanges.length,
+            categories: uniqueCategories.length,
+            businessUnits: businessUnitsArray.length,
+            lastUpdates: uniqueLastUpdates.length
+          });
           
         } catch (gamePlansError) {
           console.error('Error fetching game plans:', gamePlansError);
@@ -465,12 +536,12 @@ export default function MediaSufficiencyDashboard() {
     );
   };
 
-  // Handle sub region selection
-  const toggleSubRegion = (subRegion: string) => {
-    setSelectedSubRegions(prev => 
-      prev.includes(subRegion) 
-        ? prev.filter(sr => sr !== subRegion) 
-        : [...prev, subRegion]
+  // Handle range selection
+  const toggleRange = (range: string) => {
+    setSelectedRanges(prev => 
+      prev.includes(range) 
+        ? prev.filter(r => r !== range) 
+        : [...prev, range]
     );
   };
   
@@ -525,6 +596,13 @@ export default function MediaSufficiencyDashboard() {
     if (selectedCategories.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
         plan.category?.name && selectedCategories.includes(plan.category.name)
+      );
+    }
+    
+    // Apply range filter
+    if (selectedRanges.length > 0) {
+      filteredPlans = filteredPlans.filter(plan => 
+        plan.range?.name && selectedRanges.includes(plan.range.name)
       );
     }
     
@@ -649,7 +727,7 @@ export default function MediaSufficiencyDashboard() {
   const clearAllFilters = () => {
     setSelectedMediaTypes([]);
     setSelectedCountries([]);
-    setSelectedSubRegions([]);
+    setSelectedRanges([]);
     setSelectedBusinessUnits([]);
     setSelectedCategories([]);
     setSelectedLastUpdates([]);
@@ -874,81 +952,24 @@ export default function MediaSufficiencyDashboard() {
           </div>
           
           <div className="p-4 overflow-y-auto flex-1">
-            {/* Fiscal Year filter removed */}
+            {/* Filters reordered: Financial Cycle, Business Unit, Country, Category, then others */}
             
-            {/* Last Update filter removed */}
-            
-            {/* Media Type Filter */}
-            {allMediaTypes.length > 0 && (
-              <div className="p-4">
-                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Media Type</h3>
-                <div className="space-y-2">
-                  {allMediaTypes.map(mediaType => (
-                    <div key={mediaType} className="flex items-center">
-                      <input
-                        id={`media-${mediaType}`}
-                        type="checkbox"
-                        checked={selectedMediaTypes.includes(mediaType)}
-                        onChange={() => toggleMediaType(mediaType)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <label 
-                        htmlFor={`media-${mediaType}`} 
-                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
-                      >
-                        {mediaType}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Country Filter */}
-            {allCountries.length > 0 && (
-              <div className="p-4">
-                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Country</h3>
+            {/* Last Update / Financial Cycle Filter */}
+            {availableUpdateOptions.length > 0 && (
+              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Financial Cycle</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {allCountries.map(country => (
-                    <div key={country} className="flex items-center">
+                  {availableUpdateOptions.map((option) => (
+                    <div key={option.id} className="flex items-center">
                       <input
-                        id={`country-${country}`}
                         type="checkbox"
-                        checked={selectedCountries.includes(country)}
-                        onChange={() => toggleCountry(country)}
+                        id={`lastupdate-${option.id}`}
+                        checked={selectedLastUpdates.includes(option.name)}
+                        onChange={() => toggleLastUpdate(option.name)}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
-                      <label 
-                        htmlFor={`country-${country}`} 
-                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
-                      >
-                        {country}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Sub Region Filter */}
-            {mediaSufficiencyReachData && (
-              <div className="p-4">
-                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Sub Region</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {['ASEAN', 'India'].map(subRegion => (
-                    <div key={subRegion} className="flex items-center">
-                      <input
-                        id={`subregion-${subRegion}`}
-                        type="checkbox"
-                        checked={selectedSubRegions.includes(subRegion)}
-                        onChange={() => toggleSubRegion(subRegion)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <label 
-                        htmlFor={`subregion-${subRegion}`} 
-                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
-                      >
-                        {subRegion}
+                      <label htmlFor={`lastupdate-${option.id}`} className="ml-2 text-sm text-gray-700">
+                        {option.name}
                       </label>
                     </div>
                   ))}
@@ -978,6 +999,32 @@ export default function MediaSufficiencyDashboard() {
                       />
                       <label htmlFor={`bu-${bu.name}`} className={`ml-2 text-sm text-gray-700 ${sidebarExpanded ? 'block' : 'hidden'}`}>
                         {bu.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Country Filter */}
+            {allCountries.length > 0 && (
+              <div className="p-4">
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Country</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {allCountries.map(country => (
+                    <div key={country} className="flex items-center">
+                      <input
+                        id={`country-${country}`}
+                        type="checkbox"
+                        checked={selectedCountries.includes(country)}
+                        onChange={() => toggleCountry(country)}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label 
+                        htmlFor={`country-${country}`} 
+                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                      >
+                        {country}
                       </label>
                     </div>
                   ))}
@@ -1015,22 +1062,51 @@ export default function MediaSufficiencyDashboard() {
               </div>
             )}
             
-            {/* Last Update / Financial Cycle Filter */}
-            {availableUpdateOptions.length > 0 && (
-              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Financial Cycle</h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {availableUpdateOptions.map((option) => (
-                    <div key={option.id} className="flex items-center">
+            {/* Media Type Filter */}
+            {allMediaTypes.length > 0 && (
+              <div className="p-4">
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Media Type</h3>
+                <div className="space-y-2">
+                  {allMediaTypes.map(mediaType => (
+                    <div key={mediaType} className="flex items-center">
                       <input
+                        id={`media-${mediaType}`}
                         type="checkbox"
-                        id={`lastupdate-${option.id}`}
-                        checked={selectedLastUpdates.includes(option.name)}
-                        onChange={() => toggleLastUpdate(option.name)}
+                        checked={selectedMediaTypes.includes(mediaType)}
+                        onChange={() => toggleMediaType(mediaType)}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
-                      <label htmlFor={`lastupdate-${option.id}`} className="ml-2 text-sm text-gray-700">
-                        {option.name}
+                      <label 
+                        htmlFor={`media-${mediaType}`} 
+                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                      >
+                        {mediaType}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Range Filter */}
+            {allRanges.length > 0 && (
+              <div className="p-4">
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Range</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {allRanges.map(range => (
+                    <div key={range} className="flex items-center">
+                      <input
+                        id={`range-${range}`}
+                        type="checkbox"
+                        checked={selectedRanges.includes(range)}
+                        onChange={() => toggleRange(range)}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label 
+                        htmlFor={`range-${range}`} 
+                        className={`${sidebarExpanded ? 'block' : 'hidden'} ml-2 text-sm text-gray-700`}
+                      >
+                        {range}
                       </label>
                     </div>
                   ))}
@@ -1082,6 +1158,8 @@ export default function MediaSufficiencyDashboard() {
               </button>
             </nav>
           </div>
+
+          {/* Tab Content */}
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <Spinner />
@@ -1868,32 +1946,108 @@ export default function MediaSufficiencyDashboard() {
                 <div className="flex gap-4 mb-6">
                   {/* WIP Total Card */}
                   <div className="bg-blue-800 text-white p-3 rounded-md flex flex-row items-center justify-center gap-3 flex-1">
-                    <div className="text-2xl font-bold">€ {applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0).toLocaleString()}</div>
-                    <div className="text-sm font-medium">WIP Total</div>
+                    <div className="text-xl font-bold">€ {applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0).toLocaleString()}</div>
+                    <div className="text-xs font-medium">Total Budget</div>
                   </div>
                   
                   {/* Q1 Card */}
-                  <div className="bg-blue-700 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
-                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q1Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
-                    <div className="text-sm font-medium">Q1</div>
+                  <div className="bg-blue-700 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-lg font-bold">
+                      {(() => {
+                        // Calculate Q1 budget based on campaigns running in Q1 (Jan-Mar)
+                        const q1Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
+                          if (!plan.startDate || !plan.endDate) return acc;
+                          const start = new Date(plan.startDate);
+                          const end = new Date(plan.endDate);
+                          // Check if campaign runs in Q1 (Jan 1 - Mar 31)
+                          const q1Start = new Date(start.getFullYear(), 0, 1);
+                          const q1End = new Date(start.getFullYear(), 2, 31);
+                          if (end >= q1Start && start <= q1End) {
+                            // Campaign runs in Q1, add its budget (proportionally if it spans multiple quarters)
+                            return acc + (plan.totalBudget || 0);
+                          }
+                          return acc;
+                        }, 0);
+                        const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
+                        return totalBudget > 0 ? Math.round((q1Total / totalBudget) * 100) : 0;
+                      })()}%
+                    </div>
+                    <div className="text-xs font-medium">Q1</div>
                   </div>
                   
                   {/* Q2 Card */}
-                  <div className="bg-blue-600 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
-                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q2Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
-                    <div className="text-sm font-medium">Q2</div>
+                  <div className="bg-blue-600 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-lg font-bold">
+                      {(() => {
+                        // Calculate Q2 budget based on campaigns running in Q2 (Apr-Jun)
+                        const q2Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
+                          if (!plan.startDate || !plan.endDate) return acc;
+                          const start = new Date(plan.startDate);
+                          const end = new Date(plan.endDate);
+                          // Check if campaign runs in Q2 (Apr 1 - Jun 30)
+                          const q2Start = new Date(start.getFullYear(), 3, 1);
+                          const q2End = new Date(start.getFullYear(), 5, 30);
+                          if (end >= q2Start && start <= q2End) {
+                            // Campaign runs in Q2, add its budget
+                            return acc + (plan.totalBudget || 0);
+                          }
+                          return acc;
+                        }, 0);
+                        const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
+                        return totalBudget > 0 ? Math.round((q2Total / totalBudget) * 100) : 0;
+                      })()}%
+                    </div>
+                    <div className="text-xs font-medium">Q2</div>
                   </div>
                   
                   {/* Q3 Card */}
-                  <div className="bg-blue-500 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
-                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q3Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
-                    <div className="text-sm font-medium">Q3</div>
+                  <div className="bg-blue-500 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-lg font-bold">
+                      {(() => {
+                        // Calculate Q3 budget based on campaigns running in Q3 (Jul-Sep)
+                        const q3Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
+                          if (!plan.startDate || !plan.endDate) return acc;
+                          const start = new Date(plan.startDate);
+                          const end = new Date(plan.endDate);
+                          // Check if campaign runs in Q3 (Jul 1 - Sep 30)
+                          const q3Start = new Date(start.getFullYear(), 6, 1);
+                          const q3End = new Date(start.getFullYear(), 8, 30);
+                          if (end >= q3Start && start <= q3End) {
+                            // Campaign runs in Q3, add its budget
+                            return acc + (plan.totalBudget || 0);
+                          }
+                          return acc;
+                        }, 0);
+                        const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
+                        return totalBudget > 0 ? Math.round((q3Total / totalBudget) * 100) : 0;
+                      })()}%
+                    </div>
+                    <div className="text-xs font-medium">Q3</div>
                   </div>
                   
                   {/* Q4 Card */}
-                  <div className="bg-blue-400 text-white p-3 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
-                    <div className="text-2xl font-bold">{Math.round(applyAllFilters(gamePlans).reduce((acc, plan) => acc + plan.q4Budget, 0) / applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0) * 100 || 0)}%</div>
-                    <div className="text-sm font-medium">Q4</div>
+                  <div className="bg-blue-400 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
+                    <div className="text-lg font-bold">
+                      {(() => {
+                        // Calculate Q4 budget based on campaigns running in Q4 (Oct-Dec)
+                        const q4Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
+                          if (!plan.startDate || !plan.endDate) return acc;
+                          const start = new Date(plan.startDate);
+                          const end = new Date(plan.endDate);
+                          // Check if campaign runs in Q4 (Oct 1 - Dec 31)
+                          const q4Start = new Date(start.getFullYear(), 9, 1);
+                          const q4End = new Date(start.getFullYear(), 11, 31);
+                          if (end >= q4Start && start <= q4End) {
+                            // Campaign runs in Q4, add its budget
+                            return acc + (plan.totalBudget || 0);
+                          }
+                          return acc;
+                        }, 0);
+                        const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
+                        return totalBudget > 0 ? Math.round((q4Total / totalBudget) * 100) : 0;
+                      })()}%
+                    </div>
+                    <div className="text-xs font-medium">Q4</div>
                   </div>
                 </div>
                 
@@ -1902,10 +2056,10 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-white rounded-lg shadow overflow-hidden">
                     {/* Table Header */}
                     <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] bg-gray-50 border-b sticky top-0 z-10">
-                      <div className="py-2 px-3 font-semibold">Country</div>
-                      <div className="py-2 px-3 font-semibold">Campaign</div>
-                      <div className="py-2 px-3 font-semibold">Budget</div>
-                      <div className="py-2 px-3 font-semibold">Timeline</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Country</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Campaign</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Budget</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Timeline</div>
                     </div>
                     {/* Month markers with week subdivisions */}
                     <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b">
@@ -1914,10 +2068,10 @@ export default function MediaSufficiencyDashboard() {
                         <div className="grid grid-cols-12 gap-0">
                           {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month) => (
                             <div key={month} className="border-r border-gray-200 last:border-r-0">
-                              <div className="text-xs text-gray-600 font-medium text-center py-1 bg-gray-50">{month}</div>
+                              <div className="text-[10px] text-gray-600 font-medium text-center py-0.5 bg-gray-50">{month}</div>
                               <div className="grid grid-cols-4 gap-0">
                                 {['W1', 'W2', 'W3', 'W4'].map((week) => (
-                                  <div key={week} className="text-xs text-gray-400 text-center py-1 border-r border-gray-100 last:border-r-0">
+                                  <div key={week} className="text-[9px] text-gray-400 text-center py-0.5 border-r border-gray-100 last:border-r-0">
                                     {week}
                                   </div>
                                 ))}
@@ -1944,9 +2098,9 @@ export default function MediaSufficiencyDashboard() {
                         // Use the first plan for display info (they should all have same campaign/country)
                         const firstPlan = plans[0];
                         
-                        // Calculate total budget for all bursts in this campaign
+                        // Calculate total budget for all bursts in this campaign using totalBudget field
                         const totalBudget = plans.reduce((sum, plan) => 
-                          sum + (plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget), 0);
+                          sum + (plan.totalBudget || 0), 0);
                         
                         // Get unique media types for this campaign
                         const mediaTypes = [...new Set(plans.map(plan => plan.mediaSubType?.mediaType?.name).filter(Boolean))];
@@ -1968,13 +2122,13 @@ export default function MediaSufficiencyDashboard() {
                         
                         return (
                           <div key={key} className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b hover:bg-gray-50">
-                            <div className="py-2 px-3">{firstPlan.country?.name || 'Unknown'}</div>
-                            <div className="py-2 px-3 font-medium">{firstPlan.campaign?.name || 'Unnamed Campaign'}</div>
-                            <div className="py-2 px-3">€ {totalBudget.toLocaleString()}</div>
+                            <div className="py-1.5 px-3 text-xs text-gray-600">{firstPlan.country?.name || 'Unknown'}</div>
+                            <div className="py-1.5 px-3 text-xs font-medium text-gray-800">{firstPlan.campaign?.name || 'Unnamed Campaign'}</div>
+                            <div className="py-1.5 px-3 text-xs text-gray-700">€ {totalBudget.toLocaleString()}</div>
                             
                             {/* Multiple horizontal bars for campaign bursts */}
-                            <div className="py-2 px-3 relative" style={{ minHeight: '40px' }}>
-                              <div className="h-4 bg-gray-100 w-full rounded-md relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48))' }}>
+                            <div className="py-1.5 px-3 relative" style={{ minHeight: '30px' }}>
+                              <div className="h-3 bg-gray-100 w-full rounded-sm relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48))' }}>
                                 {/* Render a bar for each burst/plan */}
                                 {plans.map((plan, index) => {
                                   // Skip if no valid dates
@@ -1996,7 +2150,7 @@ export default function MediaSufficiencyDashboard() {
                                   const endPosition = (endDate.getTime() - yearStart.getTime()) / yearDuration;
                                   
                                   // Calculate budget for this burst
-                                  const burstBudget = plan.q1Budget + plan.q2Budget + plan.q3Budget + plan.q4Budget;
+                                  const burstBudget = plan.totalBudget || 0;
                                   
                                   // Get color for this specific burst based on its media type
                                   const burstMediaType = plan.mediaSubType?.mediaType?.name || '';
@@ -2005,7 +2159,7 @@ export default function MediaSufficiencyDashboard() {
                                   return (
                                     <div 
                                       key={plan.id}
-                                      className={`absolute top-0 h-4 ${burstColor} rounded-md border border-white/30`}
+                                      className={`absolute top-0 h-3 ${burstColor} rounded-sm border border-white/30`}
                                       title={`${burstMediaType} - Burst ${plan.burst || index + 1}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} | Budget: €${burstBudget.toLocaleString()} | Media: ${burstMediaType}`}
                                       style={{
                                         left: `${startPosition * 100}%`,
@@ -2052,23 +2206,23 @@ export default function MediaSufficiencyDashboard() {
                   </div>
                 ) : mediaSufficiencyReachData ? (
                   <>
-                    {/* WOA Cards */}
+                    {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                       <div className="bg-blue-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-blue-600 mb-1">WOA(PM & FF)</div>
-                        <div className="text-2xl font-semibold text-blue-800">{mediaSufficiencyReachData.summary.woaPmFf || 0}</div>
+                        <div className="text-sm text-blue-600 mb-1">Campaigns</div>
+                        <div className="text-2xl font-semibold text-blue-800">{mediaSufficiencyReachData.summary.campaigns || 0}</div>
                       </div>
                       <div className="bg-green-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-green-600 mb-1">WOA(Influencers Amplification)</div>
-                        <div className="text-2xl font-semibold text-green-800">{mediaSufficiencyReachData.summary.woaInfluencersAmplification || 0}</div>
+                        <div className="text-sm text-green-600 mb-1">Weeks On Air (WOA)</div>
+                        <div className="text-2xl font-semibold text-green-800">{mediaSufficiencyReachData.summary.totalWoa || 0}</div>
                       </div>
                       <div className="bg-purple-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-purple-600 mb-1">WOA(Open TV)</div>
-                        <div className="text-2xl font-semibold text-purple-800">{mediaSufficiencyReachData.summary.woaOpenTv || 0}</div>
+                        <div className="text-sm text-purple-600 mb-1">Weeks Off Air</div>
+                        <div className="text-2xl font-semibold text-purple-800">{mediaSufficiencyReachData.summary.totalWoff || 0}</div>
                       </div>
                       <div className="bg-orange-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-orange-600 mb-1">WOA(Paid TV)</div>
-                        <div className="text-2xl font-semibold text-orange-800">{mediaSufficiencyReachData.summary.woaPaidTv || 0}</div>
+                        <div className="text-sm text-orange-600 mb-1">Total Weeks</div>
+                        <div className="text-2xl font-semibold text-orange-800">{mediaSufficiencyReachData.summary.totalWeeks || 0}</div>
                       </div>
                     </div>
 

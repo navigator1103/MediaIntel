@@ -1,8 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserFromToken } from '@/lib/getUserFromToken';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Get user from token to check accessible countries
+    const user = getUserFromToken(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
+    // Parse accessible countries
+    const accessibleCountryIds = user.accessibleCountries 
+      ? (typeof user.accessibleCountries === 'string' 
+          ? JSON.parse(user.accessibleCountries) 
+          : user.accessibleCountries)
+      : [];
     // Check if MediaSufficiency table has data
     const count = await prisma.mediaSufficiency.count();
     
@@ -13,11 +29,9 @@ export async function GET() {
           totalRecords: 0,
           countries: 0,
           campaigns: 0,
-          lastUpdated: null,
-          woaOpenTv: 0,
-          woaPaidTv: 0,
-          woaPmFf: 0,
-          woaInfluencersAmplification: 0
+          totalWoa: 0,
+          totalWoff: 0,
+          totalWeeks: 0
         },
         tvReachData: [],
         digitalReachData: [],
@@ -27,28 +41,34 @@ export async function GET() {
       });
     }
     
+    // Build where clause based on accessible countries
+    const whereClause: any = {};
+    if (accessibleCountryIds.length > 0) {
+      whereClause.countryId = {
+        in: accessibleCountryIds
+      };
+    }
+    
     // Fetch all MediaSufficiency records with their reach data
     const mediaSufficiencyData = await prisma.mediaSufficiency.findMany({
+      where: whereClause,
       select: {
         id: true,
         lastUpdate: true,
         country: true,
+        countryId: true,
         category: true,
         range: true,
         campaign: true,
-        tvR1Plus: true,
-        tvR3Plus: true,
-        tvIdealReach: true,
+        tvPlannedR1Plus: true,
+        tvPlannedR3Plus: true,
+        tvPotentialR1Plus: true,
         tvTargetSize: true,
-        digitalR1Plus: true,
-        digitalIdealReach: true,
-        digitalTargetSize: true,
+        digitalPlannedR1Plus: true,
+        digitalPotentialR1Plus: true,
+        digitalTargetSizeAbs: true,
         plannedCombinedReach: true,
-        combinedIdealReach: true,
-        totalCountryPopulationOnTarget: true,
-        digitalReachLevelCheck: true,
-        tvReachLevelCheck: true,
-        combinedReachLevelCheck: true,
+        combinedPotentialReach: true,
         createdAt: true
       },
       orderBy: {
@@ -56,6 +76,58 @@ export async function GET() {
       }
     });
 
+    // Get unique campaigns from mediaSufficiency data
+    const uniqueCampaigns = [...new Set(mediaSufficiencyData.map(d => d.campaign).filter(Boolean))];
+    
+    // Fetch game plans for these campaigns to get WOA and Weeks data
+    let gamePlansData: any[] = [];
+    if (uniqueCampaigns.length > 0) {
+      // Fetch campaigns first to get their IDs
+      const campaigns = await prisma.campaign.findMany({
+        where: {
+          name: {
+            in: uniqueCampaigns
+          }
+        },
+        select: {
+          id: true,
+          name: true
+        }
+      });
+      
+      const campaignIds = campaigns.map(c => c.id);
+      
+      // Build where clause for game plans with country filtering
+      const gamePlanWhere: any = {
+        campaignId: {
+          in: campaignIds
+        }
+      };
+      
+      // Add country filter if user has restricted access
+      if (accessibleCountryIds.length > 0) {
+        gamePlanWhere.countryId = {
+          in: accessibleCountryIds
+        };
+      }
+      
+      // Now fetch game plans for these campaign IDs
+      gamePlansData = await prisma.gamePlan.findMany({
+        where: gamePlanWhere,
+        select: {
+          campaignId: true,
+          totalWoa: true,
+          totalWoff: true,
+          totalWeeks: true
+        }
+      });
+    }
+    
+    // Calculate aggregated WOA and Weeks metrics
+    const totalWoa = gamePlansData.reduce((sum, gp) => sum + (gp.totalWoa || 0), 0);
+    const totalWoff = gamePlansData.reduce((sum, gp) => sum + (gp.totalWoff || 0), 0);
+    const totalWeeks = gamePlansData.reduce((sum, gp) => sum + (gp.totalWeeks || 0), 0);
+    
     // Process data for charts
     const processedData = {
       // Summary stats
@@ -63,7 +135,9 @@ export async function GET() {
         totalRecords: mediaSufficiencyData.length,
         countries: [...new Set(mediaSufficiencyData.map(d => d.country).filter(Boolean))].length,
         campaigns: [...new Set(mediaSufficiencyData.map(d => d.campaign).filter(Boolean))].length,
-        lastUpdated: mediaSufficiencyData[0]?.createdAt || null
+        totalWoa: totalWoa,
+        totalWoff: totalWoff,
+        totalWeeks: totalWeeks
       },
 
       // TV Reach data for charts with calculated fields
@@ -71,7 +145,7 @@ export async function GET() {
         // Group by campaign to calculate sums
         const campaignGroups: Record<string, any[]> = {};
         mediaSufficiencyData
-          .filter(d => d.tvR1Plus && d.tvIdealReach)
+          .filter(d => d.tvPlannedR1Plus && d.tvPotentialR1Plus)
           .forEach(d => {
             const campaign = d.campaign || 'Unknown';
             if (!campaignGroups[campaign]) {
@@ -82,9 +156,9 @@ export async function GET() {
 
         // Calculate for each campaign
         return Object.entries(campaignGroups).map(([campaign, records]) => {
-          // Sum of TV R1+ (convert % to decimal for calculation)
+          // Sum of TV Planned R1+ (convert % to decimal for calculation)
           const sumTvR1Plus = records.reduce((sum, d) => {
-            return sum + (parseFloat(d.tvR1Plus?.replace('%', '') || '0') / 100);
+            return sum + (parseFloat(d.tvPlannedR1Plus?.replace('%', '') || '0') / 100);
           }, 0);
 
           // Sum of TV Target Size (convert to numbers)
@@ -100,15 +174,18 @@ export async function GET() {
           // Potential = sum(TV Target Size)
           const potential = sumTvTargetSize;
 
-          // Average ideal reach for this campaign
+          // Average potential reach for this campaign
           const avgIdealReach = records.reduce((sum, d) => {
-            return sum + parseFloat(d.tvIdealReach?.replace('%', '') || '0');
+            return sum + parseFloat(d.tvPotentialR1Plus?.replace('%', '') || '0');
           }, 0) / records.length;
 
           // Current reach as percentage for chart display
           const avgCurrentReach = records.reduce((sum, d) => {
-            return sum + parseFloat(d.tvR1Plus?.replace('%', '') || '0');
+            return sum + parseFloat(d.tvPlannedR1Plus?.replace('%', '') || '0');
           }, 0) / records.length;
+
+          // Calculate gap manually
+          const gap = avgIdealReach - avgCurrentReach;
 
           return {
             campaign,
@@ -116,7 +193,7 @@ export async function GET() {
             category: records[0]?.category || 'Unknown',
             currentReach: avgCurrentReach, // For chart display
             idealReach: avgIdealReach, // For chart display
-            gap: parseFloat(records[0]?.tvReachLevelCheck?.replace('%', '') || '0'),
+            gap: gap,
             reachAbs: reachAbs,
             potential: potential,
             sumTvR1Plus: sumTvR1Plus * 100, // Convert back to percentage for display
@@ -130,7 +207,7 @@ export async function GET() {
         // Group by campaign to calculate sums
         const campaignGroups: Record<string, any[]> = {};
         mediaSufficiencyData
-          .filter(d => d.digitalR1Plus && d.digitalIdealReach)
+          .filter(d => d.digitalPlannedR1Plus && d.digitalPotentialR1Plus)
           .forEach(d => {
             const campaign = d.campaign || 'Unknown';
             if (!campaignGroups[campaign]) {
@@ -141,14 +218,14 @@ export async function GET() {
 
         // Calculate for each campaign
         return Object.entries(campaignGroups).map(([campaign, records]) => {
-          // Sum of Digital R1+ (convert % to decimal for calculation)
+          // Sum of Digital Planned R1+ (convert % to decimal for calculation)
           const sumDigitalR1Plus = records.reduce((sum, d) => {
-            return sum + (parseFloat(d.digitalR1Plus?.replace('%', '') || '0') / 100);
+            return sum + (parseFloat(d.digitalPlannedR1Plus?.replace('%', '') || '0') / 100);
           }, 0);
 
           // Sum of Digital Target Size (convert to numbers)
           const sumDigitalTargetSize = records.reduce((sum, d) => {
-            const targetSizeStr = d.digitalTargetSize || '0';
+            const targetSizeStr = d.digitalTargetSizeAbs || '0';
             const targetSizeNum = parseFloat(targetSizeStr.replace(/[,%]/g, '') || '0');
             return sum + targetSizeNum;
           }, 0);
@@ -159,15 +236,18 @@ export async function GET() {
           // Potential = sum(Digital Target Size)
           const potential = sumDigitalTargetSize;
 
-          // Average ideal reach for this campaign
+          // Average potential reach for this campaign
           const avgIdealReach = records.reduce((sum, d) => {
-            return sum + parseFloat(d.digitalIdealReach?.replace('%', '') || '0');
+            return sum + parseFloat(d.digitalPotentialR1Plus?.replace('%', '') || '0');
           }, 0) / records.length;
 
           // Current reach as percentage for chart display
           const avgCurrentReach = records.reduce((sum, d) => {
-            return sum + parseFloat(d.digitalR1Plus?.replace('%', '') || '0');
+            return sum + parseFloat(d.digitalPlannedR1Plus?.replace('%', '') || '0');
           }, 0) / records.length;
+
+          // Calculate gap manually
+          const gap = avgIdealReach - avgCurrentReach;
 
           return {
             campaign,
@@ -175,7 +255,7 @@ export async function GET() {
             category: records[0]?.category || 'Unknown',
             currentReach: avgCurrentReach, // For chart display
             idealReach: avgIdealReach, // For chart display
-            gap: parseFloat(records[0]?.digitalReachLevelCheck?.replace('%', '') || '0'),
+            gap: gap,
             reachAbs: reachAbs,
             potential: potential,
             sumDigitalR1Plus: sumDigitalR1Plus * 100, // Convert back to percentage for display
@@ -189,7 +269,7 @@ export async function GET() {
         // Group by campaign to calculate sums
         const campaignGroups: Record<string, any[]> = {};
         mediaSufficiencyData
-          .filter(d => d.plannedCombinedReach && d.combinedIdealReach)
+          .filter(d => d.plannedCombinedReach && d.combinedPotentialReach)
           .forEach(d => {
             const campaign = d.campaign || 'Unknown';
             if (!campaignGroups[campaign]) {
@@ -205,11 +285,13 @@ export async function GET() {
             return sum + (parseFloat(d.plannedCombinedReach?.replace('%', '') || '0') / 100);
           }, 0);
 
-          // Sum of Total Country Population on Target (convert to numbers)
+          // For potential, we'll use the average of TV and Digital target sizes 
+          // since totalCountryPopulationOnTarget field doesn't exist
           const sumTotalCountryPopulation = records.reduce((sum, d) => {
-            const populationStr = d.totalCountryPopulationOnTarget || '0';
-            const populationNum = parseFloat(populationStr.replace(/[,%]/g, '') || '0');
-            return sum + populationNum;
+            const tvSize = parseFloat(d.tvTargetSize?.replace(/[,%]/g, '') || '0');
+            const digitalSize = parseFloat(d.digitalTargetSizeAbs?.replace(/[,%]/g, '') || '0');
+            // Use the max of TV and Digital target size as approximation
+            return sum + Math.max(tvSize, digitalSize);
           }, 0);
 
           // Calculate Reach Abs = sum(Planned Combined Reach) × sum(Total Country Population on Target)
@@ -218,9 +300,9 @@ export async function GET() {
           // Potential = sum(Total Country Population on Target)
           const potential = sumTotalCountryPopulation;
 
-          // Average ideal reach for this campaign
+          // Average potential reach for this campaign
           const avgIdealReach = records.reduce((sum, d) => {
-            return sum + parseFloat(d.combinedIdealReach?.replace('%', '') || '0');
+            return sum + parseFloat(d.combinedPotentialReach?.replace('%', '') || '0');
           }, 0) / records.length;
 
           // Current reach as percentage for chart display
@@ -228,13 +310,16 @@ export async function GET() {
             return sum + parseFloat(d.plannedCombinedReach?.replace('%', '') || '0');
           }, 0) / records.length;
 
+          // Calculate gap manually
+          const gap = avgIdealReach - avgCurrentReach;
+
           return {
             campaign,
             country: records[0]?.country || 'Unknown',
             category: records[0]?.category || 'Unknown',
             currentReach: avgCurrentReach, // For chart display
             idealReach: avgIdealReach, // For chart display
-            gap: parseFloat(records[0]?.combinedReachLevelCheck?.replace('%', '') || '0'),
+            gap: gap,
             reachAbs: reachAbs,
             potential: potential,
             sumPlannedCombinedReach: sumPlannedCombinedReach * 100, // Convert back to percentage for display
@@ -277,30 +362,30 @@ export async function GET() {
       countriesMap[d.country].campaigns++;
 
       // TV Reach
-      if (d.tvR1Plus && d.tvIdealReach) {
-        const current = parseFloat(d.tvR1Plus.replace('%', '') || '0');
-        const ideal = parseFloat(d.tvIdealReach.replace('%', '') || '0');
-        const gap = parseFloat(d.tvReachLevelCheck?.replace('%', '') || '0');
+      if (d.tvPlannedR1Plus && d.tvPotentialR1Plus) {
+        const current = parseFloat(d.tvPlannedR1Plus.replace('%', '') || '0');
+        const ideal = parseFloat(d.tvPotentialR1Plus.replace('%', '') || '0');
+        const gap = ideal - current;
         
         countriesMap[d.country].tvReachValues.push({ current, ideal });
         countriesMap[d.country].tvGapValues.push(gap);
       }
 
       // Digital Reach
-      if (d.digitalR1Plus && d.digitalIdealReach) {
-        const current = parseFloat(d.digitalR1Plus.replace('%', '') || '0');
-        const ideal = parseFloat(d.digitalIdealReach.replace('%', '') || '0');
-        const gap = parseFloat(d.digitalReachLevelCheck?.replace('%', '') || '0');
+      if (d.digitalPlannedR1Plus && d.digitalPotentialR1Plus) {
+        const current = parseFloat(d.digitalPlannedR1Plus.replace('%', '') || '0');
+        const ideal = parseFloat(d.digitalPotentialR1Plus.replace('%', '') || '0');
+        const gap = ideal - current;
         
         countriesMap[d.country].digitalReachValues.push({ current, ideal });
         countriesMap[d.country].digitalGapValues.push(gap);
       }
 
       // Combined Reach
-      if (d.plannedCombinedReach && d.combinedIdealReach) {
+      if (d.plannedCombinedReach && d.combinedPotentialReach) {
         const current = parseFloat(d.plannedCombinedReach.replace('%', '') || '0');
-        const ideal = parseFloat(d.combinedIdealReach.replace('%', '') || '0');
-        const gap = parseFloat(d.combinedReachLevelCheck?.replace('%', '') || '0');
+        const ideal = parseFloat(d.combinedPotentialReach.replace('%', '') || '0');
+        const gap = ideal - current;
         
         countriesMap[d.country].combinedReachValues.push({ current, ideal });
         countriesMap[d.country].combinedGapValues.push(gap);
@@ -377,19 +462,19 @@ export async function GET() {
         categoriesMap[d.category].tvGapValues.push(gap);
       }
 
-      if (d.digitalR1Plus && d.digitalIdealReach) {
-        const current = parseFloat(d.digitalR1Plus.replace('%', '') || '0');
-        const ideal = parseFloat(d.digitalIdealReach.replace('%', '') || '0');
-        const gap = parseFloat(d.digitalReachLevelCheck?.replace('%', '') || '0');
+      if (d.digitalPlannedR1Plus && d.digitalPotentialR1Plus) {
+        const current = parseFloat(d.digitalPlannedR1Plus.replace('%', '') || '0');
+        const ideal = parseFloat(d.digitalPotentialR1Plus.replace('%', '') || '0');
+        const gap = ideal - current;
         
         categoriesMap[d.category].digitalReachValues.push({ current, ideal });
         categoriesMap[d.category].digitalGapValues.push(gap);
       }
 
-      if (d.plannedCombinedReach && d.combinedIdealReach) {
+      if (d.plannedCombinedReach && d.combinedPotentialReach) {
         const current = parseFloat(d.plannedCombinedReach.replace('%', '') || '0');
-        const ideal = parseFloat(d.combinedIdealReach.replace('%', '') || '0');
-        const gap = parseFloat(d.combinedReachLevelCheck?.replace('%', '') || '0');
+        const ideal = parseFloat(d.combinedPotentialReach.replace('%', '') || '0');
+        const gap = ideal - current;
         
         categoriesMap[d.category].combinedReachValues.push({ current, ideal });
         categoriesMap[d.category].combinedGapValues.push(gap);
@@ -438,11 +523,9 @@ export async function GET() {
         totalRecords: 0,
         countries: 0,
         campaigns: 0,
-        lastUpdated: null,
-        woaOpenTv: 0,
-        woaPaidTv: 0,
-        woaPmFf: 0,
-        woaInfluencersAmplification: 0
+        totalWoa: 0,
+        totalWoff: 0,
+        totalWeeks: 0
       },
       tvReachData: [],
       digitalReachData: [],
