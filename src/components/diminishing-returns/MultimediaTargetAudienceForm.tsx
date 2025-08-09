@@ -7,7 +7,7 @@ interface TargetAudience {
   id: string;
   gender: string;
   minAge: number;
-  maxAge: number;
+  maxAge: number | '+';
   sel: string;
   finalTarget: string;
   saturationPoint: number;
@@ -84,7 +84,8 @@ export default function MultimediaTargetAudienceForm({
         // Auto-generate final target when demographics change
         if (['gender', 'minAge', 'maxAge', 'sel'].includes(field)) {
           const selPart = updated.sel ? ` ${updated.sel}` : '';
-          updated.finalTarget = `${updated.gender} ${updated.minAge}-${updated.maxAge}${selPart}`;
+          const maxAgeDisplay = updated.maxAge === '+' ? '+' : updated.maxAge;
+          updated.finalTarget = `${updated.gender} ${updated.minAge}-${maxAgeDisplay}${selPart}`;
         }
         
         return updated;
@@ -97,7 +98,7 @@ export default function MultimediaTargetAudienceForm({
   const isValidAudience = (audience: TargetAudience) => {
     return audience.gender && 
            audience.minAge > 0 && 
-           audience.maxAge > audience.minAge &&
+           (audience.maxAge === '+' || audience.maxAge > audience.minAge) &&
            audience.finalTarget.trim() !== '';
   };
 
@@ -173,14 +174,25 @@ export default function MultimediaTargetAudienceForm({
                       />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={audience.maxAge}
-                        onChange={(e) => updateAudience(audience.id, 'maxAge', parseInt(e.target.value) || 0)}
-                        className="block w-20 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
-                      />
+                      <div className="flex items-center space-x-1">
+                        <input
+                          type="text"
+                          value={audience.maxAge}
+                          onChange={(e) => {
+                            const val = e.target.value.trim();
+                            if (val === '+' || val === '') {
+                              updateAudience(audience.id, 'maxAge', val === '+' ? '+' : 45);
+                            } else {
+                              const num = parseInt(val);
+                              if (!isNaN(num) && num > 0 && num <= 100) {
+                                updateAudience(audience.id, 'maxAge', num);
+                              }
+                            }
+                          }}
+                          placeholder="45 or +"
+                          className="block w-20 text-sm border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <input

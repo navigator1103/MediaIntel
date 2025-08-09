@@ -28,7 +28,7 @@ interface TargetAudience {
   id: string;
   gender: string;
   minAge: number;
-  maxAge: number;
+  maxAge: number | '+';
   sel: string;
   finalTarget: string;
   saturationPoint: number;
@@ -185,7 +185,7 @@ export default function DiminishingReturnsPage() {
             id: Math.random().toString(36).substr(2, 9),
             gender: aud.gender,
             minAge: aud.minAge,
-            maxAge: aud.maxAge,
+            maxAge: aud.maxAge === null || aud.maxAge === 999 ? '+' : aud.maxAge,
             sel: aud.sel || '',
             finalTarget: aud.finalTarget,
             saturationPoint: aud.saturationPoint || 0
@@ -225,7 +225,7 @@ export default function DiminishingReturnsPage() {
             id: Math.random().toString(36).substr(2, 9),
             gender: aud.gender,
             minAge: aud.minAge,
-            maxAge: aud.maxAge,
+            maxAge: aud.maxAge === null || aud.maxAge === 999 ? '+' : aud.maxAge,
             sel: aud.sel || '',
             finalTarget: aud.finalTarget,
             saturationPoint: aud.saturationPoint || 0
@@ -265,7 +265,7 @@ export default function DiminishingReturnsPage() {
             id: Math.random().toString(36).substr(2, 9),
             gender: aud.gender,
             minAge: aud.minAge,
-            maxAge: aud.maxAge,
+            maxAge: aud.maxAge === null || aud.maxAge === 999 ? '+' : aud.maxAge,
             sel: aud.sel || '',
             finalTarget: aud.finalTarget,
             saturationPoint: aud.saturationPoint || 0
@@ -786,6 +786,10 @@ export default function DiminishingReturnsPage() {
                             <div className="flex items-center space-x-2 text-sm">
                               <code className="px-2 py-1 bg-white rounded text-blue-600 font-mono text-xs">BG 18-45</code>
                               <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Both genders 18-45</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-sm">
+                              <code className="px-2 py-1 bg-white rounded text-blue-600 font-mono text-xs">F 25-+</code>
+                              <span className={mediaType === 'tv' ? 'text-blue-700' : mediaType === 'digital' ? 'text-green-700' : 'text-purple-700'}>Female 25+ (open-ended)</span>
                             </div>
                           </div>
                         </div>

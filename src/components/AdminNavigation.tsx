@@ -241,6 +241,16 @@ const AdminNavigation = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
           )
+        },
+        {
+          name: 'Database Sync',
+          href: '/admin/database-sync',
+          superAdminOnly: true,
+          icon: (active) => (
+            <svg className={`${active ? 'text-blue-600' : 'text-gray-400'} mr-3 flex-shrink-0 h-5 w-5`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+          )
         }
       ]
     }
@@ -298,7 +308,13 @@ const AdminNavigation = () => {
             const hasActiveItem = group.items.some(item => isActive(item.href));
 
             // Filter group items based on user permissions
-            const accessibleItems = group.items.filter(item => canAccessPath(item.href));
+            const accessibleItems = group.items.filter(item => {
+              // Check for super admin only items
+              if ((item as any).superAdminOnly) {
+                return userPermissions?.isSuperAdmin && userPermissions.isSuperAdmin();
+              }
+              return canAccessPath(item.href);
+            });
             
             // Don't show the group if no items are accessible
             if (accessibleItems.length === 0) {
@@ -345,6 +361,7 @@ const AdminNavigation = () => {
                         '/admin/diminishing-returns',
                         '/admin/backups',
                         '/admin/database-backups',
+                        '/admin/database-sync',
                         '/admin/financial-cycles',
                         '/admin/governance',
                         '/admin/countries',
@@ -378,6 +395,7 @@ const AdminNavigation = () => {
                           {item.icon(isActive(item.href))}
                           <span className="truncate">
                             {item.name}
+                            {(item as any).superAdminOnly && <span className="ml-1 text-xs text-red-500">●</span>}
                             {!isImplemented && <span className="ml-1 text-xs text-gray-400">(Coming Soon)</span>}
                           </span>
                         </a>

@@ -112,6 +112,7 @@ export default function AdminDashboard() {
       '/admin/categories',
       '/admin/ranges',
       '/admin/campaigns',
+      '/admin/database-sync',
       '/admin/share-of-voice',
       '/admin/diminishing-returns'
     ];
@@ -488,6 +489,27 @@ export default function AdminDashboard() {
                 Manage Campaigns
               </button>
             </div>
+
+            {/* Database Sync - Super Admin Only */}
+            {userPermissions?.user?.role === 'super_admin' && (
+              <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
+                <div className="flex items-center mb-4">
+                  <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#006992'}}>
+                    <FiDatabase className="h-5 w-5 text-white" />
+                  </div>
+                  <h4 className="text-lg font-medium text-gray-900">Database Sync</h4>
+                  <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Super Admin Only</span>
+                </div>
+                <p className="text-gray-600 mb-4 text-sm">Pull production data to local (one-way sync)</p>
+                <button 
+                  className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+                  style={{backgroundColor: '#006992'}}
+                  onClick={() => handleNavigate('/admin/database-sync')}
+                >
+                  Manage Sync
+                </button>
+              </div>
+            )}
           </div>
         </div>
         )}

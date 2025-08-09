@@ -7,7 +7,7 @@ interface TargetAudience {
   id: string;
   gender: string;
   minAge: number;
-  maxAge: number;
+  maxAge: number | '+';
   sel: string;
   finalTarget: string;
   saturationPoint: number;
@@ -342,7 +342,7 @@ export default function TvCurvesTable({
         return {
           gender: aud.gender,
           minAge: aud.minAge,
-          maxAge: aud.maxAge,
+          maxAge: aud.maxAge === '+' ? 999 : aud.maxAge,  // Convert '+' to 999 for API
           sel: aud.sel || null,
           finalTarget: aud.finalTarget,
           saturationPoint: satData.saturationPoint > 0 ? satData.saturationPoint : 0,

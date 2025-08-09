@@ -1,0 +1,232 @@
+{
+  "lastSync": {
+    "success": true,
+    "timestamp": "2025-08-09T21:11:04.720Z",
+    "tablesSync": {
+      "users": {
+        "added": 1,
+        "updated": 0,
+        "skipped": 61,
+        "errors": 0
+      },
+      "campaigns": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 247,
+        "errors": 0
+      },
+      "game_plans": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 22,
+        "errors": 0
+      },
+      "media_sufficiency": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "share_of_voice": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "tv_diminishing_returns": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "digital_diminishing_returns": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "multimedia_diminishing_returns": {
+        "added": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0
+      }
+    },
+    "totalRecords": 1,
+    "duration": 4512,
+    "errors": []
+  },
+  "history": [
+    {
+      "success": true,
+      "timestamp": "2025-08-09T21:11:04.720Z",
+      "tablesSync": {
+        "users": {
+          "added": 1,
+          "updated": 0,
+          "skipped": 61,
+          "errors": 0
+        },
+        "campaigns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 247,
+          "errors": 0
+        },
+        "game_plans": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 22,
+          "errors": 0
+        },
+        "media_sufficiency": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "share_of_voice": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "tv_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "digital_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "multimedia_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        }
+      },
+      "totalRecords": 1,
+      "duration": 4512,
+      "errors": []
+    },
+    {
+      "success": true,
+      "timestamp": "2025-08-09T20:51:12.683Z",
+      "tablesSync": {
+        "users": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 61,
+          "errors": 0
+        },
+        "campaigns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 247,
+          "errors": 0
+        },
+        "game_plans": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 22,
+          "errors": 0
+        },
+        "media_sufficiency": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "share_of_voice": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "tv_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "digital_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "multimedia_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        }
+      },
+      "totalRecords": 0,
+      "duration": 6029,
+      "errors": []
+    },
+    {
+      "success": true,
+      "timestamp": "2025-08-09T20:38:38.382Z",
+      "tablesSync": {
+        "users": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 61,
+          "errors": 0
+        },
+        "campaigns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 247,
+          "errors": 0
+        },
+        "game_plans": {
+          "added": 1,
+          "updated": 0,
+          "skipped": 21,
+          "errors": 0
+        },
+        "media_sufficiency": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "share_of_voice": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "tv_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "digital_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        },
+        "multimedia_diminishing_returns": {
+          "added": 0,
+          "updated": 0,
+          "skipped": 0,
+          "errors": 0
+        }
+      },
+      "totalRecords": 1,
+      "duration": 128,
+      "errors": []
+    }
+  ]
+}

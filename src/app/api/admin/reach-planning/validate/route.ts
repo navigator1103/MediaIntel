@@ -181,6 +181,7 @@ async function validateAgainstGamePlans(
     const gamePlanCategories = new Set<string>();
     const gamePlanRanges = new Set<string>();
     const campaignMediaTypes = new Map<string, Set<string>>();
+    const campaignMediaSubTypes = new Map<string, Set<string>>(); // Track media subtypes too
     
     gamePlans.forEach(plan => {
       // Collect categories
@@ -193,15 +194,23 @@ async function validateAgainstGamePlans(
         gamePlanRanges.add(plan.campaign.range.name);
       }
       
-      // Collect campaigns and their media types
+      // Collect campaigns and their media types AND subtypes
       const campaignName = plan.campaign?.name;
       const mediaType = plan.mediaSubType?.mediaType?.name;
+      const mediaSubType = plan.mediaSubType?.name;
       
       if (campaignName && mediaType) {
         if (!campaignMediaTypes.has(campaignName)) {
           campaignMediaTypes.set(campaignName, new Set());
         }
         campaignMediaTypes.get(campaignName)!.add(mediaType);
+      }
+      
+      if (campaignName && mediaSubType) {
+        if (!campaignMediaSubTypes.has(campaignName)) {
+          campaignMediaSubTypes.set(campaignName, new Set());
+        }
+        campaignMediaSubTypes.get(campaignName)!.add(mediaSubType);
       }
     });
 
@@ -254,6 +263,7 @@ async function validateAgainstGamePlans(
       }
 
       const mediaTypes = campaignMediaTypes.get(campaignName);
+      const mediaSubTypes = campaignMediaSubTypes.get(campaignName);
       
       if (!mediaTypes) {
         // No game plans found for this campaign
@@ -269,38 +279,89 @@ async function validateAgainstGamePlans(
 
       const hasTvMedia = mediaTypes.has('TV') || mediaTypes.has('Traditional');
       const hasDigitalMedia = mediaTypes.has('Digital');
+      
+      // Check if campaign has Open TV or Paid TV specifically
+      const hasOpenOrPaidTV = mediaSubTypes ? 
+        (mediaSubTypes.has('Open TV') || mediaSubTypes.has('Paid TV')) : false;
+      
       console.log(`Campaign "${campaignName}" has TV media: ${hasTvMedia}, Digital media: ${hasDigitalMedia}, Media types: ${Array.from(mediaTypes)}`);
+      if (mediaSubTypes) {
+        console.log(`Campaign "${campaignName}" media subtypes: ${Array.from(mediaSubTypes)}, Has Open/Paid TV: ${hasOpenOrPaidTV}`);
+      }
 
       // Check TV fields validation
       TV_FIELDS.forEach(fieldName => {
         const fieldValue = record[fieldName];
         const hasValue = fieldValue && fieldValue.toString().trim() !== '';
-
-        if (hasTvMedia && !hasValue) {
-          // Campaign has TV media in game plans but TV field is empty
-          issues.push({
-            rowIndex,
-            columnName: fieldName,
-            severity: 'critical',
-            message: `${fieldName} is required because campaign "${campaignName}" has TV media in game plans for this country/financial cycle.`,
-            currentValue: fieldValue || ''
-          });
-        } else if (!hasTvMedia && hasValue) {
-          // Campaign has NO TV media in game plans but TV field has value
-          // Check if this is a TV reach field - those should be critical errors for Digital-only campaigns
-          const tvReachFields = ['Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+'];
-          const severity = tvReachFields.includes(fieldName) ? 'critical' : 'warning';
-          const message = tvReachFields.includes(fieldName) 
-            ? `${fieldName} must be empty because campaign "${campaignName}" has no TV media in game plans for this country/financial cycle.`
-            : `${fieldName} should be empty because campaign "${campaignName}" has no TV media in game plans for this country/financial cycle.`;
-          
-          issues.push({
-            rowIndex,
-            columnName: fieldName,
-            severity,
-            message,
-            currentValue: fieldValue
-          });
+        
+        // TV demographic fields should only be required for Open TV and Paid TV
+        const tvDemographicFields = [
+          'TV Demo Gender',
+          'TV Demo Min. Age',
+          'TV Demo Max. Age',
+          'TV SEL',
+          'Final TV Target (don\'t fill)',
+          'TV Target Size',
+          'TV Copy Length'
+        ];
+        
+        const isTvDemographicField = tvDemographicFields.includes(fieldName);
+        
+        if (isTvDemographicField) {
+          // TV demographic fields - only required for Open TV and Paid TV
+          if (hasOpenOrPaidTV && !hasValue) {
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'critical',
+              message: `${fieldName} is required because campaign "${campaignName}" has Open TV or Paid TV media in game plans.`,
+              currentValue: fieldValue || ''
+            });
+          } else if (!hasOpenOrPaidTV && hasTvMedia && hasValue) {
+            // Has other Traditional media (OOH, Print, Radio) but not Open/Paid TV
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'warning',
+              message: `${fieldName} should be empty because campaign "${campaignName}" does not have Open TV or Paid TV media in game plans (only required for Open TV and Paid TV).`,
+              currentValue: fieldValue
+            });
+          } else if (!hasTvMedia && hasValue) {
+            // No TV/Traditional media at all
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'critical',
+              message: `${fieldName} must be empty because campaign "${campaignName}" has no TV/Traditional media in game plans.`,
+              currentValue: fieldValue
+            });
+          }
+        } else {
+          // Non-demographic TV fields (like reach fields) - required for any TV/Traditional media
+          if (hasTvMedia && !hasValue) {
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity: 'critical',
+              message: `${fieldName} is required because campaign "${campaignName}" has TV/Traditional media in game plans.`,
+              currentValue: fieldValue || ''
+            });
+          } else if (!hasTvMedia && hasValue) {
+            // Check if this is a TV reach field - those should be critical errors for Digital-only campaigns
+            const tvReachFields = ['Total TV Planned R1+ (%)', 'Total TV Planned R3+ (%)', 'TV Optimal R1+'];
+            const severity = tvReachFields.includes(fieldName) ? 'critical' : 'warning';
+            const message = tvReachFields.includes(fieldName) 
+              ? `${fieldName} must be empty because campaign "${campaignName}" has no TV media in game plans.`
+              : `${fieldName} should be empty because campaign "${campaignName}" has no TV media in game plans.`;
+            
+            issues.push({
+              rowIndex,
+              columnName: fieldName,
+              severity,
+              message,
+              currentValue: fieldValue
+            });
+          }
         }
       });
 

@@ -118,7 +118,26 @@ const GamePlansCalendar: React.FC<GamePlansCalendarProps> = ({ data, onSave }) =
     return startDate <= weekEnd && endDate >= weekStart;
   };
 
-  // Get burst color based on burst number
+  // Get burst color based on campaign index for better differentiation
+  const getCampaignColor = (campaignIndex: number): string => {
+    const colors = [
+      '#3B82F6', // Blue
+      '#10B981', // Green
+      '#F59E0B', // Yellow
+      '#EF4444', // Red
+      '#8B5CF6', // Purple
+      '#F97316', // Orange
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+      '#EC4899', // Pink
+      '#14B8A6', // Teal
+      '#F43F5E', // Rose
+      '#6366F1', // Indigo
+    ];
+    return colors[campaignIndex % colors.length];
+  };
+
+  // Get burst color based on burst number (kept for backward compatibility)
   const getBurstColor = (burstNumber: number): string => {
     const colors = [
       '#3B82F6', // Blue
@@ -231,6 +250,24 @@ const GamePlansCalendar: React.FC<GamePlansCalendarProps> = ({ data, onSave }) =
 
   return (
     <div className="overflow-x-auto">
+      {/* Color Legend for Campaigns */}
+      {groupedData.length > 1 && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="text-xs font-medium text-gray-700 mb-2">Campaign Colors:</div>
+          <div className="flex flex-wrap gap-2">
+            {groupedData.map((campaign, index) => (
+              <div key={index} className="flex items-center gap-1">
+                <div 
+                  className="w-3 h-3 rounded" 
+                  style={{ backgroundColor: getCampaignColor(index) }}
+                />
+                <span className="text-xs text-gray-600">{campaign.campaignName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       <div className="flex">
         {/* Left side - Campaign info */}
         <div className="flex-none bg-gray-50 border-r">
@@ -298,9 +335,9 @@ const GamePlansCalendar: React.FC<GamePlansCalendarProps> = ({ data, onSave }) =
                             <div
                               key={burst.id}
                               className="mb-1 p-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                              style={{ backgroundColor: getBurstColor(burst.burst) + '40', borderLeft: `3px solid ${getBurstColor(burst.burst)}` }}
+                              style={{ backgroundColor: getCampaignColor(campaignIndex) + '40', borderLeft: `3px solid ${getCampaignColor(campaignIndex)}` }}
                               onClick={() => handleBurstClick(burst)}
-                              title={`Burst ${burst.burst}: ${formatCurrency(burst.totalBudget)}`}
+                              title={`${campaign.campaignName} - Burst ${burst.burst}: ${formatCurrency(burst.totalBudget)}`}
                             >
                               <div className="text-xs font-medium text-gray-700">B{burst.burst}</div>
                               <div className="text-xs text-gray-600">{formatCurrency(burst.totalBudget)}</div>

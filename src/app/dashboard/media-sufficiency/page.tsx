@@ -1043,7 +1043,7 @@ export default function MediaSufficiencyDashboard() {
                     </span>
                   )}
                 </h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filteredCategories.map((category) => (
                     <div key={category} className="flex items-center">
                       <input
