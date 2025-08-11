@@ -582,6 +582,24 @@ function isValidNumber(value: any): boolean {
   return !isNaN(numValue) && isFinite(numValue);
 }
 
+function isValidAge(value: any, isMaxAge: boolean = false): boolean {
+  if (!value || value === '') return true; // Empty is allowed for optional fields
+  
+  // For max age fields, accept '+' as a valid value (open-ended age range)
+  if (isMaxAge && value.toString().trim() === '+') {
+    return true;
+  }
+  
+  // Otherwise check if it's a valid number
+  const numValue = parseFloat(value.toString().replace(/,/g, ''));
+  return !isNaN(numValue) && isFinite(numValue) && numValue >= 0;
+}
+
+function parseAge(value: any): number | '+' {
+  if (value === '+' || value === '+') return '+';
+  return parseFloat(value.toString().replace(/,/g, ''));
+}
+
 function isValidPercentage(value: any, allowZero: boolean = false): boolean {
   if (!value || value === '') return true; // Empty is allowed for optional fields
   const strValue = value.toString().trim();
@@ -804,14 +822,32 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   // Validate numeric fields
   FIELD_VALIDATIONS.numericFields.forEach(field => {
     const value = record[field];
-    if (value && !isValidNumber(value)) {
-      issues.push({
-        rowIndex: index,
-        columnName: field,
-        severity: 'critical',
-        message: `${field} must be a valid number`,
-        currentValue: value
-      });
+    if (value) {
+      // Special handling for age fields
+      const isMaxAgeField = field === 'TV Demo Max. Age' || field === 'Digital Demo Max. Age';
+      const isMinAgeField = field === 'TV Demo Min. Age' || field === 'Digital Demo Min. Age';
+      
+      if (isMaxAgeField || isMinAgeField) {
+        if (!isValidAge(value, isMaxAgeField)) {
+          issues.push({
+            rowIndex: index,
+            columnName: field,
+            severity: 'critical',
+            message: isMaxAgeField 
+              ? `${field} must be a valid number or '+' for open-ended range`
+              : `${field} must be a valid number`,
+            currentValue: value
+          });
+        }
+      } else if (!isValidNumber(value)) {
+        issues.push({
+          rowIndex: index,
+          columnName: field,
+          severity: 'critical',
+          message: `${field} must be a valid number`,
+          currentValue: value
+        });
+      }
     }
   });
   
@@ -944,10 +980,12 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
   // Age validation - minimum age should be lower than maximum age
   const tvMinAge = record['TV Demo Min. Age'];
   const tvMaxAge = record['TV Demo Max. Age'];
-  if (tvMinAge && tvMaxAge && isValidNumber(tvMinAge) && isValidNumber(tvMaxAge)) {
-    const minAge = parseFloat(tvMinAge.toString());
-    const maxAge = parseFloat(tvMaxAge.toString());
-    if (minAge >= maxAge) {
+  if (tvMinAge && tvMaxAge && isValidAge(tvMinAge, false) && isValidAge(tvMaxAge, true)) {
+    const minAge = parseAge(tvMinAge);
+    const maxAge = parseAge(tvMaxAge);
+    
+    // Only validate if both are numbers (skip if maxAge is '+')
+    if (typeof minAge === 'number' && typeof maxAge === 'number' && minAge >= maxAge) {
       issues.push({
         rowIndex: index,
         columnName: 'TV Demo Max. Age',
@@ -956,14 +994,17 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         currentValue: tvMaxAge
       });
     }
+    // If maxAge is '+', it's always valid (open-ended range)
   }
   
   const digitalMinAge = record['Digital Demo Min. Age'];
   const digitalMaxAge = record['Digital Demo Max. Age'];
-  if (digitalMinAge && digitalMaxAge && isValidNumber(digitalMinAge) && isValidNumber(digitalMaxAge)) {
-    const minAge = parseFloat(digitalMinAge.toString());
-    const maxAge = parseFloat(digitalMaxAge.toString());
-    if (minAge >= maxAge) {
+  if (digitalMinAge && digitalMaxAge && isValidAge(digitalMinAge, false) && isValidAge(digitalMaxAge, true)) {
+    const minAge = parseAge(digitalMinAge);
+    const maxAge = parseAge(digitalMaxAge);
+    
+    // Only validate if both are numbers (skip if maxAge is '+')
+    if (typeof minAge === 'number' && typeof maxAge === 'number' && minAge >= maxAge) {
       issues.push({
         rowIndex: index,
         columnName: 'Digital Demo Max. Age',
@@ -972,6 +1013,7 @@ async function validateRecord(record: any, index: number, masterData?: any): Pro
         currentValue: digitalMaxAge
       });
     }
+    // If maxAge is '+', it's always valid (open-ended range)
   }
   
   // Digital target matching validation - when "Is Digital target the same than TV?" is Yes

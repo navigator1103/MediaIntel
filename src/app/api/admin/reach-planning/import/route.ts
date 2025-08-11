@@ -45,6 +45,18 @@ const FIELD_MAPPING = {
   'Combined Potential Reach': 'combinedPotentialReach'
 };
 
+function parseAge(value: any, isMaxAge: boolean = false): number | null {
+  if (value === undefined || value === null || value === '' || value === '-') return null;
+  
+  // For max age fields, convert '+' to 999 (representing open-ended age range)
+  if (isMaxAge && value.toString().trim() === '+') {
+    return 999;
+  }
+  
+  const numValue = parseFloat(value.toString().replace(/,/g, ''));
+  return isNaN(numValue) ? null : Math.round(numValue);
+}
+
 function parseNumber(value: any): number | null {
   if (value === undefined || value === null || value === '' || value === '-') return null;
   
@@ -166,8 +178,15 @@ async function transformRecord(record: any, sessionData: any): Promise<any> {
     
     const value = record[csvField];
     
-    // Handle numeric fields
-    if (['woaOpenTv', 'woaPaidTv', 'totalTrps', 'cpp2024', 'cpp2025', 'cpp2026', 'woaPmFf', 'woaInfluencersAmplification', 'tvDemoMinAge', 'tvDemoMaxAge', 'digitalDemoMinAge', 'digitalDemoMaxAge'].includes(dbField)) {
+    // Handle age fields separately to support '+' for max age
+    if (['tvDemoMinAge', 'digitalDemoMinAge'].includes(dbField)) {
+      transformed[dbField] = parseAge(value, false);
+    }
+    else if (['tvDemoMaxAge', 'digitalDemoMaxAge'].includes(dbField)) {
+      transformed[dbField] = parseAge(value, true);
+    }
+    // Handle other numeric fields
+    else if (['woaOpenTv', 'woaPaidTv', 'totalTrps', 'cpp2024', 'cpp2025', 'cpp2026', 'woaPmFf', 'woaInfluencersAmplification'].includes(dbField)) {
       transformed[dbField] = parseNumber(value);
     }
     // Handle boolean fields
