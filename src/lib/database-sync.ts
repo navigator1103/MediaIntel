@@ -179,18 +179,33 @@ class DatabaseSyncService {
         });
 
         if (!existing) {
-          await prisma.user.create({
-            data: {
-              email: user.email,
-              password: user.password,
-              name: user.name,
-              role: user.role,
-              accessibleCountries: user.accessible_countries,
-              accessibleBrands: user.accessible_brands,
-              accessiblePages: user.accessible_pages,
-              canAccessUserDashboard: user.can_access_user_dashboard ?? true
-            }
-          });
+          // Use raw SQL to preserve IDs from production
+          // Prisma's create() doesn't work well with manual IDs on autoincrement fields
+          const now = new Date().toISOString();
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO users (id, email, password, name, role, accessible_countries, accessible_brands, accessible_pages, can_access_user_dashboard, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+            user.id,
+            user.email,
+            user.password,
+            user.name || '',
+            user.role || 'user',
+            user.accessible_countries || '',
+            user.accessible_brands || '',
+            user.accessible_pages || '',
+            user.can_access_user_dashboard === 0 ? 0 : 1,
+            user.created_at || now,
+            user.updated_at || now
+          );
+          
+          // Update SQLite sequence to avoid future ID conflicts
+          await prisma.$executeRawUnsafe(`
+            UPDATE sqlite_sequence 
+            SET seq = (SELECT MAX(id) FROM users) 
+            WHERE name = 'users'
+          `);
+          
           result.added++;
         } else if (this.config.preserveLocalData) {
           // Update only if production has newer data
@@ -217,6 +232,8 @@ class DatabaseSyncService {
         }
       } catch (error: any) {
         console.error(`Error syncing user ${user.email}:`, error.message);
+        console.error('Full error:', error);
+        console.error('User data:', { id: user.id, email: user.email, name: user.name });
         result.errors++;
       }
     }
