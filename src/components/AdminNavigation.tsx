@@ -376,7 +376,8 @@ const AdminNavigation = () => {
                         '/admin/countries',
                         '/admin/categories',
                         '/admin/ranges',
-                        '/admin/campaigns'
+                        '/admin/campaigns',
+                        '/admin/campaign-archetypes'
                       ].includes(item.href);
 
                       return (
