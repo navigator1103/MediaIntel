@@ -2022,17 +2022,21 @@ export class MediaSufficiencyValidator {
       field: 'Campaign Archetype',
       type: 'relationship',
       severity: 'critical',
-      message: 'Campaign Archetype must be a valid type from the predefined list',
+      message: 'Campaign Archetype must be a valid type from the database',
       validate: (value, record, allRecords, masterData) => {
         if (!value) return false;
         
-        // Check against predefined campaign archetype values
+        // Check against database campaign archetype values
         const archetypeInput = value.toString().trim();
-        const validArchetypes = [
-          'Innovation',
-          'Base Business (Maintenance)',
-          'Range Extension'
-        ];
+        
+        // Get valid archetypes from master data (fetched from database)
+        const validArchetypes = masterData?.campaignArchetypes || [];
+        
+        // If no archetypes in database, allow any value (warning)
+        if (validArchetypes.length === 0) {
+          console.warn('No campaign archetypes found in database');
+          return true;
+        }
         
         // Case-insensitive search
         return validArchetypes.some(archetype => 

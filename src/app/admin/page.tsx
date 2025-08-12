@@ -112,6 +112,7 @@ export default function AdminDashboard() {
       '/admin/categories',
       '/admin/ranges',
       '/admin/campaigns',
+      '/admin/campaign-archetypes',
       '/admin/database-sync',
       '/admin/share-of-voice',
       '/admin/diminishing-returns'
@@ -370,13 +371,13 @@ export default function AdminDashboard() {
         )}
 
         {/* Configuration Management */}
-        {canAccessAnyPath(['/admin/countries', '/admin/categories', '/admin/ranges', '/admin/campaigns', '/admin/financial-cycles']) && (
+        {canAccessAnyPath(['/admin/countries', '/admin/categories', '/admin/ranges', '/admin/campaigns', '/admin/campaign-archetypes', '/admin/financial-cycles']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiGlobe className="mr-3" style={{color: '#E8D7F1'}} />
             Configuration & Master Data
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#E8D7F1'}}>
@@ -425,6 +426,23 @@ export default function AdminDashboard() {
                 onClick={() => handleNavigate('/admin/ranges')}
               >
                 Manage Ranges
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#FFC857'}}>
+                  <FiTarget className="h-5 w-5 text-gray-800" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900">Campaign Archetypes</h4>
+              </div>
+              <p className="text-gray-600 mb-4 text-sm">Manage campaign archetypes</p>
+              <button 
+                className="w-full px-4 py-2 text-gray-800 rounded-lg hover:opacity-90 transition-opacity text-sm"
+                style={{backgroundColor: '#FFC857'}}
+                onClick={() => handleNavigate('/admin/campaign-archetypes')}
+              >
+                Manage Archetypes
               </button>
             </div>
 

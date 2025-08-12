@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
       mediaTypes,
       mediaSubTypes,
       campaigns,
-      pmTypes
+      pmTypes,
+      campaignArchetypes
     ] = await Promise.all([
       prisma.subRegion.findMany(),
       prisma.category.findMany(),
@@ -65,7 +66,8 @@ export async function GET(request: NextRequest) {
           range: true
         }
       }),
-      prisma.pMType.findMany()
+      prisma.pMType.findMany(),
+      prisma.campaignArchetype.findMany()
     ]);
 
     console.log(`Fetched data from database: ${countries.length} countries, ${subRegions.length} sub-regions, ${categories.length} categories, ${ranges.length} ranges`);
@@ -192,6 +194,9 @@ export async function GET(request: NextRequest) {
       
       // PM Types
       pmTypes: pmTypes.map(pt => pt.name),
+      
+      // Campaign Archetypes
+      campaignArchetypes: campaignArchetypes.map(ca => ca.name),
       
       // Raw records for compatibility
       records: []
