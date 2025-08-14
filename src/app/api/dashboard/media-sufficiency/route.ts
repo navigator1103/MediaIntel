@@ -14,7 +14,11 @@ export async function GET(request: NextRequest) {
     const gamePlans = await prisma.gamePlan.findMany({
       where: whereClause,
       include: {
-        campaign: true,
+        campaign: {
+          include: {
+            range: true
+          }
+        },
         mediaSubType: {
           include: {
             mediaType: true
@@ -22,6 +26,9 @@ export async function GET(request: NextRequest) {
         },
         country: true,
         pmType: true,
+        campaignArchetype: true,
+        lastUpdate: true,
+        businessUnit: true,
       }
     });
 

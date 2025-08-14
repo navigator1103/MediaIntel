@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart
+  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart, LabelList
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import axios from 'axios';
@@ -112,6 +112,11 @@ interface GamePlan {
   campaign?: {
     id: number;
     name: string;
+    rangeId?: number;
+    range?: {
+      id: number;
+      name: string;
+    };
   };
   mediaSubTypeId: number;
   mediaSubType?: {
@@ -145,6 +150,16 @@ interface GamePlan {
       id: number;
       name: string;
     };
+  };
+  range_id?: number;
+  range?: {
+    id: number;
+    name: string;
+  };
+  campaignArchetypeId?: number;
+  campaignArchetype?: {
+    id: number;
+    name: string;
   };
   last_update_id?: number;
   lastUpdate?: {
@@ -217,6 +232,11 @@ export default function MediaSufficiencyDashboard() {
   
   // State for country budget by quarter table
   const [expandedCountries, setExpandedCountries] = useState<string[]>([]);
+  
+  // State for campaigns list sorting
+  const [campaignSortField, setCampaignSortField] = useState('totalBudget');
+  const [campaignSortDirection, setCampaignSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [expandedGamePlanCampaigns, setExpandedGamePlanCampaigns] = useState<Set<string>>(new Set());
   
   // State for all available filter options (from database)
   const [allCountries, setAllCountries] = useState<string[]>([]);
@@ -393,11 +413,11 @@ export default function MediaSufficiencyDashboard() {
               .map((plan: GamePlan) => plan.mediaSubType!.mediaType!.name)
           )).sort();
           
-          // Extract unique ranges from game plans
+          // Extract unique ranges from game plans (through campaign)
           const uniqueRanges = Array.from(new Set(
             gamePlansWithDates
-              .filter((plan: GamePlan) => plan.range?.name)
-              .map((plan: GamePlan) => plan.range!.name)
+              .filter((plan: GamePlan) => plan.campaign?.range?.name)
+              .map((plan: GamePlan) => plan.campaign!.range!.name)
           )).sort();
           
           // Extract unique categories from game plans
@@ -449,6 +469,19 @@ export default function MediaSufficiencyDashboard() {
             name: String(name)
           }));
           setAvailableUpdateOptions(updateOptions);
+          
+          // Select the first financial cycle by default if none selected
+          if (selectedLastUpdates.length === 0 && updateOptions.length > 0) {
+            // Sort to get the most recent year (e.g., ABP2026 before ABP2025)
+            const sortedOptions = [...updateOptions].sort((a, b) => {
+              const yearA = parseInt(a.name.match(/\d{4}/)?.[0] || '0');
+              const yearB = parseInt(b.name.match(/\d{4}/)?.[0] || '0');
+              return yearB - yearA; // Descending order
+            });
+            if (sortedOptions[0]) {
+              setSelectedLastUpdates([sortedOptions[0].name]);
+            }
+          }
           
           console.log('Filter options extracted from game plans:', {
             countries: uniqueCountries.length,
@@ -599,10 +632,10 @@ export default function MediaSufficiencyDashboard() {
       );
     }
     
-    // Apply range filter
+    // Apply range filter (through campaign)
     if (selectedRanges.length > 0) {
       filteredPlans = filteredPlans.filter(plan => 
-        plan.range?.name && selectedRanges.includes(plan.range.name)
+        plan.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
       );
     }
     
@@ -1136,7 +1169,7 @@ export default function MediaSufficiencyDashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
                   whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
-                Overview
+                Budget Overview
               </button>
               <button
                 onClick={() => setActiveTab('gameplans')}
@@ -1211,60 +1244,60 @@ export default function MediaSufficiencyDashboard() {
                 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    {/* Campaigns Card */}
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    {/* Total Working Media Card */}
+                    <div className="rounded-lg shadow-lg p-4 flex items-center justify-between transform hover:scale-105 transition-transform duration-200" style={{ backgroundColor: '#1F4388' }}>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Campaigns</div>
-                        <div className="text-2xl font-semibold text-gray-800">{filteredData.summary.campaignCount}</div>
+                        <div className="text-sm text-white/70 mb-1 font-medium">Total Working Media</div>
+                        <div className="text-2xl font-bold text-white">€ {filteredData.summary.totalBudget.toLocaleString()}</div>
                       </div>
-                      <div className="text-purple-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      <div className="text-white/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                     </div>
                     
-                    {/* Total Budget Card */}
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    {/* Number of Campaigns Card */}
+                    <div className="rounded-lg shadow-lg p-4 flex items-center justify-between transform hover:scale-105 transition-transform duration-200" style={{ backgroundColor: '#2A5599' }}>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Total Budget</div>
-                        <div className="text-2xl font-semibold text-gray-800">€ {filteredData.summary.totalBudget.toLocaleString()}</div>
+                        <div className="text-sm text-white/70 mb-1 font-medium">Number of Campaigns</div>
+                        <div className="text-2xl font-bold text-white">{filteredData.summary.campaignCount}</div>
                       </div>
-                      <div className="text-green-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <div className="text-white/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
                       </div>
                     </div>
                     
                     {/* TV Share Card */}
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    <div className="rounded-lg shadow-lg p-4 flex items-center justify-between transform hover:scale-105 transition-transform duration-200" style={{ backgroundColor: '#3666AA' }}>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">TV Share</div>
-                        <div className="text-2xl font-semibold text-blue-500">
+                        <div className="text-sm text-white/70 mb-1 font-medium">TV Share</div>
+                        <div className="text-2xl font-bold text-white">
                           {/* Make sure we always display a valid number */}
                           {isNaN(tvShare) ? '0' : Math.round(tvShare)}%
                         </div>
                       </div>
-                      <div className="text-blue-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <div className="text-white/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                       </div>
                     </div>
                     
                     {/* Digital Share Card */}
-                    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+                    <div className="rounded-lg shadow-lg p-4 flex items-center justify-between transform hover:scale-105 transition-transform duration-200" style={{ backgroundColor: '#4777BB' }}>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Digital Share</div>
-                        <div className="text-2xl font-semibold text-purple-600">
+                        <div className="text-sm text-white/70 mb-1 font-medium">Digital Share</div>
+                        <div className="text-2xl font-bold text-white">
                           {/* Make sure we always display a valid number */}
                           {isNaN(digitalShare) ? '0' : Math.round(digitalShare)}%
                         </div>
                       </div>
-                      <div className="text-purple-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      <div className="text-white/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                       </div>
                     </div>
@@ -1272,36 +1305,47 @@ export default function MediaSufficiencyDashboard() {
                 );
               })()}
               
-              {/* Top Row: Campaign Distribution + Country Budget by Quarter */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Campaign Distribution Chart */}
-                <div className="bg-white rounded-lg shadow p-4" ref={campaignChartRef}>
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold text-gray-800">Campaign Distribution</h2>
-                    <div className="text-xs text-gray-500">
-                      Click on bars to filter dashboard
-                    </div>
+              {/* Top Row: Two Charts on Left + Campaign by Quarter on Right */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* Left Side: Two Charts Stacked - 50% width */}
+                <div className="lg:col-span-1 space-y-4">
+                  {/* Category Budget Allocation Chart */}
+                  <div className="bg-white rounded-lg shadow p-4" ref={campaignChartRef}>
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-gray-800 mb-2">Category Budget Allocation</h2>
+                    <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-200 to-transparent rounded-full"></div>
                   </div>
                   {isLoading ? (
-                    <div className="flex justify-center items-center h-[300px]">
+                    <div className="flex justify-center items-center h-[220px]">
                       <Spinner />
                     </div>
                   ) : (
                     <div className="flex flex-col h-full">
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ResponsiveContainer width="100%" height={220}>
                         <BarChart
                           data={campaignDistributionData}
-                          margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
+                          margin={{ top: 15, right: 10, left: 10, bottom: 20 }}
                           onClick={handleCampaignBarClick}
                           className="cursor-pointer"
+                          barGap={2}
                         >
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#6b7280' }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
                           <YAxis 
                             axisLine={false} 
                             tickLine={false} 
                             tickFormatter={(value) => `${value}%`}
-                            domain={[0, 100]} 
+                            domain={[0, 100]}
+                            tick={{ fontSize: 10, fill: '#6b7280' }}
+                            width={35}
                           />
                           <Tooltip 
                             formatter={(value, name, props) => {
@@ -1323,23 +1367,20 @@ export default function MediaSufficiencyDashboard() {
                             labelStyle={{ color: '#333', fontWeight: 'bold' }}
                             itemStyle={{ padding: '2px 0' }}
                           />
-                          <Legend 
-                            verticalAlign="bottom" 
-                            height={36} 
-                            content={() => (
-                              <div className="flex justify-center items-center mt-2">
-                                <div className="bg-black w-4 h-4 mr-2"></div>
-                                <span className="text-sm">Percentage</span>
-                              </div>
-                            )}
-                          />
                           <Bar 
                             dataKey="value" 
                             name="Budget %" 
-                            radius={[4, 4, 0, 0]}
+                            radius={[6, 6, 0, 0]}
                             isAnimationActive={false}
                             onClick={(data) => handleCampaignBarClick(data)}
+                            barSize={60}
                           >
+                            <LabelList 
+                              dataKey="value" 
+                              position="top"
+                              formatter={(value) => `${Math.round(value)}%`}
+                              style={{ fill: '#374151', fontSize: '10px', fontWeight: '600' }}
+                            />
                             {campaignDistributionData.map((entry, index) => (
                               <Cell 
                                 key={`cell-${index}`} 
@@ -1354,10 +1395,265 @@ export default function MediaSufficiencyDashboard() {
                     </div>
                   )}
                 </div>
+                  
+                  {/* Country Performance by Sub-Media Type */}
+                  <div className="bg-white rounded-lg shadow p-4">
+                    <div className="mb-3">
+                      <h2 className="text-sm font-semibold text-gray-800 mb-2">Country Budget by Quarter</h2>
+                      <div className="h-1 bg-gradient-to-r from-green-400 via-green-200 to-transparent rounded-full"></div>
+                    </div>
+                    {isLoading ? (
+                      <div className="flex justify-center items-center h-[250px]">
+                        <Spinner />
+                      </div>
+                    ) : gamePlans.length === 0 ? (
+                      <div className="flex justify-center items-center h-[200px] text-gray-500">
+                        <div className="text-center">
+                          <p className="text-xs mb-1">No country data available.</p>
+                          <p className="text-xs">Upload game plans to see breakdown.</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto" style={{ maxHeight: '250px' }}>
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q1</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {(() => {
+                              // Get unique countries from filtered plans
+                              let filteredPlans = [...gamePlans];
+                              
+                              // Apply filters
+                              if (selectedMediaTypes.length > 0) {
+                                filteredPlans = filteredPlans.filter(plan => 
+                                  plan.mediaSubType?.mediaType && 
+                                  selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+                                );
+                              }
+                              
+                              if (selectedCountries.length > 0) {
+                                filteredPlans = filteredPlans.filter(plan => 
+                                  plan.country && 
+                                  plan.country.name && 
+                                  selectedCountries.includes(plan.country.name)
+                                );
+                              }
+                              
+                              if (selectedCategories.length > 0) {
+                                filteredPlans = filteredPlans.filter(plan => 
+                                  plan.category && 
+                                  plan.category.name && 
+                                  selectedCategories.includes(plan.category.name)
+                                );
+                              }
+                              
+                              // Get unique countries from filtered plans
+                              const filteredCountries = Array.from(new Set(filteredPlans
+                                .filter(plan => plan.country && plan.country.name)
+                                .map(plan => plan.country!.name)))
+                                .slice(0, 5); // Limit to top 5 countries for compact view
+                              
+                              // Process each country
+                              return filteredCountries.map(country => {
+                                // Get all game plans for this country
+                                const countryPlans = filteredPlans.filter(plan => 
+                                  plan.country && 
+                                  plan.country.name && 
+                                  plan.country.name.toLowerCase() === country.toLowerCase()
+                                );
+                                
+                                // Calculate total budget for this country
+                                const countryTotalBudget = countryPlans.reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
+                                
+                                // Calculate quarterly budgets from monthly budgets for this country
+                                const countryQ1Budget = countryPlans.reduce((sum, plan) => 
+                                  sum + (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0), 0);
+                                const countryQ2Budget = countryPlans.reduce((sum, plan) => 
+                                  sum + (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0), 0);
+                                const countryQ3Budget = countryPlans.reduce((sum, plan) => 
+                                  sum + (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0), 0);
+                                const countryQ4Budget = countryPlans.reduce((sum, plan) => 
+                                  sum + (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0), 0);
+                                
+                                // Calculate quarterly percentages
+                                const q1Percentage = countryTotalBudget > 0 ? Math.round((countryQ1Budget / countryTotalBudget) * 100) : 0;
+                                const q2Percentage = countryTotalBudget > 0 ? Math.round((countryQ2Budget / countryTotalBudget) * 100) : 0;
+                                const q3Percentage = countryTotalBudget > 0 ? Math.round((countryQ3Budget / countryTotalBudget) * 100) : 0;
+                                const q4Percentage = countryTotalBudget > 0 ? Math.round((countryQ4Budget / countryTotalBudget) * 100) : 0;
+                                
+                                // Check if this country is expanded
+                                const isExpanded = expandedCountries.includes(country);
+                                
+                                // Get categories for this country if expanded
+                                const categoryBreakdown = isExpanded ? (() => {
+                                  const categoryData: Record<string, {
+                                    q1: number;
+                                    q2: number;
+                                    q3: number;
+                                    q4: number;
+                                    total: number;
+                                  }> = {};
+                                  
+                                  countryPlans.forEach(plan => {
+                                    const categoryName = plan.category?.name || 'Uncategorized';
+                                    if (!categoryData[categoryName]) {
+                                      categoryData[categoryName] = { q1: 0, q2: 0, q3: 0, q4: 0, total: 0 };
+                                    }
+                                    categoryData[categoryName].total += Number(plan.totalBudget) || 0;
+                                    categoryData[categoryName].q1 += (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0);
+                                    categoryData[categoryName].q2 += (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0);
+                                    categoryData[categoryName].q3 += (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0);
+                                    categoryData[categoryName].q4 += (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0);
+                                  });
+                                  
+                                  return Object.entries(categoryData).map(([name, data]) => ({
+                                    name,
+                                    ...data,
+                                    q1Pct: data.total > 0 ? Math.round((data.q1 / data.total) * 100) : 0,
+                                    q2Pct: data.total > 0 ? Math.round((data.q2 / data.total) * 100) : 0,
+                                    q3Pct: data.total > 0 ? Math.round((data.q3 / data.total) * 100) : 0,
+                                    q4Pct: data.total > 0 ? Math.round((data.q4 / data.total) * 100) : 0
+                                  })).sort((a, b) => b.total - a.total);
+                                })() : [];
+                                
+                                // Function to get cell color based on percentage (same as Campaign by Quarter)
+                                const getQuarterCellColor = (percentage: number) => {
+                                  if (percentage === 0) return '#FFFFFF';
+                                  if (percentage < 20) return '#F8FBFF';
+                                  if (percentage < 40) return '#EBF3FF';
+                                  if (percentage < 60) return '#D6E8FF';
+                                  if (percentage < 80) return '#C2DDFF';
+                                  if (percentage < 90) return '#A8CCFF';
+                                  return '#8FB9FF'; // 90-100%
+                                };
+                                
+                                const rows = [];
+                                
+                                // Country row
+                                rows.push(
+                                  <tr 
+                                    key={`country-${country}`} 
+                                    className="hover:bg-gray-50 cursor-pointer"
+                                    onClick={() => toggleCountryExpansion(country)}
+                                  >
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
+                                      <span className="mr-2">{isExpanded ? '▼' : '▶'}</span>
+                                      {country}
+                                    </td>
+                                    <td 
+                                      className="px-3 py-2 whitespace-nowrap text-sm font-medium text-center"
+                                      style={{ 
+                                        backgroundColor: getQuarterCellColor(q1Percentage),
+                                        color: '#1F4388'
+                                      }}
+                                    >
+                                      {q1Percentage}%
+                                    </td>
+                                    <td 
+                                      className="px-3 py-2 whitespace-nowrap text-sm font-medium text-center"
+                                      style={{ 
+                                        backgroundColor: getQuarterCellColor(q2Percentage),
+                                        color: '#1F4388'
+                                      }}
+                                    >
+                                      {q2Percentage}%
+                                    </td>
+                                    <td 
+                                      className="px-3 py-2 whitespace-nowrap text-sm font-medium text-center"
+                                      style={{ 
+                                        backgroundColor: getQuarterCellColor(q3Percentage),
+                                        color: '#1F4388'
+                                      }}
+                                    >
+                                      {q3Percentage}%
+                                    </td>
+                                    <td 
+                                      className="px-3 py-2 whitespace-nowrap text-sm font-medium text-center"
+                                      style={{ 
+                                        backgroundColor: getQuarterCellColor(q4Percentage),
+                                        color: '#1F4388'
+                                      }}
+                                    >
+                                      {q4Percentage}%
+                                    </td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 font-semibold">€{countryTotalBudget.toLocaleString()}</td>
+                                  </tr>
+                                );
+                                
+                                // Category rows (only if expanded)
+                                if (isExpanded) {
+                                  categoryBreakdown.forEach(category => {
+                                    rows.push(
+                                      <tr key={`${country}-${category.name}`} className="bg-gray-50">
+                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600 pl-10">
+                                          {category.name}
+                                        </td>
+                                        <td 
+                                          className="px-3 py-2 whitespace-nowrap text-sm text-center"
+                                          style={{ 
+                                            backgroundColor: getQuarterCellColor(category.q1Pct),
+                                            color: '#1F4388'
+                                          }}
+                                        >
+                                          {category.q1Pct}%
+                                        </td>
+                                        <td 
+                                          className="px-3 py-2 whitespace-nowrap text-sm text-center"
+                                          style={{ 
+                                            backgroundColor: getQuarterCellColor(category.q2Pct),
+                                            color: '#1F4388'
+                                          }}
+                                        >
+                                          {category.q2Pct}%
+                                        </td>
+                                        <td 
+                                          className="px-3 py-2 whitespace-nowrap text-sm text-center"
+                                          style={{ 
+                                            backgroundColor: getQuarterCellColor(category.q3Pct),
+                                            color: '#1F4388'
+                                          }}
+                                        >
+                                          {category.q3Pct}%
+                                        </td>
+                                        <td 
+                                          className="px-3 py-2 whitespace-nowrap text-sm text-center"
+                                          style={{ 
+                                            backgroundColor: getQuarterCellColor(category.q4Pct),
+                                            color: '#1F4388'
+                                          }}
+                                        >
+                                          {category.q4Pct}%
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">€{category.total.toLocaleString()}</td>
+                                      </tr>
+                                    );
+                                  });
+                                }
+                                
+                                return rows;
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 
-                {/* Country Budget by Quarter Table */}
-                <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Country Budget by Quarter</h2>
+                {/* Campaign by Quarter Table - 50% width */}
+                <div className="lg:col-span-1 bg-white rounded-lg shadow pt-4 px-4 pb-1">
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-gray-800 mb-2">Campaign by Quarter</h2>
+                    <div className="h-1 bg-gradient-to-r from-purple-400 via-purple-200 to-transparent rounded-full"></div>
+                  </div>
                 <div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
@@ -1366,192 +1662,240 @@ export default function MediaSufficiencyDashboard() {
                   ) : gamePlans.length === 0 ? (
                     <div className="flex justify-center items-center h-[200px] text-gray-500">
                       <div className="text-center">
-                        <p className="mb-2">No detailed country data available.</p>
-                        <p className="text-sm">Upload game plans with country details to see quarterly breakdown.</p>
+                        <p className="mb-2">No detailed campaign data available.</p>
+                        <p className="text-sm">Upload game plans with campaign details to see quarterly breakdown.</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto" style={{ maxHeight: '400px' }}>
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q1 %</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2 %</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3 %</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4 %</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Budget</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredData && gamePlans && (() => {
-                            // Filter game plans based on selected filters
-                            let filteredPlans = [...gamePlans];
-                            
-                            // Apply media type filter
-                            if (selectedMediaTypes.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.mediaSubType?.mediaType && 
-                                selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
-                              );
-                            }
-                            
-                            // Apply country filter
-                            if (selectedCountries.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.country && 
-                                plan.country.name && 
-                                selectedCountries.includes(plan.country.name)
-                              );
-                            }
-                            
-                            // Apply category filter
-                            if (selectedCategories.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.category && 
-                                plan.category.name && 
-                                selectedCategories.includes(plan.category.name)
-                              );
-                            }
-                            
-                            // Get unique countries from filtered plans
-                            const filteredCountries = Array.from(new Set(filteredPlans
-                              .filter(plan => plan.country && plan.country.name)
-                              .map(plan => plan.country!.name)));
-                            
-                            // Process each country
-                            return filteredCountries.flatMap(country => {
-                              // Get all game plans for this country
-                              const countryPlans = filteredPlans.filter(plan => 
-                                plan.country && 
-                                plan.country.name && 
-                                plan.country.name.toLowerCase() === country.toLowerCase()
-                              );
+                  ) : (() => {
+                    const handleSort = (field: string) => {
+                      if (campaignSortField === field) {
+                        setCampaignSortDirection(campaignSortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setCampaignSortField(field);
+                        setCampaignSortDirection('desc');
+                      }
+                    };
+                    
+                    // Filter and sort campaigns
+                    let filteredPlans = [...gamePlans];
+                    
+                    // Apply filters
+                    if (selectedCountries.length > 0) {
+                      filteredPlans = filteredPlans.filter(plan => 
+                        plan.country && plan.country.name && selectedCountries.includes(plan.country.name)
+                      );
+                    }
+                    if (selectedCategories.length > 0) {
+                      filteredPlans = filteredPlans.filter(plan => 
+                        plan.category && plan.category.name && selectedCategories.includes(plan.category.name)
+                      );
+                    }
+                    
+                    // Sort campaigns
+                    const sortedPlans = filteredPlans.sort((a, b) => {
+                      let aVal, bVal;
+                      
+                      if (campaignSortField === 'country') {
+                        aVal = a.country?.name || '';
+                        bVal = b.country?.name || '';
+                      } else if (campaignSortField === 'campaign') {
+                        aVal = a.campaign?.name || '';
+                        bVal = b.campaign?.name || '';
+                      } else if (campaignSortField === 'totalBudget') {
+                        aVal = a.totalBudget || 0;
+                        bVal = b.totalBudget || 0;
+                      } else if (campaignSortField === 'q1') {
+                        aVal = (a.janBudget || 0) + (a.febBudget || 0) + (a.marBudget || 0);
+                        bVal = (b.janBudget || 0) + (b.febBudget || 0) + (b.marBudget || 0);
+                      } else if (campaignSortField === 'q2') {
+                        aVal = (a.aprBudget || 0) + (a.mayBudget || 0) + (a.junBudget || 0);
+                        bVal = (b.aprBudget || 0) + (b.mayBudget || 0) + (b.junBudget || 0);
+                      } else if (campaignSortField === 'q3') {
+                        aVal = (a.julBudget || 0) + (a.augBudget || 0) + (a.sepBudget || 0);
+                        bVal = (b.julBudget || 0) + (b.augBudget || 0) + (b.sepBudget || 0);
+                      } else if (campaignSortField === 'q4') {
+                        aVal = (a.octBudget || 0) + (a.novBudget || 0) + (a.decBudget || 0);
+                        bVal = (b.octBudget || 0) + (b.novBudget || 0) + (b.decBudget || 0);
+                      } else {
+                        aVal = 0;
+                        bVal = 0;
+                      }
+                      
+                      if (campaignSortDirection === 'asc') {
+                        return aVal > bVal ? 1 : -1;
+                      }
+                      return aVal < bVal ? 1 : -1;
+                    });
+                    
+                    // Find min and max budget values for color scaling
+                    const budgetValues = sortedPlans.map(p => p.totalBudget || 0);
+                    const maxBudget = Math.max(...budgetValues, 1);
+                    const minBudget = Math.min(...budgetValues, 0);
+                    
+                    // Function to get background color based on budget value
+                    const getBudgetColor = (value: number) => {
+                      const ratio = (value - minBudget) / (maxBudget - minBudget);
+                      // Use Nivea blue shades from light to dark
+                      if (ratio < 0.2) return '#E6F0FF';
+                      if (ratio < 0.4) return '#B3D1FF';
+                      if (ratio < 0.6) return '#6699DD';
+                      if (ratio < 0.8) return '#4477BB';
+                      return '#1F4388';
+                    };
+                    
+                    // Function to get text color based on background
+                    const getTextColor = (value: number) => {
+                      const ratio = (value - minBudget) / (maxBudget - minBudget);
+                      return ratio > 0.5 ? 'white' : '#1F4388';
+                    };
+                    
+                    return (
+                      <div className="overflow-x-auto" style={{ maxHeight: '420px' }}>
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th 
+                                className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('country')}
+                              >
+                                Country {campaignSortField === 'country' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('campaign')}
+                              >
+                                Campaign {campaignSortField === 'campaign' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('totalBudget')}
+                              >
+                                Total {campaignSortField === 'totalBudget' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('q1')}
+                              >
+                                Q1 % {campaignSortField === 'q1' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('q2')}
+                              >
+                                Q2 % {campaignSortField === 'q2' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('q3')}
+                              >
+                                Q3 % {campaignSortField === 'q3' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                              <th 
+                                className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                onClick={() => handleSort('q4')}
+                              >
+                                Q4 % {campaignSortField === 'q4' && (campaignSortDirection === 'asc' ? '▲' : '▼')}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {sortedPlans.slice(0, 20).map((plan, index) => {
+                              // Calculate quarterly budgets from monthly data
+                              const q1Budget = (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
+                              const q2Budget = (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
+                              const q3Budget = (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
+                              const q4Budget = (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
                               
-                              // Calculate total budget for this country
-                              const countryTotalBudget = countryPlans.reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
+                              // Calculate percentages
+                              const q1Pct = plan.totalBudget > 0 ? Math.round((q1Budget / plan.totalBudget) * 100) : 0;
+                              const q2Pct = plan.totalBudget > 0 ? Math.round((q2Budget / plan.totalBudget) * 100) : 0;
+                              const q3Pct = plan.totalBudget > 0 ? Math.round((q3Budget / plan.totalBudget) * 100) : 0;
+                              const q4Pct = plan.totalBudget > 0 ? Math.round((q4Budget / plan.totalBudget) * 100) : 0;
                               
-                              // Calculate quarterly budgets from monthly budgets for this country
-                              const countryQ1Budget = countryPlans.reduce((sum, plan) => 
-                                sum + (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0), 0);
-                              const countryQ2Budget = countryPlans.reduce((sum, plan) => 
-                                sum + (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0), 0);
-                              const countryQ3Budget = countryPlans.reduce((sum, plan) => 
-                                sum + (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0), 0);
-                              const countryQ4Budget = countryPlans.reduce((sum, plan) => 
-                                sum + (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0), 0);
+                              // Function to get cell color based on percentage (0-100)
+                              const getQuarterCellColor = (percentage: number) => {
+                                // Use lighter Nivea blue shades for subtle coloring
+                                if (percentage === 0) return '#FFFFFF';
+                                if (percentage < 20) return '#F8FBFF';
+                                if (percentage < 40) return '#EBF3FF';
+                                if (percentage < 60) return '#D6E8FF';
+                                if (percentage < 80) return '#C2DDFF';
+                                if (percentage < 90) return '#A8CCFF';
+                                return '#8FB9FF'; // 90-100%
+                              };
                               
-                              // Calculate quarterly percentages
-                              const q1Percentage = countryTotalBudget > 0 ? Math.round((countryQ1Budget / countryTotalBudget) * 100) : 0;
-                              const q2Percentage = countryTotalBudget > 0 ? Math.round((countryQ2Budget / countryTotalBudget) * 100) : 0;
-                              const q3Percentage = countryTotalBudget > 0 ? Math.round((countryQ3Budget / countryTotalBudget) * 100) : 0;
-                              const q4Percentage = countryTotalBudget > 0 ? Math.round((countryQ4Budget / countryTotalBudget) * 100) : 0;
+                              // Function to get text color - always dark blue for readability
+                              const getQuarterTextColor = (percentage: number) => {
+                                return '#1F4388';
+                              };
                               
-                              // Check if this country is expanded
-                              const isExpanded = expandedCountries.includes(country);
-                              
-                              // Get categories for this country
-                              const categoryPlans: Record<string, {
-                                total: number;
-                                q1: number;
-                                q2: number;
-                                q3: number;
-                                q4: number;
-                              }> = {};
-                              
-                              // Group plans by category
-                              countryPlans.forEach(plan => {
-                                const categoryName = plan.category?.name || 'Uncategorized';
-                                
-                                if (!categoryPlans[categoryName]) {
-                                  categoryPlans[categoryName] = {
-                                    total: 0,
-                                    q1: 0,
-                                    q2: 0,
-                                    q3: 0,
-                                    q4: 0
-                                  };
-                                }
-                                
-                                categoryPlans[categoryName].total += Number(plan.totalBudget) || 0;
-                                categoryPlans[categoryName].q1 += (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0);
-                                categoryPlans[categoryName].q2 += (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0);
-                                categoryPlans[categoryName].q3 += (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0);
-                                categoryPlans[categoryName].q4 += (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0);
-                              });
-                              
-                              // Convert to array and sort by total budget
-                              const categories = Object.entries(categoryPlans)
-                                .map(([name, data]) => ({
-                                  name,
-                                  ...data,
-                                  q1Percentage: data.total > 0 ? Math.round((data.q1 / data.total) * 100) : 0,
-                                  q2Percentage: data.total > 0 ? Math.round((data.q2 / data.total) * 100) : 0,
-                                  q3Percentage: data.total > 0 ? Math.round((data.q3 / data.total) * 100) : 0,
-                                  q4Percentage: data.total > 0 ? Math.round((data.q4 / data.total) * 100) : 0
-                                }))
-                                .sort((a, b) => b.total - a.total);
-                              
-                              // Create rows for country and its categories
-                              const rows = [];
-                              
-                              // Country row
-                              rows.push(
-                                <tr 
-                                  key={`country-${country}`}
-                                  className="bg-blue-50 cursor-pointer hover:bg-blue-100"
-                                  onClick={() => toggleCountryExpansion(country)}
-                                >
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
-                                    <span className="mr-2">{isExpanded ? '▼' : '▶'}</span>
-                                    {country}
+                              return (
+                                <tr key={index} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 text-sm text-gray-900">
+                                    {plan.country?.name || 'N/A'}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q1Percentage}%</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q2Percentage}%</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q3Percentage}%</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{q4Percentage}%</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">€ {countryTotalBudget.toLocaleString()}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-900">
+                                    {plan.campaign?.name || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-900 text-right font-semibold">
+                                    €{(plan.totalBudget || 0).toLocaleString()}
+                                  </td>
+                                  <td 
+                                    className="px-4 py-2 text-sm text-center font-medium"
+                                    style={{ 
+                                      backgroundColor: getQuarterCellColor(q1Pct),
+                                      color: getQuarterTextColor(q1Pct)
+                                    }}
+                                  >
+                                    {q1Pct}%
+                                  </td>
+                                  <td 
+                                    className="px-4 py-2 text-sm text-center font-medium"
+                                    style={{ 
+                                      backgroundColor: getQuarterCellColor(q2Pct),
+                                      color: getQuarterTextColor(q2Pct)
+                                    }}
+                                  >
+                                    {q2Pct}%
+                                  </td>
+                                  <td 
+                                    className="px-4 py-2 text-sm text-center font-medium"
+                                    style={{ 
+                                      backgroundColor: getQuarterCellColor(q3Pct),
+                                      color: getQuarterTextColor(q3Pct)
+                                    }}
+                                  >
+                                    {q3Pct}%
+                                  </td>
+                                  <td 
+                                    className="px-4 py-2 text-sm text-center font-medium"
+                                    style={{ 
+                                      backgroundColor: getQuarterCellColor(q4Pct),
+                                      color: getQuarterTextColor(q4Pct)
+                                    }}
+                                  >
+                                    {q4Pct}%
+                                  </td>
                                 </tr>
                               );
-                              
-                              // Category rows (only if country is expanded)
-                              if (isExpanded) {
-                                categories.forEach(category => {
-                                  rows.push(
-                                    <tr 
-                                      key={`${country}-${category.name}`}
-                                      className="bg-white"
-                                    >
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-500 pl-12">
-                                        {category.name}
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.q1Percentage}%</td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.q2Percentage}%</td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.q3Percentage}%</td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{category.q4Percentage}%</td>
-                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">€ {category.total.toLocaleString()}</td>
-                                    </tr>
-                                  );
-                                });
-                              }
-                              
-                              return rows;
-                            });
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               
-              {/* Middle Row: Country Performance by Sub-Media Type + Campaign by Quarter */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Country Performance by Sub-Media Type */}
+              {/* Additional Charts - Vertical Stack */}
+              <div className="space-y-6 mb-6">
+                
+                {/* Media Sub-Type vs Total WM */}
                 <div className="bg-white rounded-lg shadow p-4">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Country Performance by Sub-Media Type</h2>
-                  <div>
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-gray-800 mb-2">Media Sub-Type vs Total WM</h2>
+                    <div className="h-1 bg-gradient-to-r from-orange-400 via-orange-200 to-transparent rounded-full"></div>
+                  </div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
                       <Spinner />
@@ -1564,7 +1908,7 @@ export default function MediaSufficiencyDashboard() {
                       </div>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto" style={{ maxHeight: '400px' }}>
+                    <div className="overflow-x-auto" style={{ maxHeight: '350px' }}>
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50 sticky top-0">
                           <tr>
@@ -1607,15 +1951,23 @@ export default function MediaSufficiencyDashboard() {
                                   .map(plan => plan.mediaSubType!.name)
                               )).sort();
                               
-                              // Return table headers for each sub-media type
-                              return subMediaTypes.map(subMediaType => (
+                              // Return table headers for each sub-media type plus Total
+                              return [
+                                ...subMediaTypes.map(subMediaType => (
+                                  <th 
+                                    key={`header-${subMediaType}`}
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                  >
+                                    {subMediaType}
+                                  </th>
+                                )),
                                 <th 
-                                  key={`header-${subMediaType}`}
-                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                  key="header-total"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider font-bold"
                                 >
-                                  {subMediaType}
+                                  Total %
                                 </th>
-                              ));
+                              ];
                             })()} 
                           </tr>
                         </thead>
@@ -1675,7 +2027,8 @@ export default function MediaSufficiencyDashboard() {
                               });
                             });
                             
-                            // Calculate total budget for each country
+                            // The financial cycle filter is already applied to filteredPlans through selectedLastUpdates
+                            // Calculate total budget for each country (already filtered by financial cycle)
                             const countryTotalBudgets: Record<string, number> = {};
                             countries.forEach(country => {
                               countryTotalBudgets[country] = filteredPlans
@@ -1683,7 +2036,7 @@ export default function MediaSufficiencyDashboard() {
                                 .reduce((sum, plan) => sum + (Number(plan.totalBudget) || 0), 0);
                             });
                             
-                            // Calculate budget for each country and sub-media type
+                            // Calculate budget for each country and sub-media type (already filtered by financial cycle)
                             filteredPlans.forEach(plan => {
                               if (plan.country && plan.country.name && plan.mediaSubType && plan.mediaSubType.name) {
                                 const country = plan.country.name;
@@ -1705,22 +2058,37 @@ export default function MediaSufficiencyDashboard() {
                               }
                             });
                             
-                            // Generate table rows
-                            return countries.map(country => (
-                              <tr key={`performance-${country}`} className="bg-blue-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                  {country}
-                                </td>
-                                {subMediaTypes.map(subMediaType => (
-                                  <td 
-                                    key={`${country}-${subMediaType}`}
-                                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                  >
-                                    {countryPerformance[country][subMediaType].toFixed(1)}%
+                            // Generate table rows with totals
+                            return countries.map(country => {
+                              // Calculate the total percentage for this country
+                              const rowTotal = subMediaTypes.reduce(
+                                (sum, subMediaType) => sum + countryPerformance[country][subMediaType], 
+                                0
+                              );
+                              
+                              return (
+                                <tr key={`performance-${country}`} className="bg-blue-50">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {country}
                                   </td>
-                                ))}
-                              </tr>
-                            ));
+                                  {subMediaTypes.map(subMediaType => (
+                                    <td 
+                                      key={`${country}-${subMediaType}`}
+                                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                    >
+                                      {countryPerformance[country][subMediaType].toFixed(1)}%
+                                    </td>
+                                  ))}
+                                  <td 
+                                    className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
+                                      Math.abs(rowTotal - 100) < 0.5 ? 'text-green-600' : 'text-red-600'
+                                    }`}
+                                  >
+                                    {rowTotal.toFixed(1)}%
+                                  </td>
+                                </tr>
+                              );
+                            });
                           })()}
                         </tbody>
                       </table>
@@ -1729,10 +2097,12 @@ export default function MediaSufficiencyDashboard() {
                   </div>
                 </div>
                 
-                {/* Campaign by Quarter */}
+                {/* Digital Sub-Type vs Total DWM */}
                 <div className="bg-white rounded-lg shadow p-4">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Campaign by Quarter</h2>
-                  <div>
+                  <div className="mb-3">
+                    <h2 className="text-sm font-semibold text-gray-800 mb-2">Digital Sub-Type vs Total DWM</h2>
+                    <div className="h-1 bg-gradient-to-r from-teal-400 via-teal-200 to-transparent rounded-full"></div>
+                  </div>
                   {isLoading ? (
                     <div className="flex justify-center items-center h-[300px]">
                       <Spinner />
@@ -1740,201 +2110,446 @@ export default function MediaSufficiencyDashboard() {
                   ) : gamePlans.length === 0 ? (
                     <div className="flex justify-center items-center h-[200px] text-gray-500">
                       <div className="text-center">
-                        <p className="mb-2">No detailed campaign data available.</p>
-                        <p className="text-sm">Upload game plans with campaign details to see quarterly breakdown.</p>
+                        <p className="mb-2">No digital media data available.</p>
+                        <p className="text-sm">Upload game plans with digital media details to see sub-type breakdown.</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto" style={{ maxHeight: '300px' }}>
+                    <div className="overflow-x-auto" style={{ maxHeight: '280px' }}>
                       <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q1</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredData && gamePlans && (() => {
-                            // Filter game plans based on selected filters
-                            let filteredPlans = [...gamePlans];
-                            
-                            // Apply media type filter
-                            if (selectedMediaTypes.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.mediaSubType?.mediaType && 
-                                selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
-                              );
-                            }
-                            
-                            // Apply country filter
-                            if (selectedCountries.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.country && 
-                                plan.country.name && 
-                                selectedCountries.includes(plan.country.name)
-                              );
-                            }
-                            
-                            // Apply category filter
-                            if (selectedCategories.length > 0) {
-                              filteredPlans = filteredPlans.filter(plan => 
-                                plan.category && 
-                                plan.category.name && 
-                                selectedCategories.includes(plan.category.name)
-                              );
-                            }
-                            
-                            // Get unique countries from filtered plans
-                            const filteredCountries = Array.from(new Set(filteredPlans
-                              .filter(plan => plan.country && plan.country.name)
-                              .map(plan => plan.country!.name)));
-                            
-                            // Process each country
-                            const tableRows = filteredCountries.flatMap(country => {
-                              // Get total budget for this country
-                              const countryBudget = filteredData?.budgetByCountry?.[country] || 0;
-                              
-                              // Get all campaigns for this country from the filtered plans
-                              const countryCampaigns = filteredPlans.filter((plan: GamePlan) => {
-                                if (!plan.country || !plan.country.name) return false;
-                                return plan.country.name.toLowerCase() === country.toLowerCase();
-                              });
-                              
-                              // If no campaigns found for this country, return empty array
-                              if (countryCampaigns.length === 0) {
-                                return [];
-                              }
-                              
-                              // Group campaigns by name and sum their budgets
-                              const campaignGroups: Record<string, {
-                                name: string;
-                                total: number;
-                                q1: number;
-                                q2: number;
-                                q3: number;
-                                q4: number;
-                              }> = {};
-                              
-                              countryCampaigns.forEach(plan => {
-                                if (!plan.campaign) return;
-                                
-                                const campaignName = plan.campaign.name || 'Unknown Campaign';
-                                
-                                if (!campaignGroups[campaignName]) {
-                                  campaignGroups[campaignName] = {
-                                    name: campaignName,
-                                    total: 0,
-                                    q1: 0,
-                                    q2: 0,
-                                    q3: 0,
-                                    q4: 0
-                                  };
-                                }
-                                
-                                campaignGroups[campaignName].total += Number(plan.totalBudget) || 0;
-                                campaignGroups[campaignName].q1 += (Number(plan.janBudget) || 0) + (Number(plan.febBudget) || 0) + (Number(plan.marBudget) || 0);
-                                campaignGroups[campaignName].q2 += (Number(plan.aprBudget) || 0) + (Number(plan.mayBudget) || 0) + (Number(plan.junBudget) || 0);
-                                campaignGroups[campaignName].q3 += (Number(plan.julBudget) || 0) + (Number(plan.augBudget) || 0) + (Number(plan.sepBudget) || 0);
-                                campaignGroups[campaignName].q4 += (Number(plan.octBudget) || 0) + (Number(plan.novBudget) || 0) + (Number(plan.decBudget) || 0);
-                              });
-                              
-                              // Convert to array and sort by total budget
-                              const campaigns = Object.values(campaignGroups)
-                                .filter(campaign => campaign.total > 0)
-                                .sort((a, b) => b.total - a.total);
-                              
-                              // If no campaigns with budget found, return empty array
-                              if (campaigns.length === 0) {
-                                return [];
-                              }
-                              
-                              // Create rows for each campaign
-                              return campaigns.map((campaign, campaignIndex) => {
-                                return (
-                                  <tr 
-                                    key={`${country}-${campaign.name}-${campaignIndex}`}
-                                    className={campaignIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                                  >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                      {country}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {campaign.name}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      € {campaign.total.toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {campaign.q1 > 0 ? `€ ${campaign.q1.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {campaign.q2 > 0 ? `€ ${campaign.q2.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {campaign.q3 > 0 ? `€ ${campaign.q3.toLocaleString()}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      {campaign.q4 > 0 ? `€ ${campaign.q4.toLocaleString()}` : '-'}
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            });
-                            
-                            return tableRows;
-                          })()}
+                        {(() => {
+                          // Filter game plans for selected financial cycle and digital media type only
+                          let filteredPlans = [...gamePlans];
                           
-                          {/* Show a message if no data is displayed in the table */}
-                          {filteredData && Object.entries(filteredData.budgetByCountry || {}).length === 0 && 
-                           gamePlans.length > 0 && (
-                            <tr>
-                              <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
-                                No campaign data available for the selected filters.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
+                          // Apply last update (financial cycle) filter
+                          if (selectedLastUpdates.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.lastUpdate && selectedLastUpdates.includes(plan.lastUpdate.name)
+                            );
+                          }
+                          
+                          // Filter for digital media type only
+                          filteredPlans = filteredPlans.filter(plan => 
+                            plan.mediaSubType?.mediaType?.name?.toLowerCase() === 'digital'
+                          );
+                          
+                          // Apply country filter
+                          if (selectedCountries.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.country && 
+                              plan.country.name && 
+                              selectedCountries.includes(plan.country.name)
+                            );
+                          }
+                          
+                          // Apply category filter
+                          if (selectedCategories.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.category && 
+                              plan.category.name && 
+                              selectedCategories.includes(plan.category.name)
+                            );
+                          }
+                          
+                          // Get unique digital sub-types
+                          const digitalSubTypes = Array.from(new Set(
+                            filteredPlans
+                              .filter(plan => plan.mediaSubType?.name)
+                              .map(plan => plan.mediaSubType!.name)
+                          )).sort();
+                          
+                          // Get unique countries
+                          const countries = Array.from(new Set(
+                            filteredPlans
+                              .filter(plan => plan.country?.name)
+                              .map(plan => plan.country!.name)
+                          )).sort();
+                          
+                          // Calculate digital budget by country and sub-type
+                          const countryDigitalData: Record<string, {
+                            totalDigital: number;
+                            bySubType: Record<string, number>;
+                            byQuarter: {
+                              q1: Record<string, number>;
+                              q2: Record<string, number>;
+                              q3: Record<string, number>;
+                              q4: Record<string, number>;
+                            };
+                          }> = {};
+                          
+                          countries.forEach(country => {
+                            countryDigitalData[country] = {
+                              totalDigital: 0,
+                              bySubType: {},
+                              byQuarter: {
+                                q1: {},
+                                q2: {},
+                                q3: {},
+                                q4: {}
+                              }
+                            };
+                            
+                            digitalSubTypes.forEach(subType => {
+                              countryDigitalData[country].bySubType[subType] = 0;
+                              countryDigitalData[country].byQuarter.q1[subType] = 0;
+                              countryDigitalData[country].byQuarter.q2[subType] = 0;
+                              countryDigitalData[country].byQuarter.q3[subType] = 0;
+                              countryDigitalData[country].byQuarter.q4[subType] = 0;
+                            });
+                          });
+                          
+                          // Calculate budgets
+                          filteredPlans.forEach(plan => {
+                            const country = plan.country?.name;
+                            const subType = plan.mediaSubType?.name;
+                            
+                            if (!country || !subType) return;
+                            
+                            const budget = plan.totalBudget || 0;
+                            const q1Budget = (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
+                            const q2Budget = (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
+                            const q3Budget = (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
+                            const q4Budget = (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
+                            
+                            countryDigitalData[country].totalDigital += budget;
+                            countryDigitalData[country].bySubType[subType] += budget;
+                            countryDigitalData[country].byQuarter.q1[subType] += q1Budget;
+                            countryDigitalData[country].byQuarter.q2[subType] += q2Budget;
+                            countryDigitalData[country].byQuarter.q3[subType] += q3Budget;
+                            countryDigitalData[country].byQuarter.q4[subType] += q4Budget;
+                          });
+                          
+                          // Function to get cell color based on percentage
+                          const getQuarterCellColor = (percentage: number) => {
+                            if (percentage === 0) return '#FFFFFF';
+                            if (percentage < 20) return '#F8FBFF';
+                            if (percentage < 40) return '#EBF3FF';
+                            if (percentage < 60) return '#D6E8FF';
+                            if (percentage < 80) return '#C2DDFF';
+                            if (percentage < 90) return '#A8CCFF';
+                            return '#8FB9FF'; // 90-100%
+                          };
+                          
+                          if (digitalSubTypes.length === 0 || countries.length === 0) {
+                            return (
+                              <tbody className="bg-white">
+                                <tr>
+                                  <td colSpan={10} className="px-6 py-4 text-center text-gray-500">
+                                    No digital media data available for the selected filters.
+                                  </td>
+                                </tr>
+                              </tbody>
+                            );
+                          }
+                          
+                          return (
+                            <>
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total DWM</th>
+                                  {digitalSubTypes.map(subType => (
+                                    <th key={subType} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      {subType}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {countries.map((country, countryIndex) => {
+                                  const countryData = countryDigitalData[country];
+                                  const totalDigital = countryData.totalDigital;
+                                  
+                                  if (totalDigital === 0) return null;
+                                  
+                                  return (
+                                    <tr key={country} className={countryIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                      <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
+                                        {country}
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                                        € {totalDigital.toLocaleString()}
+                                      </td>
+                                      {digitalSubTypes.map(subType => {
+                                        const subTypeBudget = countryData.bySubType[subType];
+                                        const percentage = totalDigital > 0 ? (subTypeBudget / totalDigital) * 100 : 0;
+                                        
+                                        return (
+                                          <td 
+                                            key={subType} 
+                                            className="px-3 py-2 whitespace-nowrap text-xs text-gray-900"
+                                            style={{ backgroundColor: getQuarterCellColor(percentage) }}
+                                          >
+                                            {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })}
+                                
+                                {/* Total Row */}
+                                {countries.length > 0 && (() => {
+                                  const totalOverall = countries.reduce((sum, country) => 
+                                    sum + countryDigitalData[country].totalDigital, 0
+                                  );
+                                  
+                                  const totalBySubType: Record<string, number> = {};
+                                  digitalSubTypes.forEach(subType => {
+                                    totalBySubType[subType] = countries.reduce((sum, country) => 
+                                      sum + countryDigitalData[country].bySubType[subType], 0
+                                    );
+                                  });
+                                  
+                                  return (
+                                    <tr className="bg-gray-100 font-semibold">
+                                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                                        Total
+                                      </td>
+                                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                                        € {totalOverall.toLocaleString()}
+                                      </td>
+                                      {digitalSubTypes.map(subType => {
+                                        const percentage = totalOverall > 0 ? (totalBySubType[subType] / totalOverall) * 100 : 0;
+                                        return (
+                                          <td key={subType} className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">
+                                            {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  );
+                                })()}
+                              </tbody>
+                            </>
+                          );
+                        })()}
                       </table>
                     </div>
                   )}
-                  </div>
                 </div>
               </div>
               
-              {/* Bottom: Budget Timeline */}
+              {/* Bottom: Budget Allocation by Campaign Archetype */}
               <div className="bg-white rounded-lg shadow p-4 mb-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Budget Timeline</h2>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={[
-                        { month: 'Jan', budget: (filteredData?.budgetByQuarter?.Q1 || 0) / 3 },
-                        { month: 'Feb', budget: (filteredData?.budgetByQuarter?.Q1 || 0) / 3 },
-                        { month: 'Mar', budget: (filteredData?.budgetByQuarter?.Q1 || 0) / 3 },
-                        { month: 'Apr', budget: (filteredData?.budgetByQuarter?.Q2 || 0) / 3 },
-                        { month: 'May', budget: (filteredData?.budgetByQuarter?.Q2 || 0) / 3 },
-                        { month: 'Jun', budget: (filteredData?.budgetByQuarter?.Q2 || 0) / 3 },
-                        { month: 'Jul', budget: (filteredData?.budgetByQuarter?.Q3 || 0) / 3 },
-                        { month: 'Aug', budget: (filteredData?.budgetByQuarter?.Q3 || 0) / 3 },
-                        { month: 'Sep', budget: (filteredData?.budgetByQuarter?.Q3 || 0) / 3 },
-                        { month: 'Oct', budget: (filteredData?.budgetByQuarter?.Q4 || 0) / 3 },
-                        { month: 'Nov', budget: (filteredData?.budgetByQuarter?.Q4 || 0) / 3 },
-                        { month: 'Dec', budget: (filteredData?.budgetByQuarter?.Q4 || 0) / 3 }
-                      ]}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => typeof value === 'number' ? `€${value.toLocaleString()}` : `€${value}`} />
-                      <Area type="monotone" dataKey="budget" stroke="#1F4388" fill="#3E7DCD" fillOpacity={0.3} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="mb-3">
+                  <h2 className="text-sm font-semibold text-gray-800 mb-2">Budget Allocation by Campaign Archetype</h2>
+                  <div className="h-1 bg-gradient-to-r from-indigo-400 via-indigo-200 to-transparent rounded-full"></div>
+                </div>
+                <div>
+                  {isLoading ? (
+                    <div className="flex justify-center items-center h-[200px]">
+                      <Spinner />
+                    </div>
+                  ) : gamePlans.length === 0 ? (
+                    <div className="flex justify-center items-center h-[200px] text-gray-500">
+                      <div className="text-center">
+                        <p className="mb-2">No campaign archetype data available.</p>
+                        <p className="text-sm">Campaign archetypes will be displayed when available in game plans.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto" style={{ maxHeight: '350px' }}>
+                      <table className="min-w-full divide-y divide-gray-200">
+                        {(() => {
+                          // Filter game plans based on selected filters
+                          let filteredPlans = [...gamePlans];
+                          
+                          // Apply last update (financial cycle) filter
+                          if (selectedLastUpdates.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.lastUpdate && selectedLastUpdates.includes(plan.lastUpdate.name)
+                            );
+                          }
+                          
+                          // Apply media type filter
+                          if (selectedMediaTypes.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.mediaSubType?.mediaType && 
+                              selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+                            );
+                          }
+                          
+                          // Apply country filter
+                          if (selectedCountries.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.country && 
+                              plan.country.name && 
+                              selectedCountries.includes(plan.country.name)
+                            );
+                          }
+                          
+                          // Apply category filter
+                          if (selectedCategories.length > 0) {
+                            filteredPlans = filteredPlans.filter(plan => 
+                              plan.category && 
+                              plan.category.name && 
+                              selectedCategories.includes(plan.category.name)
+                            );
+                          }
+                          
+                          // Calculate budget by campaign archetype
+                          const archetypeData: Record<string, {
+                            total: number;
+                            byCountry: Record<string, number>;
+                            byQuarter: { q1: number; q2: number; q3: number; q4: number };
+                          }> = {};
+                          
+                          let totalBudgetOverall = 0;
+                          
+                          filteredPlans.forEach(plan => {
+                            const archetypeName = plan.campaignArchetype?.name || 'Unassigned';
+                            const countryName = plan.country?.name || 'Unknown';
+                            const budget = plan.totalBudget || 0;
+                            
+                            totalBudgetOverall += budget;
+                            
+                            if (!archetypeData[archetypeName]) {
+                              archetypeData[archetypeName] = {
+                                total: 0,
+                                byCountry: {},
+                                byQuarter: { q1: 0, q2: 0, q3: 0, q4: 0 }
+                              };
+                            }
+                            
+                            archetypeData[archetypeName].total += budget;
+                            archetypeData[archetypeName].byCountry[countryName] = 
+                              (archetypeData[archetypeName].byCountry[countryName] || 0) + budget;
+                            
+                            // Add quarterly budgets
+                            archetypeData[archetypeName].byQuarter.q1 += 
+                              (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
+                            archetypeData[archetypeName].byQuarter.q2 += 
+                              (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
+                            archetypeData[archetypeName].byQuarter.q3 += 
+                              (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
+                            archetypeData[archetypeName].byQuarter.q4 += 
+                              (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
+                          });
+                          
+                          // Sort archetypes by total budget
+                          const sortedArchetypes = Object.entries(archetypeData)
+                            .sort((a, b) => b[1].total - a[1].total);
+                          
+                          // Function to get cell color based on percentage
+                          const getPercentageCellColor = (percentage: number) => {
+                            if (percentage === 0) return '#FFFFFF';
+                            if (percentage < 10) return '#F8FBFF';
+                            if (percentage < 20) return '#EBF3FF';
+                            if (percentage < 30) return '#D6E8FF';
+                            if (percentage < 40) return '#C2DDFF';
+                            if (percentage < 50) return '#A8CCFF';
+                            return '#8FB9FF'; // 50%+
+                          };
+                          
+                          if (sortedArchetypes.length === 0) {
+                            return (
+                              <tbody className="bg-white">
+                                <tr>
+                                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                                    No campaign archetype data available for the selected filters.
+                                  </td>
+                                </tr>
+                              </tbody>
+                            );
+                          }
+                          
+                          return (
+                            <>
+                              <thead className="bg-gray-50 sticky top-0">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign Archetype</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Budget</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% of Total</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q1 %</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q2 %</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q3 %</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Q4 %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {sortedArchetypes.map(([archetype, data], index) => {
+                                  const percentageOfTotal = totalBudgetOverall > 0 
+                                    ? (data.total / totalBudgetOverall) * 100 
+                                    : 0;
+                                  
+                                  const q1Percentage = data.total > 0 
+                                    ? (data.byQuarter.q1 / data.total) * 100 
+                                    : 0;
+                                  const q2Percentage = data.total > 0 
+                                    ? (data.byQuarter.q2 / data.total) * 100 
+                                    : 0;
+                                  const q3Percentage = data.total > 0 
+                                    ? (data.byQuarter.q3 / data.total) * 100 
+                                    : 0;
+                                  const q4Percentage = data.total > 0 
+                                    ? (data.byQuarter.q4 / data.total) * 100 
+                                    : 0;
+                                  
+                                  return (
+                                    <tr key={archetype} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                      <td className="px-4 py-2 whitespace-nowrap text-xs font-medium text-gray-900">
+                                        {archetype}
+                                      </td>
+                                      <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
+                                        € {data.total.toLocaleString()}
+                                      </td>
+                                      <td 
+                                        className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
+                                        style={{ backgroundColor: getPercentageCellColor(percentageOfTotal) }}
+                                      >
+                                        {percentageOfTotal.toFixed(1)}%
+                                      </td>
+                                      <td 
+                                        className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
+                                        style={{ backgroundColor: getPercentageCellColor(q1Percentage) }}
+                                      >
+                                        {q1Percentage > 0 ? `${q1Percentage.toFixed(1)}%` : '-'}
+                                      </td>
+                                      <td 
+                                        className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
+                                        style={{ backgroundColor: getPercentageCellColor(q2Percentage) }}
+                                      >
+                                        {q2Percentage > 0 ? `${q2Percentage.toFixed(1)}%` : '-'}
+                                      </td>
+                                      <td 
+                                        className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
+                                        style={{ backgroundColor: getPercentageCellColor(q3Percentage) }}
+                                      >
+                                        {q3Percentage > 0 ? `${q3Percentage.toFixed(1)}%` : '-'}
+                                      </td>
+                                      <td 
+                                        className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
+                                        style={{ backgroundColor: getPercentageCellColor(q4Percentage) }}
+                                      >
+                                        {q4Percentage > 0 ? `${q4Percentage.toFixed(1)}%` : '-'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                
+                                {/* Total Row */}
+                                <tr className="bg-gray-100 font-semibold">
+                                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
+                                    Total
+                                  </td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
+                                    € {totalBudgetOverall.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900">
+                                    100.0%
+                                  </td>
+                                  <td colSpan={4} className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                    -
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </>
+                          );
+                        })()}
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -2106,29 +2721,56 @@ export default function MediaSufficiencyDashboard() {
                         const mediaTypes = [...new Set(plans.map(plan => plan.mediaSubType?.mediaType?.name).filter(Boolean))];
                         const mediaTypeDisplay = mediaTypes.join(', ') || 'Unknown';
                         
-                        // Function to get color based on media type
-                        const getColorForMediaType = (mediaTypeName: string) => {
-                          if (['TV', 'Radio'].includes(mediaTypeName)) {
-                            return 'bg-blue-600';
-                          } else if (['Print', 'OOH'].includes(mediaTypeName)) {
-                            return 'bg-green-500';
-                          } else if (mediaTypeName.includes('Digital')) {
-                            return 'bg-purple-500';
-                          } else if (mediaTypeName.includes('Social')) {
-                            return 'bg-pink-500';
+                        // Function to get color based on category
+                        const getColorForCategory = (categoryName: string) => {
+                          const colors = [
+                            'bg-blue-600',
+                            'bg-green-600',
+                            'bg-purple-600',
+                            'bg-pink-600',
+                            'bg-yellow-600',
+                            'bg-indigo-600',
+                            'bg-red-600',
+                            'bg-teal-600'
+                          ];
+                          
+                          // Create a simple hash based on category name to consistently assign colors
+                          let hash = 0;
+                          for (let i = 0; i < categoryName.length; i++) {
+                            hash = categoryName.charCodeAt(i) + ((hash << 5) - hash);
                           }
-                          return 'bg-gray-200';
+                          return colors[Math.abs(hash) % colors.length];
+                        };
+                        
+                        const isExpanded = expandedGamePlanCampaigns.has(key);
+                        const toggleExpanded = () => {
+                          const newExpanded = new Set(expandedGamePlanCampaigns);
+                          if (isExpanded) {
+                            newExpanded.delete(key);
+                          } else {
+                            newExpanded.add(key);
+                          }
+                          setExpandedGamePlanCampaigns(newExpanded);
                         };
                         
                         return (
-                          <div key={key} className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b hover:bg-gray-50">
-                            <div className="py-1.5 px-3 text-xs text-gray-600">{firstPlan.country?.name || 'Unknown'}</div>
-                            <div className="py-1.5 px-3 text-xs font-medium text-gray-800">{firstPlan.campaign?.name || 'Unnamed Campaign'}</div>
-                            <div className="py-1.5 px-3 text-xs text-gray-700">€ {totalBudget.toLocaleString()}</div>
+                          <React.Fragment key={key}>
+                            <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b hover:bg-gray-50">
+                              <div className="py-1.5 px-3 text-xs text-gray-600">{firstPlan.country?.name || 'Unknown'}</div>
+                              <div className="py-1.5 px-3 text-xs font-medium text-gray-800 flex items-center">
+                                <button
+                                  onClick={toggleExpanded}
+                                  className="mr-1 text-gray-400 hover:text-gray-600"
+                                >
+                                  {isExpanded ? '▼' : '▶'}
+                                </button>
+                                {firstPlan.campaign?.name || 'Unnamed Campaign'}
+                              </div>
+                              <div className="py-1.5 px-3 text-xs text-gray-700">€ {totalBudget.toLocaleString()}</div>
                             
                             {/* Multiple horizontal bars for campaign bursts */}
-                            <div className="py-1.5 px-3 relative" style={{ minHeight: '30px' }}>
-                              <div className="h-3 bg-gray-100 w-full rounded-sm relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48))' }}>
+                            <div className="py-1.5 px-3 relative" style={{ minHeight: '40px' }}>
+                              <div className="h-5 bg-gray-100 w-full rounded-sm relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48 - 1px), rgba(0,0,0,0.03) calc(100%/48))' }}>
                                 {/* Render a bar for each burst/plan */}
                                 {plans.map((plan, index) => {
                                   // Skip if no valid dates
@@ -2152,15 +2794,16 @@ export default function MediaSufficiencyDashboard() {
                                   // Calculate budget for this burst
                                   const burstBudget = plan.totalBudget || 0;
                                   
-                                  // Get color for this specific burst based on its media type
+                                  // Get color for this specific burst based on its category
+                                  const burstCategory = plan.category?.name || 'Unknown';
+                                  const burstColor = getColorForCategory(burstCategory);
                                   const burstMediaType = plan.mediaSubType?.mediaType?.name || '';
-                                  const burstColor = getColorForMediaType(burstMediaType);
                                   
                                   return (
                                     <div 
                                       key={plan.id}
-                                      className={`absolute top-0 h-3 ${burstColor} rounded-sm border border-white/30`}
-                                      title={`${burstMediaType} - Burst ${plan.burst || index + 1}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} | Budget: €${burstBudget.toLocaleString()} | Media: ${burstMediaType}`}
+                                      className={`absolute top-0 h-5 ${burstColor} rounded-sm border border-white/30`}
+                                      title={`${burstCategory} - Burst ${plan.burst || index + 1}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} | Budget: €${burstBudget.toLocaleString()} | Media: ${burstMediaType}`}
                                       style={{
                                         left: `${startPosition * 100}%`,
                                         width: `${(endPosition - startPosition) * 100}%`,
@@ -2176,7 +2819,7 @@ export default function MediaSufficiencyDashboard() {
                                   return (
                                     <div 
                                       key={i} 
-                                      className={`absolute top-0 h-6 border-l ${isMonthBoundary ? 'border-gray-400' : 'border-gray-200'}`} 
+                                      className={`absolute top-0 h-5 border-l ${isMonthBoundary ? 'border-gray-400' : 'border-gray-200'}`} 
                                       style={{ left: `${(i / 48) * 100}%` }}
                                     >
                                     </div>
@@ -2185,6 +2828,98 @@ export default function MediaSufficiencyDashboard() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Expanded section showing media subtypes */}
+                          {isExpanded && (
+                            <div className="bg-gray-50 border-b">
+                              {(() => {
+                                // Group plans by media subtype and keep individual plan data
+                                const bySubType: Record<string, GamePlan[]> = {};
+                                plans.forEach(plan => {
+                                  const subTypeName = plan.mediaSubType?.name || 'Unknown';
+                                  if (!bySubType[subTypeName]) {
+                                    bySubType[subTypeName] = [];
+                                  }
+                                  bySubType[subTypeName].push(plan);
+                                });
+                                
+                                return Object.entries(bySubType).map(([subType, subTypePlans]) => {
+                                  const totalSubTypeBudget = subTypePlans.reduce((sum, p) => sum + (p.totalBudget || 0), 0);
+                                  const mediaTypeName = subTypePlans[0]?.mediaSubType?.mediaType?.name || 'Unknown';
+                                  
+                                  return (
+                                    <div key={subType} className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] py-1 text-xs">
+                                      <div className="text-gray-500"></div>
+                                      <div className="text-gray-600 pl-8">↳ {subType}</div>
+                                      <div className="text-gray-600 px-3">€ {totalSubTypeBudget.toLocaleString()}</div>
+                                      
+                                      {/* Timeline bars for this subtype */}
+                                      <div className="px-3 relative" style={{ minHeight: '25px' }}>
+                                        <div className="h-3 bg-gray-50 w-full rounded-sm relative" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/48 - 1px), rgba(0,0,0,0.02) calc(100%/48 - 1px), rgba(0,0,0,0.02) calc(100%/48))' }}>
+                                          {subTypePlans.map((plan, index) => {
+                                            if (!plan.startDate || !plan.endDate) return null;
+                                            
+                                            const startDate = new Date(plan.startDate);
+                                            const endDate = new Date(plan.endDate);
+                                            
+                                            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+                                            
+                                            // Ensure we handle dates that might span across years
+                                            const year = startDate.getFullYear();
+                                            const yearStart = new Date(year, 0, 1);
+                                            const yearEnd = new Date(year, 11, 31, 23, 59, 59);
+                                            const yearDuration = yearEnd.getTime() - yearStart.getTime();
+                                            
+                                            // Calculate positions more precisely
+                                            const startPosition = Math.max(0, Math.min(1, (startDate.getTime() - yearStart.getTime()) / yearDuration));
+                                            const endPosition = Math.max(0, Math.min(1, (endDate.getTime() - yearStart.getTime()) / yearDuration));
+                                            
+                                            // Ensure minimum width for visibility
+                                            const width = Math.max(0.5, (endPosition - startPosition) * 100);
+                                            
+                                            const burstBudget = plan.totalBudget || 0;
+                                            const categoryName = plan.category?.name || 'Unknown';
+                                            const burstColor = getColorForCategory(categoryName);
+                                            
+                                            // Add burst number to distinguish multiple bursts
+                                            const burstNum = plan.burst || index + 1;
+                                            
+                                            return (
+                                              <div 
+                                                key={`${plan.id}-${index}`}
+                                                className={`absolute top-0 h-3 ${burstColor} rounded-sm border border-white/50`}
+                                                title={`${subType} - Burst ${burstNum}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} | Budget: €${burstBudget.toLocaleString()} | Duration: ${Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))} days`}
+                                                style={{
+                                                  left: `${startPosition * 100}%`,
+                                                  width: `${width}%`,
+                                                  zIndex: index + 1,
+                                                  opacity: 0.7 + (index * 0.1) // Vary opacity for multiple bursts
+                                                }}
+                                              ></div>
+                                            );
+                                          })}
+                                          
+                                          {/* Lighter week dividers for subtype rows */}
+                                          {Array.from({ length: 48 }).map((_, i) => {
+                                            const isMonthBoundary = i % 4 === 0;
+                                            return (
+                                              <div 
+                                                key={i} 
+                                                className={`absolute top-0 h-3 border-l ${isMonthBoundary ? 'border-gray-300' : 'border-gray-200'} opacity-50`} 
+                                                style={{ left: `${(i / 48) * 100}%` }}
+                                              >
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          )}
+                          </React.Fragment>
                         );
                       });
                     })()}
