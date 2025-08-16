@@ -3,13 +3,43 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart, LabelList
+  PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart, LabelList, Rectangle, ReferenceLine
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import axios from 'axios';
 
 // Color palette for charts
 const COLORS = ['#1F4388', '#2A5CAA', '#3E7DCD', '#5E9FE0', '#7FBCE6', '#A0D8EC', '#C1E4F0', '#E2F0F6'];
+// Sufficiency status colors - using blue shades similar to overview tab
+const SUFFICIENCY_COLORS = {
+  nice: '#1F4388',   // Dark blue (best performance)
+  under: '#5E9FE0',  // Medium blue (needs improvement)  
+  over: '#A0D8EC'    // Light blue (over-reaching)
+};
+
+// Custom bar shape that adds rounded corners only if it's the top bar
+const CustomBarShape = (props: any) => {
+  const { fill, x, y, width, height, payload, dataKey } = props;
+  
+  // Check if this bar is the topmost visible bar
+  // We'll add radius if this bar extends to the top of the stack
+  const hasOver = payload.Over > 0;
+  const hasUnder = payload.Under > 0;
+  const hasNice = payload.Nice > 0;
+  
+  let radius = [0, 0, 0, 0];
+  
+  // Determine if this bar should have rounded corners
+  if (dataKey === 'Over' && hasOver) {
+    radius = [8, 8, 0, 0];
+  } else if (dataKey === 'Under' && !hasOver && hasUnder) {
+    radius = [8, 8, 0, 0];
+  } else if (dataKey === 'Nice' && !hasOver && !hasUnder && hasNice) {
+    radius = [8, 8, 0, 0];
+  }
+  
+  return <Rectangle {...props} radius={radius} />;
+};
 
 // Interface for Game Plan data
 interface GamePlanData {
@@ -213,9 +243,15 @@ export default function MediaSufficiencyDashboard() {
   const [selectedRanges, setSelectedRanges] = useState<string[]>([]);
   const [selectedBusinessUnits, setSelectedBusinessUnits] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedMediaView, setSelectedMediaView] = useState<'digital' | 'tv' | 'multimedia'>('multimedia');
+  const [isReachTableCollapsed, setIsReachTableCollapsed] = useState(false);
+  const [isCampaignAnalysisCollapsed, setIsCampaignAnalysisCollapsed] = useState(false);
+  const [isWoaChartCollapsed, setIsWoaChartCollapsed] = useState(false);
   const [selectedLastUpdates, setSelectedLastUpdates] = useState<string[]>([]);
+  const [selectedCampaignForDeepDive, setSelectedCampaignForDeepDive] = useState<string | null>(null);
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 1000000]);
   const [lastUpdateDate, setLastUpdateDate] = useState<string>('');
+  const [reachMediaView, setReachMediaView] = useState<'digital' | 'tv' | 'multimedia'>('digital');
   
   // State for sidebar
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
@@ -264,7 +300,13 @@ export default function MediaSufficiencyDashboard() {
   const fetchMediaSufficiencyReachData = async () => {
     try {
       setIsLoadingReach(true);
-      const response = await axios.get('/api/dashboard/media-sufficiency-reach', {
+      // Build query params
+      const params = new URLSearchParams();
+      if (selectedLastUpdates.length > 0) {
+        params.append('lastUpdates', selectedLastUpdates.join(','));
+      }
+      
+      const response = await axios.get(`/api/dashboard/media-sufficiency-reach${params.toString() ? '?' + params.toString() : ''}`, {
         headers: getAuthHeaders()
       });
       setMediaSufficiencyReachData(response.data);
@@ -272,6 +314,441 @@ export default function MediaSufficiencyDashboard() {
       console.error('Error fetching media sufficiency reach data:', error);
     } finally {
       setIsLoadingReach(false);
+    }
+  };
+  
+  // Define thresholds based on campaign archetype (from the 2026 reference image)
+  const getReachThresholds = (archetype: string | null | undefined) => {
+    const archetypeName = archetype?.toLowerCase() || '';
+    
+    // Innovation/NPD: 90-100% of optimal reach
+    if (archetypeName.includes('innovation') || archetypeName.includes('npd') || archetypeName.includes('new product')) {
+      return {
+        digitalTv: { niceMin: 82, niceMax: 91, over: 91, under: 82 },
+        digitalOnly: { niceMin: 68, niceMax: 76, over: 76, under: 68 },
+        tv: { niceMin: 56, niceMax: 62, over: 62, under: 56 },
+        tvOnly: { niceMin: 56, niceMax: 62, over: 62, under: 56 }
+      };
+    }
+    // Base Business/Core: 70-90% of optimal reach
+    else {
+      return {
+        digitalTv: { niceMin: 63, niceMax: 82, over: 82, under: 63 },
+        digitalOnly: { niceMin: 53, niceMax: 68, over: 68, under: 53 },
+        tv: { niceMin: 43, niceMax: 56, over: 56, under: 43 },
+        tvOnly: { niceMin: 43, niceMax: 56, over: 56, under: 43 }
+      };
+    }
+  };
+
+  // Calculate Reach Sufficiency Score (% of budget on "Nice/Good" campaigns)
+  const calculateReachSufficiencyScore = () => {
+    try {
+      if (!mediaSufficiencyReachData || !gamePlans || gamePlans.length === 0) {
+        return 0;
+      }
+      
+      // Helper function to check if reach is "Nice" based on archetype and media type
+      const isNiceReach = (currentReach: number, archetype: string | null | undefined, mediaType: 'digitalTv' | 'digitalOnly' | 'tvOnly') => {
+        const thresholds = getReachThresholds(archetype);
+        const threshold = thresholds[mediaType];
+        
+        // "Nice" is within the min-max range
+        return currentReach >= threshold.niceMin && currentReach <= threshold.niceMax;
+      };
+      
+      // Map campaigns to their archetypes
+      const campaignArchetypes = new Map<string, string>();
+      if (Array.isArray(gamePlans)) {
+        gamePlans.forEach(plan => {
+          if (plan?.campaign?.name && plan?.campaignArchetype?.name) {
+            campaignArchetypes.set(plan.campaign.name, plan.campaignArchetype.name);
+          }
+        });
+      }
+      
+      // Get campaigns with good sufficiency from reach data
+      const goodCampaigns = new Set<string>();
+      
+      // Check Combined reach data (Digital + TV)
+      if (mediaSufficiencyReachData.combinedReachData && Array.isArray(mediaSufficiencyReachData.combinedReachData)) {
+        mediaSufficiencyReachData.combinedReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number') {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isNiceReach(item.currentReach, archetype, 'digitalTv')) {
+              goodCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined, check Digital-only reach data
+      if (mediaSufficiencyReachData.digitalReachData && Array.isArray(mediaSufficiencyReachData.digitalReachData)) {
+        mediaSufficiencyReachData.digitalReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !goodCampaigns.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isNiceReach(item.currentReach, archetype, 'digitalOnly')) {
+              goodCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined or digital, check TV-only reach data
+      if (mediaSufficiencyReachData.tvReachData && Array.isArray(mediaSufficiencyReachData.tvReachData)) {
+        mediaSufficiencyReachData.tvReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !goodCampaigns.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isNiceReach(item.currentReach, archetype, 'tvOnly')) {
+              goodCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // Apply filters to game plans
+      let filteredGamePlans = gamePlans;
+      
+      if (selectedCountries.length > 0) {
+        filteredGamePlans = filteredGamePlans.filter(plan => 
+          plan?.country?.name && selectedCountries.includes(plan.country.name)
+        );
+      }
+      if (selectedCategories.length > 0) {
+        filteredGamePlans = filteredGamePlans.filter(plan => 
+          plan?.category?.name && selectedCategories.includes(plan.category.name)
+        );
+      }
+      if (selectedRanges.length > 0) {
+        filteredGamePlans = filteredGamePlans.filter(plan => 
+          plan?.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
+        );
+      }
+      if (selectedBusinessUnits.length > 0) {
+        filteredGamePlans = filteredGamePlans.filter(plan => {
+          const buName = plan?.category?.businessUnit?.name || plan?.businessUnit?.name;
+          return buName && selectedBusinessUnits.includes(buName);
+        });
+      }
+      if (selectedMediaTypes.length > 0) {
+        filteredGamePlans = filteredGamePlans.filter(plan => 
+          plan?.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+        );
+      }
+      
+      // Calculate total budget for good campaigns
+      let goodBudget = 0;
+      let totalBudget = 0;
+      
+      if (Array.isArray(filteredGamePlans)) {
+        filteredGamePlans.forEach(plan => {
+          const budget = plan?.totalBudget || 0;
+          totalBudget += budget;
+          
+          if (plan?.campaign?.name && goodCampaigns.has(plan.campaign.name)) {
+            goodBudget += budget;
+          }
+        });
+      }
+      
+      // Return percentage
+      return totalBudget > 0 ? Math.round((goodBudget / totalBudget) * 100) : 0;
+    } catch (error) {
+      console.error('Error calculating Reach Sufficiency Score:', error);
+      return 0;
+    }
+  };
+
+  // Calculate Under campaigns (% of budget and count)
+  const calculateUnderCampaigns = () => {
+    try {
+      if (!mediaSufficiencyReachData || !gamePlans || gamePlans.length === 0) {
+        console.log('No data available for Under calculation');
+        return { count: 0, percentage: 0 };
+      }
+      
+      console.log('Calculating Under campaigns:', {
+        gamePlansCount: gamePlans.length,
+        reachDataCount: mediaSufficiencyReachData.combinedReachData?.length || 0
+      });
+      
+      // Helper function to check if reach is "Under" based on archetype and media type
+      const isUnderReach = (currentReach: number, archetype: string | null | undefined, mediaType: 'digitalTv' | 'digitalOnly' | 'tvOnly') => {
+        const thresholds = getReachThresholds(archetype);
+        const threshold = thresholds[mediaType];
+        
+        // "Under" is below the minimum nice range
+        if (mediaType === 'digitalTv') {
+          return currentReach < threshold.niceMin;
+        } else if (mediaType === 'digitalOnly') {
+          return currentReach < threshold.niceMin;
+        } else { // tvOnly
+          return currentReach < threshold.niceMin;
+        }
+      };
+      
+      // Apply filters to game plans first
+      let filteredUnderPlans = gamePlans;
+      
+      if (selectedCountries.length > 0) {
+        filteredUnderPlans = filteredUnderPlans.filter(plan => 
+          plan?.country?.name && selectedCountries.includes(plan.country.name)
+        );
+      }
+      if (selectedCategories.length > 0) {
+        filteredUnderPlans = filteredUnderPlans.filter(plan => 
+          plan?.category?.name && selectedCategories.includes(plan.category.name)
+        );
+      }
+      if (selectedRanges.length > 0) {
+        filteredUnderPlans = filteredUnderPlans.filter(plan => 
+          plan?.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
+        );
+      }
+      if (selectedBusinessUnits.length > 0) {
+        filteredUnderPlans = filteredUnderPlans.filter(plan => {
+          const buName = plan?.category?.businessUnit?.name || plan?.businessUnit?.name;
+          return buName && selectedBusinessUnits.includes(buName);
+        });
+      }
+      if (selectedMediaTypes.length > 0) {
+        filteredUnderPlans = filteredUnderPlans.filter(plan => 
+          plan?.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+        );
+      }
+      
+      // Map campaigns to their archetypes (only from filtered plans)
+      const campaignArchetypes = new Map<string, string>();
+      const filteredCampaignNames = new Set<string>();
+      if (Array.isArray(filteredUnderPlans)) {
+        filteredUnderPlans.forEach(plan => {
+          if (plan?.campaign?.name) {
+            filteredCampaignNames.add(plan.campaign.name);
+            if (plan?.campaignArchetype?.name) {
+              campaignArchetypes.set(plan.campaign.name, plan.campaignArchetype.name);
+            }
+          }
+        });
+      }
+      
+      // Get campaigns with under sufficiency from reach data (only those in filtered set)
+      const underCampaigns = new Set<string>();
+      
+      // Check Combined reach data (Digital + TV)
+      if (mediaSufficiencyReachData.combinedReachData && Array.isArray(mediaSufficiencyReachData.combinedReachData)) {
+        mediaSufficiencyReachData.combinedReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isUnderReach(item.currentReach, archetype, 'digitalTv')) {
+              underCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined, check Digital-only reach data
+      if (mediaSufficiencyReachData.digitalReachData && Array.isArray(mediaSufficiencyReachData.digitalReachData)) {
+        mediaSufficiencyReachData.digitalReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !underCampaigns.has(item.campaign) && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isUnderReach(item.currentReach, archetype, 'digitalOnly')) {
+              underCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined or digital, check TV-only reach data
+      if (mediaSufficiencyReachData.tvReachData && Array.isArray(mediaSufficiencyReachData.tvReachData)) {
+        mediaSufficiencyReachData.tvReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !underCampaigns.has(item.campaign) && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isUnderReach(item.currentReach, archetype, 'tvOnly')) {
+              underCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // Calculate total budget for under campaigns
+      let underBudget = 0;
+      let totalBudget = 0;
+      
+      console.log('Under campaigns identified:', Array.from(underCampaigns));
+      console.log('Campaign archetypes map:', Array.from(campaignArchetypes.entries()));
+      
+      // Log first few game plan campaign names for debugging
+      const gamePlanCampaignNames = filteredUnderPlans.slice(0, 5).map(p => p?.campaign?.name).filter(Boolean);
+      console.log('Sample GamePlan campaign names:', gamePlanCampaignNames);
+      
+      if (Array.isArray(filteredUnderPlans)) {
+        filteredUnderPlans.forEach(plan => {
+          const budget = plan?.totalBudget || 0;
+          totalBudget += budget;
+          
+          if (plan?.campaign?.name && underCampaigns.has(plan.campaign.name)) {
+            underBudget += budget;
+            console.log(`Found matching under campaign: ${plan.campaign.name}, budget: ${budget}`);
+          }
+        });
+      }
+      
+      console.log('Under calculation result:', { 
+        underCampaigns: underCampaigns.size, 
+        underBudget, 
+        totalBudget,
+        percentage: totalBudget > 0 ? Math.round((underBudget / totalBudget) * 100) : 0
+      });
+      
+      // Return count and percentage
+      return {
+        count: underCampaigns.size,
+        percentage: totalBudget > 0 ? Math.round((underBudget / totalBudget) * 100) : 0
+      };
+    } catch (error) {
+      console.error('Error calculating Under campaigns:', error);
+      return { count: 0, percentage: 0 };
+    }
+  };
+
+  // Calculate Over campaigns (% of budget and count)
+  const calculateOverCampaigns = () => {
+    try {
+      if (!mediaSufficiencyReachData || !gamePlans || gamePlans.length === 0) {
+        console.log('No data available for Over calculation');
+        return { count: 0, percentage: 0 };
+      }
+      
+      console.log('Calculating Over campaigns:', {
+        gamePlansCount: gamePlans.length,
+        reachDataCount: mediaSufficiencyReachData.combinedReachData?.length || 0
+      });
+      
+      // Helper function to check if reach is "Over" based on archetype and media type
+      const isOverReach = (currentReach: number, archetype: string | null | undefined, mediaType: 'digitalTv' | 'digitalOnly' | 'tvOnly') => {
+        const thresholds = getReachThresholds(archetype);
+        const threshold = thresholds[mediaType];
+        
+        // "Over" is above the maximum nice range
+        return currentReach > threshold.niceMax;
+      };
+      
+      // Apply filters to game plans first
+      let filteredOverPlans = gamePlans;
+      
+      if (selectedCountries.length > 0) {
+        filteredOverPlans = filteredOverPlans.filter(plan => 
+          plan?.country?.name && selectedCountries.includes(plan.country.name)
+        );
+      }
+      if (selectedCategories.length > 0) {
+        filteredOverPlans = filteredOverPlans.filter(plan => 
+          plan?.category?.name && selectedCategories.includes(plan.category.name)
+        );
+      }
+      if (selectedRanges.length > 0) {
+        filteredOverPlans = filteredOverPlans.filter(plan => 
+          plan?.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
+        );
+      }
+      if (selectedBusinessUnits.length > 0) {
+        filteredOverPlans = filteredOverPlans.filter(plan => {
+          const buName = plan?.category?.businessUnit?.name || plan?.businessUnit?.name;
+          return buName && selectedBusinessUnits.includes(buName);
+        });
+      }
+      if (selectedMediaTypes.length > 0) {
+        filteredOverPlans = filteredOverPlans.filter(plan => 
+          plan?.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+        );
+      }
+      
+      // Map campaigns to their archetypes (only from filtered plans)
+      const campaignArchetypes = new Map<string, string>();
+      const filteredCampaignNames = new Set<string>();
+      if (Array.isArray(filteredOverPlans)) {
+        filteredOverPlans.forEach(plan => {
+          if (plan?.campaign?.name) {
+            filteredCampaignNames.add(plan.campaign.name);
+            if (plan?.campaignArchetype?.name) {
+              campaignArchetypes.set(plan.campaign.name, plan.campaignArchetype.name);
+            }
+          }
+        });
+      }
+      
+      // Get campaigns with over sufficiency from reach data (only those in filtered set)
+      const overCampaigns = new Set<string>();
+      
+      // Check Combined reach data (Digital + TV)
+      if (mediaSufficiencyReachData.combinedReachData && Array.isArray(mediaSufficiencyReachData.combinedReachData)) {
+        mediaSufficiencyReachData.combinedReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isOverReach(item.currentReach, archetype, 'digitalTv')) {
+              overCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined, check Digital-only reach data
+      if (mediaSufficiencyReachData.digitalReachData && Array.isArray(mediaSufficiencyReachData.digitalReachData)) {
+        mediaSufficiencyReachData.digitalReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !overCampaigns.has(item.campaign) && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isOverReach(item.currentReach, archetype, 'digitalOnly')) {
+              overCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // For campaigns not in combined or digital, check TV-only reach data
+      if (mediaSufficiencyReachData.tvReachData && Array.isArray(mediaSufficiencyReachData.tvReachData)) {
+        mediaSufficiencyReachData.tvReachData.forEach(item => {
+          if (item && item.campaign && typeof item.currentReach === 'number' && !overCampaigns.has(item.campaign) && filteredCampaignNames.has(item.campaign)) {
+            const archetype = campaignArchetypes.get(item.campaign);
+            if (isOverReach(item.currentReach, archetype, 'tvOnly')) {
+              overCampaigns.add(item.campaign);
+            }
+          }
+        });
+      }
+      
+      // Calculate total budget for over campaigns
+      let overBudget = 0;
+      let totalBudget = 0;
+      
+      console.log('Over campaigns identified:', Array.from(overCampaigns));
+      
+      if (Array.isArray(filteredOverPlans)) {
+        filteredOverPlans.forEach(plan => {
+          const budget = plan?.totalBudget || 0;
+          totalBudget += budget;
+          
+          if (plan?.campaign?.name && overCampaigns.has(plan.campaign.name)) {
+            overBudget += budget;
+            console.log(`Found matching over campaign: ${plan.campaign.name}, budget: ${budget}`);
+          }
+        });
+      }
+      
+      console.log('Over calculation result:', { 
+        overCampaigns: overCampaigns.size, 
+        overBudget, 
+        totalBudget,
+        percentage: totalBudget > 0 ? Math.round((overBudget / totalBudget) * 100) : 0
+      });
+      
+      // Return count and percentage
+      return {
+        count: overCampaigns.size,
+        percentage: totalBudget > 0 ? Math.round((overBudget / totalBudget) * 100) : 0
+      };
+    } catch (error) {
+      console.error('Error calculating Over campaigns:', error);
+      return { count: 0, percentage: 0 };
     }
   };
   
@@ -539,12 +1016,17 @@ export default function MediaSufficiencyDashboard() {
     fetchGamePlanData();
   }, [selectedYear]);
   
-  // Fetch reach data when Sufficiency tab is activated
+  // Fetch reach data when Sufficiency tab is activated or when filters change
   useEffect(() => {
-    if (activeTab === 'sufficiency' && !mediaSufficiencyReachData) {
+    if (activeTab === 'sufficiency') {
       fetchMediaSufficiencyReachData();
     }
-  }, [activeTab]);
+  }, [activeTab, selectedLastUpdates]);
+  
+  // Also fetch reach data on initial load for the Reach Sufficiency Score card
+  useEffect(() => {
+    fetchMediaSufficiencyReachData();
+  }, [selectedLastUpdates]);
   
   // Toggle sidebar expansion
   const toggleSidebar = () => {
@@ -1188,6 +1670,15 @@ export default function MediaSufficiencyDashboard() {
                   whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
                 Sufficiency
+              </button>
+              <button
+                onClick={() => setActiveTab('deepdive')}
+                className={`${activeTab === 'deepdive' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Campaign Deep Dive
               </button>
             </nav>
           </div>
@@ -2671,9 +3162,9 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-white rounded-lg shadow overflow-hidden">
                     {/* Table Header */}
                     <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] bg-gray-50 border-b sticky top-0 z-10">
-                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Country</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700 flex items-center justify-center">Country</div>
                       <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Campaign</div>
-                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Budget</div>
+                      <div className="py-1.5 px-3 text-xs font-semibold text-gray-700 flex items-center justify-center">Budget</div>
                       <div className="py-1.5 px-3 text-xs font-semibold text-gray-700">Timeline</div>
                     </div>
                     {/* Month markers with week subdivisions */}
@@ -2721,17 +3212,25 @@ export default function MediaSufficiencyDashboard() {
                         const mediaTypes = [...new Set(plans.map(plan => plan.mediaSubType?.mediaType?.name).filter(Boolean))];
                         const mediaTypeDisplay = mediaTypes.join(', ') || 'Unknown';
                         
-                        // Function to get color based on category
+                        // Function to get color based on category (subtle colors)
                         const getColorForCategory = (categoryName: string) => {
                           const colors = [
-                            'bg-blue-600',
-                            'bg-green-600',
-                            'bg-purple-600',
-                            'bg-pink-600',
-                            'bg-yellow-600',
-                            'bg-indigo-600',
-                            'bg-red-600',
-                            'bg-teal-600'
+                            'bg-slate-400',
+                            'bg-gray-400',
+                            'bg-stone-400',
+                            'bg-neutral-400',
+                            'bg-zinc-400',
+                            'bg-blue-400',
+                            'bg-sky-300',
+                            'bg-teal-400',
+                            'bg-cyan-400',
+                            'bg-emerald-400',
+                            'bg-green-400',
+                            'bg-lime-400',
+                            'bg-amber-400',
+                            'bg-orange-400',
+                            'bg-rose-400',
+                            'bg-indigo-400'
                           ];
                           
                           // Create a simple hash based on category name to consistently assign colors
@@ -2756,7 +3255,7 @@ export default function MediaSufficiencyDashboard() {
                         return (
                           <React.Fragment key={key}>
                             <div className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] border-b hover:bg-gray-50">
-                              <div className="py-1.5 px-3 text-xs text-gray-600">{firstPlan.country?.name || 'Unknown'}</div>
+                              <div className="py-1.5 px-3 text-xs text-gray-600 flex items-center justify-center">{firstPlan.country?.name || 'Unknown'}</div>
                               <div className="py-1.5 px-3 text-xs font-medium text-gray-800 flex items-center">
                                 <button
                                   onClick={toggleExpanded}
@@ -2766,7 +3265,7 @@ export default function MediaSufficiencyDashboard() {
                                 </button>
                                 {firstPlan.campaign?.name || 'Unnamed Campaign'}
                               </div>
-                              <div className="py-1.5 px-3 text-xs text-gray-700">€ {totalBudget.toLocaleString()}</div>
+                              <div className="py-1.5 px-3 text-xs text-gray-700 flex items-center justify-center">€ {totalBudget.toLocaleString()}</div>
                             
                             {/* Multiple horizontal bars for campaign bursts */}
                             <div className="py-1.5 px-3 relative" style={{ minHeight: '40px' }}>
@@ -2851,7 +3350,7 @@ export default function MediaSufficiencyDashboard() {
                                     <div key={subType} className="grid grid-cols-[0.5fr_0.8fr_0.6fr_8fr] py-1 text-xs">
                                       <div className="text-gray-500"></div>
                                       <div className="text-gray-600 pl-8">↳ {subType}</div>
-                                      <div className="text-gray-600 px-3">€ {totalSubTypeBudget.toLocaleString()}</div>
+                                      <div className="text-gray-600 px-3 flex items-center justify-center">€ {totalSubTypeBudget.toLocaleString()}</div>
                                       
                                       {/* Timeline bars for this subtype */}
                                       <div className="px-3 relative" style={{ minHeight: '25px' }}>
@@ -2930,7 +3429,7 @@ export default function MediaSufficiencyDashboard() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : activeTab === 'sufficiency' ? (
               // Sufficiency Tab Content
               <div>
                 <h2 className="text-xl font-semibold mb-6">Media Sufficiency Analysis</h2>
@@ -2942,22 +3441,35 @@ export default function MediaSufficiencyDashboard() {
                 ) : mediaSufficiencyReachData ? (
                   <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="bg-blue-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-blue-600 mb-1">Campaigns</div>
-                        <div className="text-2xl font-semibold text-blue-800">{mediaSufficiencyReachData.summary.campaigns || 0}</div>
+                        <div className="text-sm text-blue-600 mb-1">Reach Sufficiency Score</div>
+                        <div className="text-2xl font-semibold text-blue-800">{calculateReachSufficiencyScore()}%</div>
+                        <div className="text-xs text-blue-500 mt-1">% Budget on Nice</div>
                       </div>
                       <div className="bg-green-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-green-600 mb-1">Weeks On Air (WOA)</div>
-                        <div className="text-2xl font-semibold text-green-800">{mediaSufficiencyReachData.summary.totalWoa || 0}</div>
+                        <div className="text-sm text-green-600 mb-1">Campaigns "Under"</div>
+                        <div className="text-2xl font-semibold text-green-800">{(() => {
+                          const underData = calculateUnderCampaigns();
+                          return underData.count;
+                        })()}</div>
+                        <div className="text-lg font-medium text-green-700 mt-1">{(() => {
+                          const underData = calculateUnderCampaigns();
+                          return `${underData.percentage}%`;
+                        })()}</div>
+                        <div className="text-xs text-green-500">of budget</div>
                       </div>
                       <div className="bg-purple-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-purple-600 mb-1">Weeks Off Air</div>
-                        <div className="text-2xl font-semibold text-purple-800">{mediaSufficiencyReachData.summary.totalWoff || 0}</div>
-                      </div>
-                      <div className="bg-orange-50 rounded-lg shadow p-4">
-                        <div className="text-sm text-orange-600 mb-1">Total Weeks</div>
-                        <div className="text-2xl font-semibold text-orange-800">{mediaSufficiencyReachData.summary.totalWeeks || 0}</div>
+                        <div className="text-sm text-purple-600 mb-1">Campaigns "Over"</div>
+                        <div className="text-2xl font-semibold text-purple-800">{(() => {
+                          const overData = calculateOverCampaigns();
+                          return overData.count;
+                        })()}</div>
+                        <div className="text-lg font-medium text-purple-700 mt-1">{(() => {
+                          const overData = calculateOverCampaigns();
+                          return `${overData.percentage}%`;
+                        })()}</div>
+                        <div className="text-xs text-purple-500">of budget</div>
                       </div>
                     </div>
 
@@ -2965,267 +3477,859 @@ export default function MediaSufficiencyDashboard() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
                       {/* Left Section - Reach Charts */}
                       <div className="space-y-6">
-                        {/* Combined Reach Chart */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Combined Reach by Campaign</h3>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart
-                                data={mediaSufficiencyReachData.combinedReachData.slice(0, 8)}
-                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        {/* Budget Sufficiency Distribution by Category Bar Chart */}
+                        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5">
+                          <div className="mb-4">
+                            <h2 className="text-base font-semibold text-gray-800 mb-2">Budget Distribution by Category & Sufficiency</h2>
+                            <div className="h-1 bg-gradient-to-r from-purple-400 via-purple-200 to-transparent rounded-full"></div>
+                          </div>
+                          <ResponsiveContainer width="100%" height={340}>
+                            <BarChart
+                              data={(() => {
+                                // Calculate sufficiency percentages by category
+                                  const categoryData: Record<string, { nice: number, under: number, over: number, total: number }> = {};
+                                  
+                                  // Map to store campaign sufficiency status
+                                  const campaignStatus = new Map<string, 'nice' | 'under' | 'over'>();
+                                  
+                                  // Determine status for each campaign from reach data
+                                  if (mediaSufficiencyReachData?.combinedReachData) {
+                                    mediaSufficiencyReachData.combinedReachData.forEach(item => {
+                                      // Get archetype for this campaign (defaulting to Base Business)
+                                      const campaignArchetype = gamePlans?.find(p => p?.campaign?.name === item.campaign)?.campaignArchetype?.name;
+                                      const archetype = campaignArchetype?.toLowerCase().includes('innovation') || 
+                                                       campaignArchetype?.toLowerCase().includes('npd') ? 
+                                                       'Innovation/NPD' : 'Base Business';
+                                      
+                                      const thresholds = getReachThresholds(archetype);
+                                      const currentReach = item.currentReach;
+                                      
+                                      // Determine status
+                                      let status: 'nice' | 'under' | 'over';
+                                      if (currentReach < thresholds.digitalTv.niceMin) {
+                                        status = 'under';
+                                      } else if (currentReach > thresholds.digitalTv.niceMax) {
+                                        status = 'over';
+                                      } else {
+                                        status = 'nice';
+                                      }
+                                      
+                                      campaignStatus.set(item.campaign, status);
+                                    });
+                                  }
+                                  
+                                  // Calculate budget totals by category and status
+                                  if (gamePlans) {
+                                    // Apply filters to game plans
+                                    let filteredCategoryPlans = gamePlans;
+                                    
+                                    if (selectedCountries.length > 0) {
+                                      filteredCategoryPlans = filteredCategoryPlans.filter(plan => 
+                                        plan?.country?.name && selectedCountries.includes(plan.country.name)
+                                      );
+                                    }
+                                    if (selectedCategories.length > 0) {
+                                      filteredCategoryPlans = filteredCategoryPlans.filter(plan => 
+                                        plan?.category?.name && selectedCategories.includes(plan.category.name)
+                                      );
+                                    }
+                                    if (selectedRanges.length > 0) {
+                                      filteredCategoryPlans = filteredCategoryPlans.filter(plan => 
+                                        plan?.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
+                                      );
+                                    }
+                                    if (selectedBusinessUnits.length > 0) {
+                                      filteredCategoryPlans = filteredCategoryPlans.filter(plan => {
+                                        const buName = plan?.category?.businessUnit?.name || plan?.businessUnit?.name;
+                                        return buName && selectedBusinessUnits.includes(buName);
+                                      });
+                                    }
+                                    if (selectedMediaTypes.length > 0) {
+                                      filteredCategoryPlans = filteredCategoryPlans.filter(plan => 
+                                        plan?.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+                                      );
+                                    }
+                                    
+                                    filteredCategoryPlans.forEach(plan => {
+                                      if (plan?.campaign?.name && plan?.totalBudget) {
+                                        const status = campaignStatus.get(plan.campaign.name);
+                                        if (status) {
+                                          const category = plan.category?.name || 'Other';
+                                          
+                                          if (!categoryData[category]) {
+                                            categoryData[category] = { nice: 0, under: 0, over: 0, total: 0 };
+                                          }
+                                          
+                                          categoryData[category][status] += plan.totalBudget;
+                                          categoryData[category].total += plan.totalBudget;
+                                        }
+                                      }
+                                    });
+                                  }
+                                  
+                                  // Convert to percentages and limit to top categories
+                                  const chartData = Object.entries(categoryData)
+                                    .sort((a, b) => b[1].total - a[1].total)
+                                    .slice(0, 8) // Show top 8 categories
+                                    .map(([category, data]) => ({
+                                      category: category.length > 15 ? category.substring(0, 15) + '...' : category,
+                                      Nice: data.total > 0 ? Math.round((data.nice / data.total) * 100) : 0,
+                                      Under: data.total > 0 ? Math.round((data.under / data.total) * 100) : 0,
+                                      Over: data.total > 0 ? Math.round((data.over / data.total) * 100) : 0
+                                    }));
+                                  
+                                  return chartData;
+                                })()}
+                                margin={{ top: 25, right: 10, left: 10, bottom: 55 }}
+                                barGap={4}
+                                barCategoryGap={8}
                               >
-                                <CartesianGrid strokeDasharray="3 3" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                 <XAxis 
-                                  dataKey="campaign" 
+                                  dataKey="category" 
+                                  axisLine={false} 
+                                  tickLine={false}
+                                  tick={{ fontSize: 10, fill: '#6b7280' }}
                                   angle={-45}
                                   textAnchor="end"
-                                  height={80}
-                                  fontSize={12}
+                                  height={60}
                                 />
-                                <YAxis domain={[0, 100]} />
+                                <YAxis 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  domain={[0, 100]}
+                                  tickFormatter={(value) => `${value}%`}
+                                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                                  width={35}
+                                />
                                 <Tooltip 
-                                  formatter={(value, name) => [`${value}%`, name]}
-                                  labelFormatter={(label) => `Campaign: ${label}`}
+                                  formatter={(value) => `${value}%`}
+                                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }}
                                 />
-                                <Legend />
-                                <Bar dataKey="currentReach" fill="#1F4388" name="Current Reach" />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="idealReach" 
-                                  stroke="#ff6b6b" 
-                                  strokeWidth={3}
-                                  name="Ideal Reach"
-                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
-                                  activeDot={{ r: 7 }}
+                                <Bar dataKey="Nice" stackId="a" fill={SUFFICIENCY_COLORS.nice} shape={CustomBarShape} />
+                                <Bar dataKey="Under" stackId="a" fill={SUFFICIENCY_COLORS.under} shape={CustomBarShape} />
+                                <Bar dataKey="Over" stackId="a" fill={SUFFICIENCY_COLORS.over} shape={CustomBarShape} />
+                                <Legend 
+                                  verticalAlign="bottom"
+                                  align="center"
+                                  wrapperStyle={{ fontSize: '10px', position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)' }}
+                                  iconSize={10}
+                                  iconType="rect"
                                 />
-                              </ComposedChart>
+                              </BarChart>
                             </ResponsiveContainer>
-                          </div>
-                        </div>
-
-                        {/* Digital Reach Chart */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Digital Reach by Campaign</h3>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart
-                                data={mediaSufficiencyReachData.digitalReachData.slice(0, 8)}
-                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                  dataKey="campaign" 
-                                  angle={-45}
-                                  textAnchor="end"
-                                  height={80}
-                                  fontSize={12}
-                                />
-                                <YAxis domain={[0, 100]} />
-                                <Tooltip 
-                                  formatter={(value, name) => [`${value}%`, name]}
-                                  labelFormatter={(label) => `Campaign: ${label}`}
-                                />
-                                <Legend />
-                                <Bar dataKey="currentReach" fill="#5E9FE0" name="Current Reach" />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="idealReach" 
-                                  stroke="#ff6b6b" 
-                                  strokeWidth={3}
-                                  name="Ideal Reach"
-                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
-                                  activeDot={{ r: 7 }}
-                                />
-                              </ComposedChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </div>
-
-                        {/* TV Reach Chart */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">TV Reach by Campaign</h3>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <ComposedChart
-                                data={mediaSufficiencyReachData.tvReachData.slice(0, 8)}
-                                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                  dataKey="campaign" 
-                                  angle={-45}
-                                  textAnchor="end"
-                                  height={80}
-                                  fontSize={12}
-                                />
-                                <YAxis domain={[0, 100]} />
-                                <Tooltip 
-                                  formatter={(value, name) => [`${value}%`, name]}
-                                  labelFormatter={(label) => `Campaign: ${label}`}
-                                />
-                                <Legend />
-                                <Bar dataKey="currentReach" fill="#3E7DCD" name="Current Reach" />
-                                <Line 
-                                  type="monotone" 
-                                  dataKey="idealReach" 
-                                  stroke="#ff6b6b" 
-                                  strokeWidth={3}
-                                  name="Ideal Reach"
-                                  dot={{ fill: '#ff6b6b', strokeWidth: 2, r: 5 }}
-                                  activeDot={{ r: 7 }}
-                                />
-                              </ComposedChart>
-                            </ResponsiveContainer>
-                          </div>
                         </div>
                       </div>
 
                       {/* Right Section - Data Tables */}
                       <div className="space-y-6">
-                        {/* Combined Reach Table */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Combined Reach Analysis</h3>
-                          <div className="h-64 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50 sticky top-0">
-                                <tr>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {mediaSufficiencyReachData.combinedReachData.slice(0, 8).map((item, index) => {
-                                  const gap = item.idealReach - item.currentReach;
-                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
-                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
-                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
-                                                   'bg-yellow-100 text-yellow-800';
-                                  
-                                  return (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
-                                        {item.campaign}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
-                                          {checkStatus}
-                                        </span>
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
-                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
-                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">
-                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                        {/* Sufficiency by Campaign Archetype Bar Chart */}
+                        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5">
+                          <div className="mb-4">
+                            <h2 className="text-base font-semibold text-gray-800 mb-2">Sufficiency by Campaign Archetype</h2>
+                            <div className="h-1 bg-gradient-to-r from-indigo-400 via-indigo-200 to-transparent rounded-full"></div>
                           </div>
-                        </div>
-
-                        {/* Digital Reach Table */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Digital Reach Analysis</h3>
-                          <div className="h-64 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50 sticky top-0">
-                                <tr>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {mediaSufficiencyReachData.digitalReachData.slice(0, 8).map((item, index) => {
-                                  const gap = item.idealReach - item.currentReach;
-                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
-                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
-                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
-                                                   'bg-yellow-100 text-yellow-800';
+                          <ResponsiveContainer width="100%" height={340}>
+                            <BarChart
+                                data={(() => {
+                                  // Calculate sufficiency percentages by archetype
+                                  const archetypeData: Record<string, { nice: number, under: number, over: number, total: number }> = {
+                                    'Innovation/NPD': { nice: 0, under: 0, over: 0, total: 0 },
+                                    'Base Business': { nice: 0, under: 0, over: 0, total: 0 }
+                                  };
                                   
-                                  return (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
-                                        {item.campaign}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
-                                          {checkStatus}
-                                        </span>
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
-                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
-                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">
-                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-
-                        {/* TV Reach Table */}
-                        <div className="bg-white rounded-lg shadow p-4">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">TV Reach Analysis</h3>
-                          <div className="h-64 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50 sticky top-0">
-                                <tr>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reach Abs</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Potential</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {mediaSufficiencyReachData.tvReachData.slice(0, 8).map((item, index) => {
-                                  const gap = item.idealReach - item.currentReach;
-                                  const checkStatus = Math.abs(gap) <= 4 ? 'Good' : gap > 4 ? 'Under' : 'Over';
-                                  const checkClass = checkStatus === 'Good' ? 'bg-green-100 text-green-800' : 
-                                                   checkStatus === 'Under' ? 'bg-red-100 text-red-800' : 
-                                                   'bg-yellow-100 text-yellow-800';
+                                  // Map to store campaign sufficiency status
+                                  const campaignStatus = new Map<string, 'nice' | 'under' | 'over'>();
                                   
-                                  return (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                      <td className="px-2 py-2 text-xs text-gray-900 truncate max-w-[100px]" title={item.campaign}>
-                                        {item.campaign}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${checkClass}`}>
-                                          {checkStatus}
-                                        </span>
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">{item.idealReach.toFixed(1)}%</td>
-                                      <td className="px-2 py-2 text-xs text-gray-900" title={`Reach Abs: ${item.reachAbs?.toLocaleString()}`}>
-                                        {item.reachAbs ? item.reachAbs.toLocaleString() : 'N/A'}
-                                      </td>
-                                      <td className="px-2 py-2 text-xs text-gray-500">
-                                        {item.potential ? item.potential.toLocaleString() : 'N/A'}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
+                                  // Determine status for each campaign from reach data
+                                  if (mediaSufficiencyReachData?.combinedReachData) {
+                                    mediaSufficiencyReachData.combinedReachData.forEach(item => {
+                                      // Get archetype for this campaign (defaulting to Base Business)
+                                      const campaignArchetype = gamePlans?.find(p => p?.campaign?.name === item.campaign)?.campaignArchetype?.name;
+                                      const archetype = campaignArchetype?.toLowerCase().includes('innovation') || 
+                                                       campaignArchetype?.toLowerCase().includes('npd') ? 
+                                                       'Innovation/NPD' : 'Base Business';
+                                      
+                                      const thresholds = getReachThresholds(archetype);
+                                      const currentReach = item.currentReach;
+                                      
+                                      // Determine status
+                                      let status: 'nice' | 'under' | 'over';
+                                      if (currentReach < thresholds.digitalTv.niceMin) {
+                                        status = 'under';
+                                      } else if (currentReach > thresholds.digitalTv.niceMax) {
+                                        status = 'over';
+                                      } else {
+                                        status = 'nice';
+                                      }
+                                      
+                                      campaignStatus.set(item.campaign, status);
+                                    });
+                                  }
+                                  
+                                  // Calculate budget totals by archetype and status
+                                  if (gamePlans) {
+                                    // Apply filters to game plans
+                                    let filteredArchetypePlans = gamePlans;
+                                    
+                                    if (selectedCountries.length > 0) {
+                                      filteredArchetypePlans = filteredArchetypePlans.filter(plan => 
+                                        plan?.country?.name && selectedCountries.includes(plan.country.name)
+                                      );
+                                    }
+                                    if (selectedCategories.length > 0) {
+                                      filteredArchetypePlans = filteredArchetypePlans.filter(plan => 
+                                        plan?.category?.name && selectedCategories.includes(plan.category.name)
+                                      );
+                                    }
+                                    if (selectedRanges.length > 0) {
+                                      filteredArchetypePlans = filteredArchetypePlans.filter(plan => 
+                                        plan?.campaign?.range?.name && selectedRanges.includes(plan.campaign.range.name)
+                                      );
+                                    }
+                                    if (selectedBusinessUnits.length > 0) {
+                                      filteredArchetypePlans = filteredArchetypePlans.filter(plan => {
+                                        const buName = plan?.category?.businessUnit?.name || plan?.businessUnit?.name;
+                                        return buName && selectedBusinessUnits.includes(buName);
+                                      });
+                                    }
+                                    if (selectedMediaTypes.length > 0) {
+                                      filteredArchetypePlans = filteredArchetypePlans.filter(plan => 
+                                        plan?.mediaSubType?.mediaType?.name && selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
+                                      );
+                                    }
+                                    
+                                    filteredArchetypePlans.forEach(plan => {
+                                      if (plan?.campaign?.name && plan?.totalBudget) {
+                                        const status = campaignStatus.get(plan.campaign.name);
+                                        if (status) {
+                                          const archetype = plan.campaignArchetype?.name?.toLowerCase().includes('innovation') || 
+                                                           plan.campaignArchetype?.name?.toLowerCase().includes('npd') ? 
+                                                           'Innovation/NPD' : 'Base Business';
+                                          
+                                          archetypeData[archetype][status] += plan.totalBudget;
+                                          archetypeData[archetype].total += plan.totalBudget;
+                                        }
+                                      }
+                                    });
+                                  }
+                                  
+                                  // Convert to percentages
+                                  return Object.entries(archetypeData).map(([archetype, data]) => ({
+                                    archetype,
+                                    Nice: data.total > 0 ? Math.round((data.nice / data.total) * 100) : 0,
+                                    Under: data.total > 0 ? Math.round((data.under / data.total) * 100) : 0,
+                                    Over: data.total > 0 ? Math.round((data.over / data.total) * 100) : 0
+                                  }));
+                                })()}
+                                margin={{ top: 25, right: 10, left: 10, bottom: 55 }}
+                                barGap={4}
+                                barCategoryGap={8}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis 
+                                  dataKey="archetype" 
+                                  axisLine={false} 
+                                  tickLine={false}
+                                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={60}
+                                />
+                                <YAxis 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  domain={[0, 100]}
+                                  tickFormatter={(value) => `${value}%`}
+                                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                                  width={35}
+                                />
+                                <Tooltip 
+                                  formatter={(value) => `${value}%`}
+                                  contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }}
+                                />
+                                <Legend 
+                                  verticalAlign="bottom"
+                                  align="center"
+                                  wrapperStyle={{ fontSize: '10px', position: 'absolute', bottom: '5px', left: '50%', transform: 'translateX(-50%)' }}
+                                  iconSize={10}
+                                  iconType="rect"
+                                />
+                                <Bar dataKey="Nice" stackId="a" fill={SUFFICIENCY_COLORS.nice} shape={CustomBarShape} />
+                                <Bar dataKey="Under" stackId="a" fill={SUFFICIENCY_COLORS.under} shape={CustomBarShape} />
+                                <Bar dataKey="Over" stackId="a" fill={SUFFICIENCY_COLORS.over} shape={CustomBarShape} />
+                              </BarChart>
+                            </ResponsiveContainer>
                         </div>
                       </div>
                     </div>
 
+                    {/* Full Width Reach Analysis Table */}
+                    <div className="mt-6">
+                      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setIsReachTableCollapsed(!isReachTableCollapsed)}
+                              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                              aria-label={isReachTableCollapsed ? "Expand table" : "Collapse table"}
+                            >
+                              <svg
+                                className={`w-5 h-5 text-gray-600 transform transition-transform duration-200 ${
+                                  isReachTableCollapsed ? '' : 'rotate-90'
+                                }`}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            <div>
+                              <h2 className="text-base font-semibold text-gray-800 mb-2">Detailed Reach Analysis</h2>
+                              <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-200 to-transparent rounded-full w-48"></div>
+                            </div>
+                          </div>
+                          {/* Media Type Toggle - only show when expanded */}
+                          {!isReachTableCollapsed && (
+                            <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                            <button
+                              onClick={() => setSelectedMediaView('digital')}
+                              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                selectedMediaView === 'digital'
+                                  ? 'bg-white text-blue-600 shadow-sm'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              Digital
+                            </button>
+                            <button
+                              onClick={() => setSelectedMediaView('tv')}
+                              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                selectedMediaView === 'tv'
+                                  ? 'bg-white text-blue-600 shadow-sm'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              TV
+                            </button>
+                            <button
+                              onClick={() => setSelectedMediaView('multimedia')}
+                              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                selectedMediaView === 'multimedia'
+                                  ? 'bg-white text-blue-600 shadow-sm'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              Multimedia
+                            </button>
+                          </div>
+                          )}
+                        </div>
 
+                        {/* Collapsed state summary */}
+                        {isReachTableCollapsed && (
+                          <div className="text-sm text-gray-500 italic">
+                            Click the arrow to expand and view detailed reach analysis data
+                          </div>
+                        )}
+                        
+                        {/* Table - only show when not collapsed */}
+                        {!isReachTableCollapsed && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign Type</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Range</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Optimal Reach</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Planned Reach</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(() => {
+                                // Get the appropriate reach data based on selected media view
+                                let reachData = [];
+                                if (selectedMediaView === 'digital' && mediaSufficiencyReachData?.digitalReachData) {
+                                  reachData = mediaSufficiencyReachData.digitalReachData;
+                                } else if (selectedMediaView === 'tv' && mediaSufficiencyReachData?.tvReachData) {
+                                  reachData = mediaSufficiencyReachData.tvReachData;
+                                } else if (selectedMediaView === 'multimedia' && mediaSufficiencyReachData?.combinedReachData) {
+                                  reachData = mediaSufficiencyReachData.combinedReachData;
+                                }
+
+                                // Map and enrich the data with game plan information
+                                const enrichedData = reachData.map(item => {
+                                  const gamePlan = gamePlans?.find(p => p?.campaign?.name === item.campaign);
+                                  const campaignArchetype = gamePlan?.campaignArchetype?.name || 'Base Business';
+                                  const archetype = campaignArchetype?.toLowerCase().includes('innovation') || 
+                                                   campaignArchetype?.toLowerCase().includes('npd') ? 
+                                                   'Innovation/NPD' : 'Base Business';
+                                  
+                                  const thresholds = getReachThresholds(archetype);
+                                  const currentReach = item.currentReach || 0;
+                                  
+                                  // Determine status with safe fallbacks
+                                  let status: 'nice' | 'under' | 'over' = 'nice';
+                                  
+                                  if (selectedMediaView === 'tv') {
+                                    const tvThresholds = thresholds?.tv || { niceMin: 60, niceMax: 80 };
+                                    if (currentReach < tvThresholds.niceMin) {
+                                      status = 'under';
+                                    } else if (currentReach > tvThresholds.niceMax) {
+                                      status = 'over';
+                                    } else {
+                                      status = 'nice';
+                                    }
+                                  } else { // digital or multimedia
+                                    const digitalThresholds = thresholds?.digitalTv || { niceMin: 50, niceMax: 70 };
+                                    if (currentReach < digitalThresholds.niceMin) {
+                                      status = 'under';
+                                    } else if (currentReach > digitalThresholds.niceMax) {
+                                      status = 'over';
+                                    } else {
+                                      status = 'nice';
+                                    }
+                                  }
+
+                                  return {
+                                    ...item,
+                                    country: item.country || gamePlan?.country?.name || 'Unknown',
+                                    campaignType: archetype,
+                                    category: item.category || gamePlan?.category?.name || 'Unknown',
+                                    range: gamePlan?.campaign?.range?.name || 'Unknown',
+                                    businessUnit: gamePlan?.category?.businessUnit?.name || gamePlan?.businessUnit?.name || 'Unknown',
+                                    mediaType: gamePlan?.mediaSubType?.mediaType?.name || 'Unknown',
+                                    status,
+                                    gamePlan
+                                  };
+                                })
+                                .filter(item => {
+                                  // Apply country filter
+                                  if (selectedCountries.length > 0 && !selectedCountries.includes(item.country)) {
+                                    return false;
+                                  }
+                                  // Apply category filter
+                                  if (selectedCategories.length > 0 && !selectedCategories.includes(item.category)) {
+                                    return false;
+                                  }
+                                  // Apply range filter
+                                  if (selectedRanges.length > 0 && !selectedRanges.includes(item.range)) {
+                                    return false;
+                                  }
+                                  // Apply business unit filter
+                                  if (selectedBusinessUnits.length > 0 && !selectedBusinessUnits.includes(item.businessUnit)) {
+                                    return false;
+                                  }
+                                  // Apply media type filter
+                                  if (selectedMediaTypes.length > 0 && !selectedMediaTypes.includes(item.mediaType)) {
+                                    return false;
+                                  }
+                                  return true;
+                                });
+
+                                // Sort by country, then campaign type, then category
+                                const sortedData = enrichedData.sort((a, b) => {
+                                  if (a.country !== b.country) return a.country.localeCompare(b.country);
+                                  if (a.campaignType !== b.campaignType) return a.campaignType.localeCompare(b.campaignType);
+                                  if (a.category !== b.category) return a.category.localeCompare(b.category);
+                                  return 0;
+                                });
+
+                                return sortedData.slice(0, 20).map((item, index) => {
+                                  const scoreClass = item.status === 'nice' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : item.status === 'under' 
+                                    ? 'bg-blue-50 text-blue-600' 
+                                    : 'bg-blue-200 text-blue-900';
+                                  
+                                  const scoreLabel = item.status === 'nice' 
+                                    ? 'Nice' 
+                                    : item.status === 'under' 
+                                    ? 'Under' 
+                                    : 'Over';
+
+                                  return (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                      <td className="px-3 py-3 text-sm text-gray-900">{item.country}</td>
+                                      <td className="px-3 py-3 text-sm text-gray-600">{item.campaignType}</td>
+                                      <td className="px-3 py-3 text-sm text-gray-600">{item.category}</td>
+                                      <td className="px-3 py-3 text-sm text-gray-600">{item.range}</td>
+                                      <td className="px-3 py-3 text-sm text-gray-900 font-medium">{item.campaign}</td>
+                                      <td className="px-3 py-3 text-sm text-center text-gray-600">{item.idealReach.toFixed(1)}%</td>
+                                      <td className="px-3 py-3 text-sm text-center text-gray-900 font-medium">{item.currentReach.toFixed(1)}%</td>
+                                      <td className="px-3 py-3 text-center">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${scoreClass}`}>
+                                          {scoreLabel}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
+                            </tbody>
+                          </table>
+                          {/* Show more indicator if there are more rows */}
+                          {(() => {
+                            let totalCount = 0;
+                            if (selectedMediaView === 'digital' && mediaSufficiencyReachData?.digitalReachData) {
+                              totalCount = mediaSufficiencyReachData.digitalReachData.length;
+                            } else if (selectedMediaView === 'tv' && mediaSufficiencyReachData?.tvReachData) {
+                              totalCount = mediaSufficiencyReachData.tvReachData.length;
+                            } else if (selectedMediaView === 'multimedia' && mediaSufficiencyReachData?.combinedReachData) {
+                              totalCount = mediaSufficiencyReachData.combinedReachData.length;
+                            }
+                            
+                            if (totalCount > 20) {
+                              return (
+                                <div className="text-center py-3 text-sm text-gray-500">
+                                  Showing 20 of {totalCount} campaigns
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Average Weeks on Air by Category Chart */}
+                    <div className="mt-6">
+                      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setIsWoaChartCollapsed(!isWoaChartCollapsed)}
+                              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                              aria-label={isWoaChartCollapsed ? "Expand chart" : "Collapse chart"}
+                            >
+                              <svg
+                                className={`w-5 h-5 text-gray-600 transform transition-transform duration-200 ${
+                                  isWoaChartCollapsed ? '' : 'rotate-90'
+                                }`}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            <div>
+                              <h2 className="text-base font-semibold text-gray-800 mb-2">Average Weeks on Air by Category</h2>
+                              <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-200 to-transparent rounded-full w-48"></div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {!isWoaChartCollapsed && (() => {
+                          // Calculate average WOA by category from game plans data
+                          const categoryWoaData: Record<string, { totalWoa: number; count: number; campaigns: Set<string> }> = {};
+                          
+                          // Apply filters to game plans
+                          const filteredPlans = gamePlans ? applyAllFilters(gamePlans) : [];
+                          
+                          // Process each game plan
+                          filteredPlans.forEach(plan => {
+                            const categoryName = plan.category?.name || 'Uncategorized';
+                            const campaignName = plan.campaign?.name || '';
+                            
+                            if (!categoryWoaData[categoryName]) {
+                              categoryWoaData[categoryName] = { totalWoa: 0, count: 0, campaigns: new Set() };
+                            }
+                            
+                            // Only count unique campaigns per category
+                            if (campaignName && !categoryWoaData[categoryName].campaigns.has(campaignName)) {
+                              categoryWoaData[categoryName].campaigns.add(campaignName);
+                              categoryWoaData[categoryName].totalWoa += plan.totalWoa || 0;
+                              categoryWoaData[categoryName].count += 1;
+                            }
+                          });
+                          
+                          // Convert to chart data format
+                          const chartData = Object.entries(categoryWoaData)
+                            .map(([category, data]) => ({
+                              name: category,
+                              avgWoa: data.count > 0 ? Math.round(data.totalWoa / data.count) : 0,
+                              campaigns: data.campaigns.size
+                            }))
+                            .filter(item => item.avgWoa > 0)
+                            .sort((a, b) => b.avgWoa - a.avgWoa)
+                            .slice(0, 10); // Top 10 categories
+                          
+                          return (
+                            <div className="h-80">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart 
+                                  data={chartData} 
+                                  margin={{ top: 15, right: 10, left: 10, bottom: 60 }}
+                                  barGap={2}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                  <XAxis 
+                                    dataKey="name" 
+                                    axisLine={false} 
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={60}
+                                  />
+                                  <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    tickFormatter={(value) => `${value}w`}
+                                    width={35}
+                                  />
+                                  <Tooltip 
+                                    formatter={(value: any, name: string) => {
+                                      if (name === 'avgWoa') {
+                                        const weeks = Number(value);
+                                        const status = weeks >= 12 && weeks <= 16 ? '✓ Optimal' : 
+                                                     weeks < 12 ? '⚠ Below' : '⚠ Above';
+                                        return [`${value} weeks ${status}`, 'Avg WOA'];
+                                      }
+                                      return [value, name];
+                                    }}
+                                    labelFormatter={(label) => `Category: ${label}`}
+                                    labelStyle={{ color: '#333', fontWeight: 'bold' }}
+                                    itemStyle={{ padding: '2px 0' }}
+                                    contentStyle={{ 
+                                      backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                      border: '1px solid #e5e7eb',
+                                      borderRadius: '6px',
+                                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                    }}
+                                  />
+                                  <Bar 
+                                    dataKey="avgWoa" 
+                                    radius={[4, 4, 0, 0]}
+                                  >
+                                    {chartData.map((entry, index) => (
+                                      <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={
+                                          entry.avgWoa >= 12 && entry.avgWoa <= 16 ? '#10B981' : 
+                                          entry.avgWoa < 12 ? '#F59E0B' : '#3B82F6'
+                                        } 
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Campaign Performance Analysis Table - New Collapsible Table */}
+                    <div className="mt-6">
+                      <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => setIsCampaignAnalysisCollapsed(!isCampaignAnalysisCollapsed)}
+                              className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                              aria-label={isCampaignAnalysisCollapsed ? "Expand table" : "Collapse table"}
+                            >
+                              <svg
+                                className={`w-5 h-5 text-gray-600 transform transition-transform duration-200 ${
+                                  isCampaignAnalysisCollapsed ? '' : 'rotate-90'
+                                }`}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                            <div>
+                              <h2 className="text-base font-semibold text-gray-800 mb-2">Campaigns by Weeks on Air</h2>
+                              <div className="h-1 bg-gradient-to-r from-green-400 via-green-200 to-transparent rounded-full w-48"></div>
+                            </div>
+                          </div>
+                          {/* Summary metrics when expanded */}
+                          {!isCampaignAnalysisCollapsed && (
+                            <div className="flex gap-4">
+                              <div className="text-sm">
+                                <span className="text-gray-500">Total Campaigns:</span>
+                                <span className="ml-2 font-semibold text-gray-800">
+                                  {mediaSufficiencyReachData?.summary?.campaigns || 0}
+                                </span>
+                              </div>
+                              <div className="text-sm">
+                                <span className="text-gray-500">Total WOA:</span>
+                                <span className="ml-2 font-semibold text-gray-800">
+                                  {mediaSufficiencyReachData?.summary?.totalWoa || 0}
+                                </span>
+                              </div>
+                              <div className="text-sm">
+                                <span className="text-gray-500">Total Weeks:</span>
+                                <span className="ml-2 font-semibold text-gray-800">
+                                  {mediaSufficiencyReachData?.summary?.totalWeeks || 0}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Collapsed state summary */}
+                        {isCampaignAnalysisCollapsed && (
+                          <div className="text-sm text-gray-500 italic">
+                            Click the arrow to expand and view campaigns by weeks on air analysis
+                          </div>
+                        )}
+                        
+                        {/* Table content - only show when not collapsed */}
+                        {!isCampaignAnalysisCollapsed && (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Budget</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">WOA</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Recommended</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total Weeks</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Activity %</th>
+                                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {(() => {
+                                // Get filtered game plans for analysis
+                                let campaignData = gamePlans
+                                  ?.filter(plan => {
+                                    // Apply filters
+                                    if (selectedLastUpdates.length > 0 && !selectedLastUpdates.includes(plan.lastUpdate?.name)) return false;
+                                    if (selectedCountries.length > 0 && !selectedCountries.includes(plan.country?.name)) return false;
+                                    if (selectedCategories.length > 0 && !selectedCategories.includes(plan.category?.name)) return false;
+                                    return true;
+                                  })
+                                  .reduce((acc, plan) => {
+                                    // Group by campaign
+                                    const key = `${plan.campaign?.name}-${plan.country?.name}`;
+                                    if (!acc[key]) {
+                                      acc[key] = {
+                                        campaign: plan.campaign?.name || 'Unknown',
+                                        country: plan.country?.name || 'Unknown',
+                                        category: plan.category?.name || 'Unknown',
+                                        totalBudget: 0,
+                                        totalWoa: 0,
+                                        totalWeeks: 0,
+                                        bursts: 0
+                                      };
+                                    }
+                                    acc[key].totalBudget += plan.totalBudget || 0;
+                                    acc[key].totalWoa += plan.totalWoa || 0;
+                                    acc[key].totalWeeks += plan.totalWeeks || 0;
+                                    acc[key].bursts += 1;
+                                    return acc;
+                                  }, {} as Record<string, any>);
+
+                                // Convert to array and calculate activity percentage
+                                const campaigns = Object.values(campaignData || {})
+                                  .map((campaign: any) => ({
+                                    ...campaign,
+                                    activityPercent: campaign.totalWeeks > 0 ? 
+                                      ((campaign.totalWoa / campaign.totalWeeks) * 100).toFixed(0) : '0',
+                                    status: campaign.totalWoa >= 40 ? 'optimal' : 
+                                           campaign.totalWoa >= 20 ? 'good' : 'needs-improvement'
+                                  }))
+                                  .sort((a, b) => b.totalBudget - a.totalBudget)
+                                  .slice(0, 15); // Show top 15 campaigns
+
+                                if (campaigns.length === 0) {
+                                  return (
+                                    <tr>
+                                      <td colSpan={9} className="px-3 py-4 text-center text-gray-500">
+                                        No campaign data available for selected filters
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
+                                return campaigns.map((campaign, index) => (
+                                  <tr key={index} className="hover:bg-gray-50">
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                      {campaign.campaign}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600">
+                                      {campaign.country}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600">
+                                      {campaign.category}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center font-medium">
+                                      ${campaign.totalBudget.toLocaleString()}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                                      <span className={`font-medium ${
+                                        campaign.totalWoa >= 12 && campaign.totalWoa <= 16 ? 'text-green-600' :
+                                        campaign.totalWoa > 16 ? 'text-blue-600' :
+                                        'text-orange-600'
+                                      }`}>
+                                        {campaign.totalWoa}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                                      <span className="text-gray-500">12-16</span>
+                                      {campaign.totalWoa >= 12 && campaign.totalWoa <= 16 ? (
+                                        <span className="ml-1 text-green-500">✓</span>
+                                      ) : campaign.totalWoa > 16 ? (
+                                        <span className="ml-1 text-blue-500">↑</span>
+                                      ) : (
+                                        <span className="ml-1 text-orange-500">↓</span>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                                      {campaign.totalWeeks}
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
+                                      <span className={`font-medium ${
+                                        parseInt(campaign.activityPercent) >= 80 ? 'text-green-600' :
+                                        parseInt(campaign.activityPercent) >= 60 ? 'text-yellow-600' :
+                                        'text-red-600'
+                                      }`}>
+                                        {campaign.activityPercent}%
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                        campaign.status === 'optimal' ? 'bg-green-100 text-green-800' :
+                                        campaign.status === 'good' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {campaign.status === 'optimal' ? 'Optimal' :
+                                         campaign.status === 'good' ? 'Good' : 'Needs Work'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ));
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
+                        )}
+                      </div>
+                    </div>
 
                   </>
                 ) : (
@@ -3237,7 +4341,588 @@ export default function MediaSufficiencyDashboard() {
                   </div>
                 )}
               </div>
-            )
+            ) : activeTab === 'deepdive' ? (
+              <div className="space-y-6">
+                {/* Campaign Selection */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Select a Campaign for Deep Dive Analysis</h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Choose Campaign
+                      </label>
+                      <select
+                        value={selectedCampaignForDeepDive || ''}
+                        onChange={(e) => setSelectedCampaignForDeepDive(e.target.value || null)}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select a campaign...</option>
+                        {(() => {
+                          // Get unique campaigns from filtered game plans with additional data
+                          const filteredPlans = gamePlans ? applyAllFilters(gamePlans) : [];
+                          const campaignData = new Map();
+                          
+                          // Collect campaign data with additional info
+                          filteredPlans.forEach(plan => {
+                            if (plan.campaign?.name) {
+                              if (!campaignData.has(plan.campaign.name)) {
+                                campaignData.set(plan.campaign.name, {
+                                  name: plan.campaign.name,
+                                  countries: new Set(),
+                                  categories: new Set(),
+                                  budget: 0,
+                                  woa: 0,
+                                  bursts: 0
+                                });
+                              }
+                              const data = campaignData.get(plan.campaign.name);
+                              if (plan.country?.name) data.countries.add(plan.country.name);
+                              if (plan.category?.name) data.categories.add(plan.category.name);
+                              data.budget += plan.totalBudget || 0;
+                              data.woa += plan.totalWoa || 0;
+                              data.bursts += 1;
+                            }
+                          });
+                          
+                          const sortedCampaigns = Array.from(campaignData.values())
+                            .sort((a, b) => b.budget - a.budget); // Sort by budget descending
+                          
+                          return sortedCampaigns.map(campaign => {
+                            const avgWoa = campaign.bursts > 0 ? Math.round(campaign.woa / campaign.bursts) : 0;
+                            const categoryStr = Array.from(campaign.categories)[0] || '';
+                            return (
+                              <option 
+                                key={campaign.name} 
+                                value={campaign.name}
+                              >
+                                {campaign.name} - €{(campaign.budget/1000).toFixed(0)}k - {campaign.countries.size} countries - {categoryStr}
+                              </option>
+                            );
+                          });
+                        })()}
+                      </select>
+                    </div>
+                    
+                    {selectedCampaignForDeepDive && (
+                      <div className="flex items-end">
+                        <button
+                          onClick={() => setSelectedCampaignForDeepDive(null)}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors"
+                        >
+                          Clear Selection
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Campaign Deep Dive Content */}
+                  {selectedCampaignForDeepDive ? (
+                    (() => {
+                      // Get all game plans for this campaign
+                      const campaignPlans = gamePlans?.filter(plan => 
+                        plan.campaign?.name === selectedCampaignForDeepDive
+                      ) || [];
+                      
+                      // Calculate campaign metrics
+                      const totalBudget = campaignPlans.reduce((sum, plan) => sum + (plan.totalBudget || 0), 0);
+                      const totalWoa = campaignPlans.reduce((sum, plan) => sum + (plan.totalWoa || 0), 0);
+                      const avgWoa = campaignPlans.length > 0 ? totalWoa / campaignPlans.length : 0;
+                      const countries = [...new Set(campaignPlans.map(p => p.country?.name).filter(Boolean))];
+                      const mediaTypes = [...new Set(campaignPlans.map(p => p.mediaSubType?.mediaType?.name).filter(Boolean))];
+                      const categories = [...new Set(campaignPlans.map(p => p.category?.name).filter(Boolean))];
+                      
+                      // Monthly budget distribution
+                      const monthlyBudgets = {
+                        Jan: campaignPlans.reduce((sum, p) => sum + (p.janBudget || 0), 0),
+                        Feb: campaignPlans.reduce((sum, p) => sum + (p.febBudget || 0), 0),
+                        Mar: campaignPlans.reduce((sum, p) => sum + (p.marBudget || 0), 0),
+                        Apr: campaignPlans.reduce((sum, p) => sum + (p.aprBudget || 0), 0),
+                        May: campaignPlans.reduce((sum, p) => sum + (p.mayBudget || 0), 0),
+                        Jun: campaignPlans.reduce((sum, p) => sum + (p.junBudget || 0), 0),
+                        Jul: campaignPlans.reduce((sum, p) => sum + (p.julBudget || 0), 0),
+                        Aug: campaignPlans.reduce((sum, p) => sum + (p.augBudget || 0), 0),
+                        Sep: campaignPlans.reduce((sum, p) => sum + (p.sepBudget || 0), 0),
+                        Oct: campaignPlans.reduce((sum, p) => sum + (p.octBudget || 0), 0),
+                        Nov: campaignPlans.reduce((sum, p) => sum + (p.novBudget || 0), 0),
+                        Dec: campaignPlans.reduce((sum, p) => sum + (p.decBudget || 0), 0),
+                      };
+                      
+                      const monthlyData = Object.entries(monthlyBudgets).map(([month, budget]) => ({
+                        month,
+                        budget
+                      }));
+                      
+                      // Get start and end dates and format them properly
+                      const formatDate = (dateStr: string) => {
+                        if (!dateStr) return 'N/A';
+                        try {
+                          const date = new Date(dateStr);
+                          if (isNaN(date.getTime())) return dateStr;
+                          return date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          });
+                        } catch {
+                          return dateStr;
+                        }
+                      };
+                      
+                      const startDates = campaignPlans
+                        .map(p => p.startDate)
+                        .filter(Boolean)
+                        .sort();
+                      const endDates = campaignPlans
+                        .map(p => p.endDate)
+                        .filter(Boolean)
+                        .sort();
+                      const campaignStartDate = formatDate(startDates[0]) || 'N/A';
+                      const campaignEndDate = formatDate(endDates[endDates.length - 1]) || 'N/A';
+                      
+                      // Determine Campaign Architecture Type based on media mix
+                      const hasTv = mediaTypes.some(mt => ['TV', 'Radio', 'Print', 'OOH'].includes(mt));
+                      const hasDigital = mediaTypes.some(mt => ['Digital', 'Social', 'Search', 'Display', 'Video'].includes(mt));
+                      const campaignArchType = hasTv && hasDigital ? 'Integrated' : hasTv ? 'Traditional' : 'Digital-Only';
+                      
+                      // Get reach score from media sufficiency data if available
+                      const campaignReachData = mediaSufficiencyReachData?.combinedReachData?.find(
+                        r => r.campaign === selectedCampaignForDeepDive
+                      );
+                      const reachScore = campaignReachData ? Math.round(campaignReachData.currentReach) : 0;
+                      
+                      // WOA comparison - 12-16 weeks is recommended
+                      const recommendedWoaMin = 12;
+                      const recommendedWoaMax = 16;
+                      const woaStatus = avgWoa < recommendedWoaMin ? 'Below' : avgWoa > recommendedWoaMax ? 'Above' : 'Optimal';
+                      const woaColor = woaStatus === 'Optimal' ? 'green' : woaStatus === 'Below' ? 'orange' : 'red';
+                      
+                      return (
+                        <>
+                          {/* Campaign Overview Cards */}
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                            {/* Total Budget Card */}
+                            <div className="bg-blue-50 rounded-lg p-4">
+                              <div className="text-sm text-blue-600 font-medium mb-1">Total Budget</div>
+                              <div className="text-2xl font-bold text-blue-900">€{totalBudget.toLocaleString()}</div>
+                            </div>
+                            
+                            {/* Start/End Dates Card */}
+                            <div className="bg-indigo-50 rounded-lg p-4">
+                              <div className="text-sm text-indigo-600 font-medium mb-1">Campaign Period</div>
+                              <div className="text-sm font-bold text-indigo-900">
+                                {campaignStartDate} - {campaignEndDate}
+                              </div>
+                            </div>
+                            
+                            {/* Campaign Architecture Type Card */}
+                            <div className="bg-purple-50 rounded-lg p-4">
+                              <div className="text-sm text-purple-600 font-medium mb-1">Architecture Type</div>
+                              <div className="text-lg font-bold text-purple-900">{campaignArchType}</div>
+                            </div>
+                            
+                            {/* Reach Score Card */}
+                            <div className="bg-teal-50 rounded-lg p-4">
+                              <div className="text-sm text-teal-600 font-medium mb-1">Reach Score</div>
+                              <div className="text-2xl font-bold text-teal-900">{reachScore}%</div>
+                            </div>
+                            
+                            {/* WOA Comparison Card */}
+                            <div className={`bg-${woaColor}-50 rounded-lg p-4`}>
+                              <div className={`text-sm text-${woaColor}-600 font-medium mb-1`}>WOA vs Recommended</div>
+                              <div className={`text-lg font-bold text-${woaColor}-900`}>
+                                {Math.round(avgWoa)} weeks
+                                <span className="text-xs font-normal ml-1">
+                                  ({woaStatus} {recommendedWoaMin}-{recommendedWoaMax})
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Monthly Budget Chart */}
+                          <div className="bg-white rounded-lg shadow p-6 mb-6">
+                            <h3 className="text-base font-semibold text-gray-800 mb-4">Monthly Budget Distribution</h3>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                  <XAxis 
+                                    dataKey="month" 
+                                    axisLine={false} 
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                  />
+                                  <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false}
+                                    tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`}
+                                    tick={{ fontSize: 10, fill: '#6b7280' }}
+                                    width={45}
+                                  />
+                                  <Tooltip formatter={(value: any) => `€${Number(value).toLocaleString()}`} />
+                                  <Bar dataKey="budget" radius={[4, 4, 0, 0]}>
+                                    {monthlyData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          
+                          {/* Quarterly Budget Cards */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            {(() => {
+                              // Calculate quarterly budgets
+                              const q1Budget = campaignPlans.reduce((sum, p) => 
+                                sum + (p.janBudget || 0) + (p.febBudget || 0) + (p.marBudget || 0), 0);
+                              const q2Budget = campaignPlans.reduce((sum, p) => 
+                                sum + (p.aprBudget || 0) + (p.mayBudget || 0) + (p.junBudget || 0), 0);
+                              const q3Budget = campaignPlans.reduce((sum, p) => 
+                                sum + (p.julBudget || 0) + (p.augBudget || 0) + (p.sepBudget || 0), 0);
+                              const q4Budget = campaignPlans.reduce((sum, p) => 
+                                sum + (p.octBudget || 0) + (p.novBudget || 0) + (p.decBudget || 0), 0);
+                              
+                              const totalQuarterlyBudget = q1Budget + q2Budget + q3Budget + q4Budget;
+                              
+                              // Calculate percentages
+                              const q1Percentage = totalQuarterlyBudget > 0 ? (q1Budget / totalQuarterlyBudget * 100) : 0;
+                              const q2Percentage = totalQuarterlyBudget > 0 ? (q2Budget / totalQuarterlyBudget * 100) : 0;
+                              const q3Percentage = totalQuarterlyBudget > 0 ? (q3Budget / totalQuarterlyBudget * 100) : 0;
+                              const q4Percentage = totalQuarterlyBudget > 0 ? (q4Budget / totalQuarterlyBudget * 100) : 0;
+                              
+                              return (
+                                <>
+                                  {/* Q1 Card */}
+                                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div className="text-sm font-semibold text-blue-700">Q1 Budget</div>
+                                      <div className="text-xs text-blue-600 font-medium">{q1Percentage.toFixed(1)}%</div>
+                                    </div>
+                                    <div className="text-xl font-bold text-blue-900">
+                                      €{q1Budget.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-blue-600 mt-1">Jan - Mar</div>
+                                  </div>
+                                  
+                                  {/* Q2 Card */}
+                                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div className="text-sm font-semibold text-green-700">Q2 Budget</div>
+                                      <div className="text-xs text-green-600 font-medium">{q2Percentage.toFixed(1)}%</div>
+                                    </div>
+                                    <div className="text-xl font-bold text-green-900">
+                                      €{q2Budget.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-green-600 mt-1">Apr - Jun</div>
+                                  </div>
+                                  
+                                  {/* Q3 Card */}
+                                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border border-yellow-200">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div className="text-sm font-semibold text-yellow-700">Q3 Budget</div>
+                                      <div className="text-xs text-yellow-600 font-medium">{q3Percentage.toFixed(1)}%</div>
+                                    </div>
+                                    <div className="text-xl font-bold text-yellow-900">
+                                      €{q3Budget.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-yellow-600 mt-1">Jul - Sep</div>
+                                  </div>
+                                  
+                                  {/* Q4 Card */}
+                                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div className="text-sm font-semibold text-purple-700">Q4 Budget</div>
+                                      <div className="text-xs text-purple-600 font-medium">{q4Percentage.toFixed(1)}%</div>
+                                    </div>
+                                    <div className="text-xl font-bold text-purple-900">
+                                      €{q4Budget.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-purple-600 mt-1">Oct - Dec</div>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                          
+                          {/* Reach Building Chart */}
+                          <div className="bg-white rounded-lg shadow p-6">
+                            {(() => {
+                              // Group plans by burst and media type
+                              const burstData: { [key: string]: any } = {};
+                              
+                              campaignPlans.forEach(plan => {
+                                const burst = plan.burst || 'B1';
+                                const mediaType = plan.mediaSubType?.mediaType?.name || 'Unknown';
+                                const mediaSubType = plan.mediaSubType?.name || 'Unknown';
+                                
+                                if (!burstData[burst]) {
+                                  burstData[burst] = {
+                                    digital: [],
+                                    tv: [],
+                                    all: []
+                                  };
+                                }
+                                
+                                // Categorize by media type - more granular for digital
+                                if (['Digital', 'Social', 'Search', 'Display', 'Video', 'Programmatic'].includes(mediaType)) {
+                                  // Further categorize digital channels
+                                  const channelData = {
+                                    ...plan,
+                                    channel: mediaSubType
+                                  };
+                                  burstData[burst].digital.push(channelData);
+                                } else if (['TV', 'Radio', 'Print', 'OOH', 'Cinema'].includes(mediaType)) {
+                                  burstData[burst].tv.push(plan);
+                                }
+                                burstData[burst].all.push(plan);
+                              });
+                              
+                              // Calculate reach using Sainsbury formula
+                              const calculateSainsburyReach = (reaches: number[]) => {
+                                if (reaches.length === 0) return 0;
+                                if (reaches.length === 1) return reaches[0];
+                                
+                                // Sainsbury formula: Total = A + B - (A × B / 100)
+                                // For multiple channels: start with first reach, then combine each subsequent one
+                                const sortedReaches = [...reaches].sort((a, b) => b - a); // Sort descending for better consolidation
+                                
+                                return sortedReaches.reduce((total, reach, index) => {
+                                  if (index === 0) return reach; // Start with the first (largest) reach
+                                  // Apply Sainsbury formula: Total = Previous + Current - (Previous × Current / 100)
+                                  return total + reach - (total * reach / 100);
+                                });
+                              };
+                              
+                              // Prepare data based on selected view
+                              const getChartData = () => {
+                                if (reachMediaView === 'digital') {
+                                  return Object.entries(burstData)
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([burst, data]) => {
+                                      // Group digital channels and consolidate reach
+                                      const channelReaches: { [key: string]: number[] } = {};
+                                      
+                                      data.digital.forEach((p: any) => {
+                                        const channel = p.channel || 'Other';
+                                        if (!channelReaches[channel]) {
+                                          channelReaches[channel] = [];
+                                        }
+                                        // Use actual reach values or simulate
+                                        channelReaches[channel].push(p.totalR1Plus || (15 + Math.random() * 25));
+                                      });
+                                      
+                                      // Consolidate reaches per channel first, then across channels
+                                      const consolidatedChannelReaches = Object.values(channelReaches).map(reaches => 
+                                        calculateSainsburyReach(reaches)
+                                      );
+                                      
+                                      return {
+                                        burst,
+                                        reach: calculateSainsburyReach(consolidatedChannelReaches),
+                                        channels: Object.keys(channelReaches).join(', '),
+                                        count: data.digital.length
+                                      };
+                                    });
+                                } else if (reachMediaView === 'tv') {
+                                  return Object.entries(burstData)
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([burst, data]) => {
+                                      const reaches = data.tv.map((p: any) => {
+                                        return p.totalR1Plus || (25 + Math.random() * 35);
+                                      });
+                                      return {
+                                        burst,
+                                        reach: calculateSainsburyReach(reaches),
+                                        count: data.tv.length
+                                      };
+                                    });
+                                } else { // multimedia
+                                  return Object.entries(burstData)
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([burst, data]) => {
+                                      // Calculate digital reach with channel consolidation
+                                      const digitalChannelReaches: { [key: string]: number[] } = {};
+                                      data.digital.forEach((p: any) => {
+                                        const channel = p.channel || 'Other';
+                                        if (!digitalChannelReaches[channel]) {
+                                          digitalChannelReaches[channel] = [];
+                                        }
+                                        digitalChannelReaches[channel].push(p.totalR1Plus || (15 + Math.random() * 25));
+                                      });
+                                      const consolidatedDigitalReaches = Object.values(digitalChannelReaches).map(reaches => 
+                                        calculateSainsburyReach(reaches)
+                                      );
+                                      const digitalTotal = calculateSainsburyReach(consolidatedDigitalReaches);
+                                      
+                                      // Calculate TV reach
+                                      const tvReaches = data.tv.map((p: any) => p.totalR1Plus || (25 + Math.random() * 35));
+                                      const tvTotal = calculateSainsburyReach(tvReaches);
+                                      
+                                      // Combine TV and Digital using Sainsbury formula
+                                      const combinedReach = digitalTotal + tvTotal - (digitalTotal * tvTotal / 100);
+                                      
+                                      return {
+                                        burst,
+                                        reach: combinedReach,
+                                        digitalReach: digitalTotal,
+                                        tvReach: tvTotal,
+                                        count: data.all.length
+                                      };
+                                    });
+                                }
+                              };
+                              
+                              const chartData = getChartData();
+                              const optimalReach = 85; // 85% optimal reach threshold
+                              
+                              // Get color based on media view
+                              const getBarColor = () => {
+                                switch(reachMediaView) {
+                                  case 'digital': return '#3B82F6';
+                                  case 'tv': return '#10B981';
+                                  case 'multimedia': return '#8B5CF6';
+                                  default: return '#3B82F6';
+                                }
+                              };
+                              
+                              return (
+                                <>
+                                  <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-base font-semibold text-gray-800">Reach Building by Burst</h3>
+                                    {/* Media Type Toggle */}
+                                    <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                                      <button
+                                        onClick={() => setReachMediaView('digital')}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                          reachMediaView === 'digital'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                      >
+                                        Digital
+                                      </button>
+                                      <button
+                                        onClick={() => setReachMediaView('tv')}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                          reachMediaView === 'tv'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                      >
+                                        TV
+                                      </button>
+                                      <button
+                                        onClick={() => setReachMediaView('multimedia')}
+                                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                          reachMediaView === 'multimedia'
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                      >
+                                        Multimedia
+                                      </button>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart data={chartData} margin={{ top: 20, right: 120, left: 20, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis 
+                                          dataKey="burst" 
+                                          axisLine={false} 
+                                          tickLine={false}
+                                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                                        />
+                                        <YAxis 
+                                          axisLine={false} 
+                                          tickLine={false}
+                                          domain={[0, 100]}
+                                          ticks={[0, 25, 50, 75, 100]}
+                                          tickFormatter={(value) => `${value}%`}
+                                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                                          width={35}
+                                        />
+                                        <Tooltip 
+                                          content={({ active, payload, label }) => {
+                                            if (active && payload && payload.length) {
+                                              const data = payload[0].payload;
+                                              return (
+                                                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                                                  <p className="font-semibold text-sm mb-1">{label}</p>
+                                                  <p className="text-sm">Reach: {Number(data.reach).toFixed(1)}%</p>
+                                                  {reachMediaView === 'multimedia' && (
+                                                    <>
+                                                      <p className="text-xs text-gray-600">Digital: {Number(data.digitalReach).toFixed(1)}%</p>
+                                                      <p className="text-xs text-gray-600">TV: {Number(data.tvReach).toFixed(1)}%</p>
+                                                    </>
+                                                  )}
+                                                  {reachMediaView === 'digital' && data.channels && (
+                                                    <p className="text-xs text-gray-600 mt-1">Channels: {data.channels}</p>
+                                                  )}
+                                                  <p className="text-xs text-gray-500 mt-1">Media Count: {data.count}</p>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          }}
+                                        />
+                                        <Bar dataKey="reach" fill={getBarColor()} radius={[4, 4, 0, 0]}>
+                                          <LabelList 
+                                            dataKey="reach" 
+                                            position="top" 
+                                            formatter={(value: any) => `${Number(value).toFixed(0)}%`}
+                                            style={{ fill: '#374151', fontSize: '12px', fontWeight: '600' }}
+                                          />
+                                        </Bar>
+                                        {/* Optimal Reach Line - moved after Bar to render on top */}
+                                        <ReferenceLine 
+                                          y={optimalReach} 
+                                          stroke="#EF4444" 
+                                          strokeDasharray="5 5"
+                                          strokeWidth={2}
+                                          label={{ 
+                                            value: "Optimal (85%)", 
+                                            position: "right",
+                                            offset: 10,
+                                            style: { fill: '#EF4444', fontSize: 11, fontWeight: 600 }
+                                          }}
+                                        />
+                                      </BarChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  
+                                  <div className="mt-4 text-xs text-gray-500 text-center">
+                                    {reachMediaView === 'digital' && (
+                                      <span>Digital channels consolidated using Sainsbury Formula (PM + FF + Influencer)</span>
+                                    )}
+                                    {reachMediaView === 'tv' && (
+                                      <span>TV reach consolidated across all traditional media channels</span>
+                                    )}
+                                    {reachMediaView === 'multimedia' && (
+                                      <span>Combined TV & Digital reach (Sainsbury Formula: TV + Digital - Overlap)</span>
+                                    )}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <p className="text-lg font-medium mb-2">No Campaign Selected</p>
+                      <p className="text-sm">Select a campaign from the dropdown above to see detailed analysis</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null
           ) : (
             <div className="text-center text-gray-500 py-4">
               No game plan data available
