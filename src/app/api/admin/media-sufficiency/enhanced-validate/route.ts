@@ -1,0 +1,546 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { parse } from 'csv-parse/sync';
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
+import { v4 as uuidv4 } from 'uuid';
+import MediaSufficiencyValidator from '@/lib/validation/mediaSufficiencyValidator';
+import { prisma } from '@/lib/prisma';
+
+// Define session data structure
+interface SessionData {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  filePath: string;
+  recordCount: number;
+  createdAt: Date;
+  masterData?: any;
+  fieldMappings?: Record<string, string>;
+}
+
+// Define the expected field names
+const expectedFields = [
+  'Year', 'Sub Region', 'Country', 'Category', 'Range', 'Campaign', 
+  'Media', 'Media Subtype', 'Start Date', 'End Date', 'Budget',
+  'Q1 Budget', 'Q2 Budget', 'Q3 Budget', 'Q4 Budget',
+  'Target Reach', 'Current Reach', 'Business Unit', 'PM Type',
+  'TRPs', 'Reach 1+', 'Reach 3+', 'Total WOA', 'Weeks Off Air', 'Playbook ID',
+  'Campaign Status', 'Campaign Type', 'Campaign Priority', 'Last Update', 'Last Modified By'
+];
+
+// Define common field name variations for smart mapping
+const fieldVariations: Record<string, string[]> = {
+  'Year': ['year', 'yr', 'fiscal year', 'fy'],
+  'Sub Region': ['sub region', 'subregion', 'region', 'area'],
+  'Country': ['country', 'nation', 'market'],
+  'Category': ['category', 'cat', 'product category'],
+  'Range': ['range', 'product range', 'product line'],
+  'Campaign': ['campaign', 'camp', 'initiative'],
+  'Media': ['media', 'media type', 'channel'],
+  'Media Subtype': ['media subtype', 'subtype', 'sub type', 'media sub type'],
+  'Start Date': ['start date', 'start', 'from date', 'begin date'],
+  'End Date': ['end date', 'end', 'to date', 'finish date'],
+  'Budget': ['budget', 'total budget', 'spend', 'total spend'],
+  'Q1 Budget': ['q1 budget', 'q1', 'q1 spend', 'quarter 1 budget'],
+  'Q2 Budget': ['q2 budget', 'q2', 'q2 spend', 'quarter 2 budget'],
+  'Q3 Budget': ['q3 budget', 'q3', 'q3 spend', 'quarter 3 budget'],
+  'Q4 Budget': ['q4 budget', 'q4', 'q4 spend', 'quarter 4 budget'],
+  'Target Reach': ['target reach', 'target', 'goal reach', 'reach target'],
+  'Current Reach': ['current reach', 'actual reach', 'reach', 'achieved reach'],
+  'Business Unit': ['business unit', 'bu', 'division', 'department'],
+  'PM Type': ['pm type', 'pm', 'project manager type'],
+  'TRPs': ['trps', 'trp', 'target rating points', 'rating points'],
+  'Reach 1+': ['reach 1+', 'reach 1 plus', 'reach1+', 'reach1plus', 'reach1', 'one plus reach'],
+  'Reach 3+': ['reach 3+', 'reach 3 plus', 'reach3+', 'reach3plus', 'reach3', 'three plus reach'],
+  'Total WOA': ['total woa', 'woa', 'weeks on air', 'total weeks on air'],
+  'Weeks Off Air': ['weeks off air', 'off air weeks', 'weeks off', 'offline weeks'],
+  'Playbook ID': ['playbook id', 'playbook', 'pb id', 'pb', 'playbook identifier'],
+  'Campaign Status': ['campaign status', 'status', 'state', 'campaign state'],
+  'Campaign Type': ['campaign type', 'type', 'campaign classification'],
+  'Campaign Priority': ['campaign priority', 'priority', 'importance'],
+  'Last Update': ['last update', 'financial cycle', 'cycle', 'period', 'fiscal period', 'fiscal cycle', 'upload date', 'date uploaded'],
+  'Last Modified By': ['last modified by', 'modified by', 'updated by', 'editor'],
+  // NEW FIELDS - Excel template field mappings
+  'TV Demo Gender': ['tv demo gender', 'tv demographic gender', 'tv target gender', 'television demo gender'],
+  'TV Demo Min. Age': ['tv demo min age', 'tv demo min. age', 'tv demo minimum age', 'tv target min age', 'television demo min age'],
+  'TV Demo Max. Age': ['tv demo max age', 'tv demo max. age', 'tv demo maximum age', 'tv target max age', 'television demo max age'],
+  'TV SEL': ['tv sel', 'tv  sel', 'tv socio economic level', 'television sel'],
+  'Final TV Target (don\'t fill)': ['final tv target', 'final tv target (don\'t fill)', 'final tv target  (don\'t fill)', 'tv target final'],
+  'TV Target Size': ['tv target size', 'television target size', 'tv audience size'],
+  'TV Copy Length': ['tv copy length', 'television copy length', 'tv ad length', 'tv spot length'],
+  'Total TV Planned R1+ (%)': ['total tv planned r1+', 'total tv planned r1+ (%)', 'total tv  planned r1+ (%)', 'tv planned reach 1+'],
+  'Total TV Planned R3+ (%)': ['total tv planned r3+', 'total tv planned r3+ (%)', 'total tv  planned r3+ (%)', 'tv planned reach 3+'],
+  'TV Potential R1+': ['tv potential r1+', 'tv  potential r1+', 'tv potential reach 1+', 'television potential r1+'],
+  'CPP 2024': ['cpp 2024', 'cost per point 2024', 'cost per rating point 2024'],
+  'CPP 2025': ['cpp 2025', 'cost per point 2025', 'cost per rating point 2025'],
+  'CPP 2026': ['cpp 2026', 'cost per point 2026', 'cost per rating point 2026'],
+  'Reported Currency': ['reported currency', 'currency', 'currency type', 'report currency'],
+  'Is Digital target the same than TV?': ['is digital target the same than tv', 'is digital target the same than tv?', 'digital same as tv', 'digital target same tv'],
+  'Digital Demo Gender': ['digital demo gender', 'digital demographic gender', 'digital target gender'],
+  'Digital Demo Min. Age': ['digital demo min age', 'digital demo min. age', 'digital demo minimum age', 'digital target min age'],
+  'Digital Demo Max. Age': ['digital demo max age', 'digital demo max. age', 'digital demo maximum age', 'digital target max age'],
+  'Digital SEL': ['digital sel', 'digital  sel', 'digital socio economic level'],
+  'Final Digital Target (don\'t fill)': ['final digital target', 'final digital target (don\'t fill)', 'final digital target  (don\'t fill)', 'digital target final'],
+  'Digital Target Size (Abs)': ['digital target size (abs)', 'digital  target size (abs)', 'digital target size', 'digital audience size'],
+  'Total Digital Planned R1+': ['total digital planned r1+', 'total digital planned r1+ ', 'digital planned reach 1+', 'digital planned r1+'],
+  'Total Digital Potential R1+': ['total digital potential r1+', 'total digital  potential r1+', 'digital potential reach 1+', 'digital potential r1+'],
+  'Planned Combined Reach (don\'t fill)': ['planned combined reach', 'planned combined reach (don\'t fill)', 'combined reach planned', 'total planned reach'],
+  'Combined Potential Reach': ['combined potential reach', 'combined  potential reach', 'total potential reach', 'overall potential reach']
+};
+
+// Function to suggest field mappings based on CSV headers
+function suggestFieldMappings(headers: string[]): Record<string, string> {
+  const mappings: Record<string, string> = {};
+  
+  // Normalize headers for comparison
+  const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
+  
+  // First pass: exact matches
+  expectedFields.forEach(expectedField => {
+    const normalizedExpected = expectedField.toLowerCase();
+    const exactMatchIndex = normalizedHeaders.findIndex(h => h === normalizedExpected);
+    
+    if (exactMatchIndex !== -1) {
+      mappings[headers[exactMatchIndex]] = expectedField;
+    }
+  });
+  
+  // Second pass: check variations
+  headers.forEach(header => {
+    if (mappings[header]) return; // Skip if already mapped
+    
+    const normalizedHeader = header.toLowerCase().trim();
+    
+    for (const [expectedField, variations] of Object.entries(fieldVariations)) {
+      if (variations.some(v => normalizedHeader === v || normalizedHeader.includes(v))) {
+        mappings[header] = expectedField;
+        break;
+      }
+    }
+  });
+  
+  // Third pass: fuzzy matching for remaining fields
+  headers.forEach(header => {
+    if (mappings[header]) return; // Skip if already mapped
+    
+    const normalizedHeader = header.toLowerCase().trim();
+    
+    // Find the best match based on string similarity
+    let bestMatch = '';
+    let highestSimilarity = 0;
+    
+    expectedFields.forEach(expectedField => {
+      // Skip if this expected field is already mapped to another header
+      if (Object.values(mappings).includes(expectedField)) return;
+      
+      const similarity = calculateStringSimilarity(normalizedHeader, expectedField.toLowerCase());
+      
+      if (similarity > highestSimilarity && similarity > 0.6) { // Threshold for similarity
+        highestSimilarity = similarity;
+        bestMatch = expectedField;
+      }
+    });
+    
+    if (bestMatch) {
+      mappings[header] = bestMatch;
+    }
+  });
+  
+  return mappings;
+}
+
+// Simple string similarity calculation (Jaccard index)
+function calculateStringSimilarity(str1: string, str2: string): number {
+  const set1 = new Set(str1.split(''));
+  const set2 = new Set(str2.split(''));
+  
+  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+  
+  return intersection.size / union.size;
+}
+
+// Function to transform data based on field mappings
+function transformData(data: any[], fieldMappings: Record<string, string>): any[] {
+  return data.map(record => {
+    const transformedRecord: Record<string, any> = {};
+    
+    // Apply mappings
+    Object.entries(record).forEach(([originalField, value]) => {
+      const mappedField = fieldMappings[originalField];
+      if (mappedField) {
+        transformedRecord[mappedField] = value;
+      } else {
+        // Keep unmapped fields as is
+        transformedRecord[originalField] = value;
+      }
+    });
+    
+    return transformedRecord;
+  });
+}
+
+// Handle POST request for enhanced validation
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const preprocessValidation = formData.get('preprocessValidation') === 'true';
+    
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+    
+    // Create a persistent file to store the uploaded CSV
+    const dataDir = path.join(process.cwd(), 'data', 'sessions');
+    const sessionId = uuidv4();
+    const filePath = path.join(dataDir, `${sessionId}-${file.name}`);
+    
+    // Ensure the directory exists
+    await fs.mkdir(dataDir, { recursive: true });
+    
+    // Write the file to disk
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await fs.writeFile(filePath, buffer);
+    
+    // Parse the CSV file with streaming approach for large files
+    const csvContent = await fs.readFile(filePath, 'utf-8');
+    
+    // Add a size check to warn about very large files
+    if (csvContent.length > 10 * 1024 * 1024) { // 10MB
+      console.warn(`Processing large file (${(csvContent.length / (1024 * 1024)).toFixed(2)}MB). This may take some time.`);
+    }
+    
+    // Parse with a more memory-efficient approach
+    const records = parse(csvContent, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      // Increase the max number of records to avoid parser errors on large files
+      max_record_size: 0 // 0 means no limit
+    });
+    
+    if (records.length === 0) {
+      return NextResponse.json({ error: 'CSV file is empty' }, { status: 400 });
+    }
+    
+    // Get original headers from the CSV
+    const headers = Object.keys(records[0]);
+    
+    // Suggest field mappings
+    const suggestedMappings = suggestFieldMappings(headers);
+    
+    // Transform data based on suggested mappings
+    const transformedData = transformData(records, suggestedMappings);
+    
+    // Fetch master data for validation
+    // Use try/catch to handle any errors with individual queries
+    let masterData: {
+      countries: any[],
+      categories: any[],
+      ranges: any[],
+      mediaTypes: any[],
+      mediaSubTypes: any[],
+      businessUnits: any[],
+      pmTypes: any[],
+      campaigns: any[],
+      mediaToSubtypes?: Record<string, string[]>,
+      categoryToRanges?: Record<string, string[]>,
+      subRegions?: string[]
+    } = {
+      countries: [],
+      categories: [],
+      ranges: [],
+      mediaTypes: [],
+      mediaSubTypes: [],
+      businessUnits: [],
+      pmTypes: [],
+      campaigns: [],
+      subRegions: []
+    };
+    
+    // Wrap each query in a try/catch to handle potential errors
+    try {
+      // Create a simple wrapper to safely execute Prisma queries
+      const safeQuery = async (queryFn: () => Promise<any>, fallback: any = []) => {
+        try {
+          return await queryFn();
+        } catch (error) {
+          console.error(`Error executing query:`, error);
+          return fallback;
+        }
+      };
+
+      // Fetch all master data with safe queries
+      // Using type assertions to help TypeScript understand these properties exist
+      const prismaAny = prisma as any;
+      
+      const [countries, categories, ranges, mediaTypes, mediaSubTypes, businessUnits, pmTypes, campaigns, subRegions] = 
+        await Promise.all([
+          safeQuery(() => prisma.country.findMany()),
+          safeQuery(() => prisma.category.findMany()),
+          safeQuery(() => prisma.range.findMany()),
+          safeQuery(() => prisma.mediaType.findMany()),
+          safeQuery(() => prisma.mediaSubType.findMany()),
+          safeQuery(() => prismaAny.businessUnit.findMany(), [
+            { id: 1, name: 'Nivea' },
+            { id: 2, name: 'Derma' }
+          ]),
+          safeQuery(() => prismaAny.pMType.findMany()),
+          safeQuery(() => prisma.campaign.findMany({
+            include: {
+              range: true
+            }
+          })),
+          safeQuery(() => prisma.subRegion.findMany())
+        ]);
+      
+      // Assign the results to masterData
+      masterData.countries = countries;
+      masterData.categories = categories;
+      masterData.ranges = ranges;
+      masterData.mediaTypes = mediaTypes;
+      masterData.mediaSubTypes = mediaSubTypes;
+      masterData.businessUnits = businessUnits;
+      masterData.pmTypes = pmTypes;
+      masterData.campaigns = campaigns;
+      
+      // Process sub-regions and extract names
+      if (Array.isArray(subRegions)) {
+        // Initialize subRegions array if it doesn't exist
+        if (!masterData.subRegions) {
+          masterData.subRegions = [];
+        }
+        
+        // Extract names from database sub-regions
+        const dbSubRegionNames = subRegions.map(sr => sr.name);
+        masterData.subRegions.push(...dbSubRegionNames);
+        
+        // Also add common region names that might be in the data but not in the database
+        const additionalRegions = ['APAC', 'Europe', 'North America', 'Middle East'];
+        additionalRegions.forEach(region => {
+          if (masterData.subRegions && !masterData.subRegions.includes(region)) {
+            masterData.subRegions.push(region);
+          }
+        });
+        
+        // Make sure all sub-region names are uppercase for consistent comparison
+        if (masterData.subRegions) {
+          masterData.subRegions = masterData.subRegions.map(region => region.toUpperCase());
+        }
+        
+        console.log('Sub-regions for validation:', masterData.subRegions);
+      }
+      
+      // Create media type to subtype mapping for validation
+      const mediaToSubtypes: Record<string, string[]> = {};
+      
+      // Populate the mapping from the database relationships
+      if (mediaTypes && mediaSubTypes) {
+        // Create a map of media type IDs to names for quick lookup
+        const mediaTypeMap = new Map<number, string>();
+        mediaTypes.forEach((mediaType: any) => {
+          if (mediaType && mediaType.id && mediaType.name) {
+            mediaTypeMap.set(mediaType.id, mediaType.name);
+          }
+        });
+        
+        // Group subtypes by their parent media type
+        mediaSubTypes.forEach((subtype: any) => {
+          if (subtype && subtype.mediaTypeId && subtype.name) {
+            const mediaTypeName = mediaTypeMap.get(subtype.mediaTypeId);
+            if (mediaTypeName) {
+              if (!mediaToSubtypes[mediaTypeName]) {
+                mediaToSubtypes[mediaTypeName] = [];
+              }
+              mediaToSubtypes[mediaTypeName].push(subtype.name);
+            }
+          }
+        });
+        
+        // Associate TV subtypes with Traditional media type
+        if (mediaToSubtypes['TV'] && mediaToSubtypes['TV'].length > 0) {
+          if (!mediaToSubtypes['Traditional']) {
+            mediaToSubtypes['Traditional'] = [];
+          }
+          
+          // Add all TV subtypes to Traditional
+          mediaToSubtypes['Traditional'] = [
+            ...mediaToSubtypes['Traditional'],
+            ...mediaToSubtypes['TV']
+          ];
+          
+          // Remove duplicates if any
+          mediaToSubtypes['Traditional'] = [...new Set(mediaToSubtypes['Traditional'])];
+          
+          console.log('Associated TV subtypes with Traditional:', mediaToSubtypes['Traditional']);
+        }
+      }
+      
+      // Add the mapping to masterData for validation
+      masterData.mediaToSubtypes = mediaToSubtypes;
+      
+      console.log('Media to subtypes mapping for validation:', mediaToSubtypes);
+      
+      // Create category to ranges mapping for validation
+      const categoryToRanges: Record<string, string[]> = {};
+      
+      // Fetch category-range relationships from database
+      try {
+        const categoryRangeRelations = await prisma.categoryToRange.findMany({
+          include: {
+            category: true,
+            range: true
+          }
+        });
+        
+        // Build the mapping
+        categoryRangeRelations.forEach((relation: any) => {
+          if (relation.category && relation.range) {
+            const categoryName = relation.category.name;
+            const rangeName = relation.range.name;
+            
+            if (!categoryToRanges[categoryName]) {
+              categoryToRanges[categoryName] = [];
+            }
+            
+            if (!categoryToRanges[categoryName].includes(rangeName)) {
+              categoryToRanges[categoryName].push(rangeName);
+            }
+          }
+        });
+        
+        // Add the mapping to masterData
+        masterData.categoryToRanges = categoryToRanges;
+        
+        console.log('Category to ranges mapping for validation:', categoryToRanges);
+        
+      } catch (error) {
+        console.error('Error creating category to ranges mapping:', error);
+        // Fallback to static master data if available
+        try {
+          const staticMasterData = require('@/lib/validation/masterData.json');
+          if (staticMasterData.categoryToRanges) {
+            masterData.categoryToRanges = staticMasterData.categoryToRanges;
+            console.log('Using static category to ranges mapping as fallback');
+          }
+        } catch (fallbackError) {
+          console.error('Error loading static master data fallback:', fallbackError);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error fetching master data:', error);
+    }
+    
+    // Create a validator with the master data
+    const validator = new MediaSufficiencyValidator(masterData);
+    
+    // Process records in chunks for large datasets
+    const CHUNK_SIZE = 1000; // Process 1000 records at a time
+    let validationIssues: any[] = [];
+    
+    // For very large datasets, use a different approach
+    const isLargeDataset = transformedData.length > 5000;
+    let totalIssueCount = 0;
+    
+    // Process data in chunks for large datasets
+    if (transformedData.length > CHUNK_SIZE) {
+      console.log(`Processing large dataset with ${transformedData.length} records in chunks of ${CHUNK_SIZE}`);
+      
+      for (let i = 0; i < transformedData.length; i += CHUNK_SIZE) {
+        const chunk = transformedData.slice(i, i + CHUNK_SIZE);
+        
+        // Validate the chunk
+        const chunkIssues = await validator.validateAll(chunk, i);
+        
+        // For large datasets, only keep a limited number of issues to avoid memory issues
+        if (isLargeDataset) {
+          totalIssueCount += chunkIssues.length;
+          if (validationIssues.length < 500) {
+            // Only add issues until we reach 500
+            const remainingSlots = 500 - validationIssues.length;
+            validationIssues.push(...chunkIssues.slice(0, remainingSlots));
+          }
+        } else {
+          // For smaller datasets, keep all issues
+          validationIssues.push(...chunkIssues);
+        }
+        
+        // Log progress for monitoring
+        console.log(`Processed chunk ${Math.floor(i / CHUNK_SIZE) + 1} of ${Math.ceil(transformedData.length / CHUNK_SIZE)}`);
+        
+        // Allow GC to reclaim memory between chunks
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    } else {
+      // For smaller datasets, process all at once
+      validationIssues = await validator.validateAll(transformedData);
+    }
+    
+    // Generate validation summary
+    const validationSummary = validator.getValidationSummary(validationIssues);
+    
+    // Store session data
+    const sessionData: SessionData = {
+      id: sessionId,
+      fileName: file.name,
+      fileSize: file.size,
+      filePath,
+      recordCount: records.length,
+      createdAt: new Date(),
+      masterData,
+      fieldMappings: suggestedMappings
+    };
+    
+    // Save session data to a persistent file
+    const sessionFilePath = path.join(dataDir, `${sessionId}.json`);
+    await fs.writeFile(sessionFilePath, JSON.stringify({
+      sessionData,
+      records: transformedData,
+      validationIssues,
+      validationSummary,
+      status: 'validated'
+    }));
+    
+    // For very large datasets, only return the summary and a limited set of issues
+    // The client can fetch more issues as needed through pagination
+    // isLargeDataset is already defined above
+    
+    // If preprocessValidation is true, only return basic session info
+    // This is used when validation is done during upload and we just want to redirect to the data preview page
+    if (preprocessValidation) {
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        fileName: file.name,
+        recordCount: records.length
+      });
+    }
+    
+    // Otherwise return full validation results
+    return NextResponse.json({
+      success: true,
+      sessionId,
+      fileName: file.name,
+      recordCount: records.length,
+      fieldMappings: suggestedMappings,
+      originalHeaders: headers,
+      expectedFields,
+      validationSummary,
+      // For large datasets, return even fewer initial issues to improve performance
+      validationIssues: Array.isArray(validationIssues) 
+        ? validationIssues.slice(0, isLargeDataset ? 50 : 100) 
+        : [],
+      isLargeDataset, // Flag to inform the client this is a large dataset
+      totalIssueCount: isLargeDataset ? totalIssueCount : validationIssues.length // Use actual count for large datasets
+    });
+    
+  } catch (error) {
+    console.error('Error processing CSV file:', error);
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : 'Failed to process CSV file' 
+    }, { status: 500 });
+  }
+}
