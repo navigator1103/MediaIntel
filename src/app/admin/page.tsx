@@ -5,14 +5,33 @@ import { useRouter } from 'next/navigation';
 import { FiUsers, FiUploadCloud, FiCalendar, FiDatabase, FiBarChart2, FiActivity, FiTrendingUp, FiHardDrive, FiGlobe, FiTag, FiBox, FiTarget, FiCheckCircle } from 'react-icons/fi';
 import { createPermissionChecker } from '@/lib/auth/permissions';
 
+interface FinancialCycle {
+  id: string;
+  name: string;
+  year: number;
+  totalGamePlans: number;
+  totalCampaigns: number;
+  totalBudget: number;
+  countriesCount: number;
+  businessUnitsCount: number;
+  mediaTypesCount: number;
+  lastUpdated?: string;
+}
+
+interface DashboardStats {
+  overall: {
+    totalUsers: number;
+    totalAdmins: number;
+    totalGamePlans: number;
+    totalCampaigns: number;
+    totalBudget: number;
+    lastUpdated: string;
+  };
+  financialCycles: FinancialCycle[];
+}
+
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalGamePlans: 0,
-    totalUsers: 0,
-    totalCampaigns: 0,
-    totalBudget: 0,
-    lastUpdated: '',
-  });
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [userPermissions, setUserPermissions] = useState<any>(null);
   const router = useRouter();
@@ -32,44 +51,26 @@ export default function AdminDashboard() {
 
     const fetchStats = async () => {
       try {
-        // Get authorization token for API calls
-        const token = localStorage.getItem('token');
+        // Get auth token for API request
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const headers: any = {};
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
+
+        // Fetch enhanced dashboard statistics with financial cycle data
+        const response = await fetch('/api/admin/dashboard', { headers });
         
-        // Fetch media sufficiency dashboard statistics with country filtering
-        const [gamePlansRes, usersRes, dashboardRes] = await Promise.all([
-          fetch('/api/admin/media-sufficiency/game-plans', { headers }).catch(() => ({ json: () => Promise.resolve([]) })),
-          fetch('/api/admin/users').catch(() => ({ json: () => Promise.resolve([]) })),
-          fetch('/api/dashboard/media-sufficiency', { headers }).catch(() => ({ json: () => Promise.resolve({}) }))
-        ]);
-
-        const [gamePlansData, users, dashboardData] = await Promise.all([
-          gamePlansRes.json ? gamePlansRes.json() : {},
-          usersRes.json ? usersRes.json() : [],
-          dashboardRes.json ? dashboardRes.json() : {}
-        ]);
-
-        // Handle game plans response structure (API returns {gamePlans: [...], ...})
-        const gamePlans = gamePlansData.gamePlans || gamePlansData || [];
-
-        // Count unique campaigns from game plans
-        const uniqueCampaigns = new Set();
-        if (Array.isArray(gamePlans)) {
-          gamePlans.forEach(plan => {
-            if (plan.campaign?.name) uniqueCampaigns.add(plan.campaign.name);
-          });
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setStats(result.data);
+          } else {
+            console.error('Dashboard API error:', result.error);
+          }
+        } else {
+          console.error('Failed to fetch dashboard stats');
         }
-
-        setStats({
-          totalGamePlans: Array.isArray(gamePlans) ? gamePlans.length : 0,
-          totalUsers: Array.isArray(users) ? users.length : 0,
-          totalCampaigns: uniqueCampaigns.size,
-          totalBudget: dashboardData.summary?.totalBudget || 0,
-          lastUpdated: new Date().toLocaleString(),
-        });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
       } finally {
@@ -108,6 +109,7 @@ export default function AdminDashboard() {
       '/admin/backups',
       '/admin/reach-planning',
       '/admin/financial-cycles',
+      '/admin/media-sub-types',
       '/admin/governance',
       '/admin/countries',
       '/admin/categories',
@@ -155,6 +157,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Key Stats Overview */}
+        {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           {canAccessPath('/admin/media-sufficiency/game-plans') && (
           <div 
@@ -164,7 +167,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Game Plans</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalGamePlans}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.overall?.totalGamePlans || 0}</p>
               </div>
               <div className="p-3 bg-indigo-100 rounded-lg">
                 <FiCalendar className="h-6 w-6 text-indigo-600" />
@@ -181,7 +184,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Campaigns</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalCampaigns}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.overall?.totalCampaigns || 0}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">
                 <FiTrendingUp className="h-6 w-6 text-blue-600" />
@@ -198,7 +201,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Users</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.overall?.totalUsers || 0}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
                 <FiUsers className="h-6 w-6 text-green-600" />
@@ -212,7 +215,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Total Budget</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  ${(stats.totalBudget / 1000).toFixed(1)}M
+                  €{((stats.overall?.totalBudget || 0) / 1000000).toFixed(1)}M
                 </p>
               </div>
               <div className="p-3 rounded-lg" style={{backgroundColor: '#2E294E'}}>
@@ -221,6 +224,71 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        )}
+
+        {/* Financial Cycles Overview */}
+        {stats && stats.financialCycles && stats.financialCycles.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <FiCalendar className="mr-3" style={{color: '#006992'}} />
+            Financial Cycles Overview
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {stats.financialCycles.map((cycle) => (
+              <div key={cycle.id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-lg transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#006992'}}>
+                      <FiTarget className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">{cycle.name}</h4>
+                      <p className="text-sm text-gray-500">{cycle.year}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Game Plans</span>
+                    <span className="text-sm font-semibold text-gray-900">{cycle.totalGamePlans.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Campaigns</span>
+                    <span className="text-sm font-semibold text-gray-900">{cycle.totalCampaigns}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Total Budget</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      €{(cycle.totalBudget / 1000000).toFixed(1)}M
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Countries</span>
+                    <span className="text-sm font-semibold text-gray-900">{cycle.countriesCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Business Units</span>
+                    <span className="text-sm font-semibold text-gray-900">{cycle.businessUnitsCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Media Types</span>
+                    <span className="text-sm font-semibold text-gray-900">{cycle.mediaTypesCount}</span>
+                  </div>
+                </div>
+
+                {cycle.lastUpdated && (
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500">
+                      Last updated: {new Date(cycle.lastUpdated).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        )}
 
         {/* Data Upload & Import */}
         {canAccessAnyPath(['/admin/game-plans/upload', '/admin/reach-planning', '/admin/share-of-voice', '/admin/diminishing-returns']) && (
@@ -372,13 +440,13 @@ export default function AdminDashboard() {
         )}
 
         {/* Configuration Management */}
-        {canAccessAnyPath(['/admin/countries', '/admin/categories', '/admin/ranges', '/admin/campaigns', '/admin/campaign-archetypes', '/admin/financial-cycles']) && (
+        {canAccessAnyPath(['/admin/countries', '/admin/categories', '/admin/ranges', '/admin/campaigns', '/admin/campaign-archetypes', '/admin/financial-cycles', '/admin/media-sub-types']) && (
         <div className="mb-8">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
             <FiGlobe className="mr-3" style={{color: '#E8D7F1'}} />
             Configuration & Master Data
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#E8D7F1'}}>
@@ -478,6 +546,23 @@ export default function AdminDashboard() {
                 onClick={() => handleNavigate('/admin/financial-cycles')}
               >
                 Manage Cycles
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#6366F1'}}>
+                  <FiActivity className="h-5 w-5 text-white" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900">Media Sub Types</h4>
+              </div>
+              <p className="text-gray-600 mb-4 text-sm">Manage media classifications</p>
+              <button 
+                className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+                style={{backgroundColor: '#6366F1'}}
+                onClick={() => handleNavigate('/admin/media-sub-types')}
+              >
+                Manage Sub Types
               </button>
             </div>
           </div>
