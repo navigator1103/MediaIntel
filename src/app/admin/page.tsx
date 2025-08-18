@@ -101,6 +101,7 @@ export default function AdminDashboard() {
     const implementedPages = [
       '/admin',
       '/admin/users',
+      '/admin/mapping',
       '/admin/media-sufficiency',
       '/admin/game-plans/upload',
       '/admin/media-sufficiency/game-plans',
@@ -426,6 +427,23 @@ export default function AdminDashboard() {
                 onClick={() => handleNavigate('/admin/ranges')}
               >
                 Manage Ranges
+              </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-all">
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg mr-3" style={{backgroundColor: '#785589'}}>
+                  <FiTarget className="h-5 w-5 text-white" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900">BU Mapping</h4>
+              </div>
+              <p className="text-gray-600 mb-4 text-sm">View hierarchical mapping</p>
+              <button 
+                className="w-full px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+                style={{backgroundColor: '#785589'}}
+                onClick={() => handleNavigate('/admin/mapping')}
+              >
+                View Mapping
               </button>
             </div>
 

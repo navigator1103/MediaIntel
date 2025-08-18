@@ -132,6 +132,14 @@ export const PAGES: PageConfig[] = [
     description: 'Manage product ranges'
   },
   {
+    id: 'admin-mapping',
+    name: 'BU Mapping',
+    path: '/admin/mapping',
+    category: 'master-data',
+    description: 'View hierarchical business unit mapping',
+    requiresAdmin: true
+  },
+  {
     id: 'admin-campaigns',
     name: 'Campaigns',
     path: '/admin/campaigns',

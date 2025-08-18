@@ -196,6 +196,11 @@ interface GamePlan {
     id: number;
     name: string;
   };
+  // Also support snake_case field from API
+  last_update?: {
+    id: number;
+    name: string;
+  };
   totalBudget: number;
   q1Budget: number;
   q2Budget: number;
@@ -252,6 +257,8 @@ export default function MediaSufficiencyDashboard() {
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 1000000]);
   const [lastUpdateDate, setLastUpdateDate] = useState<string>('');
   const [reachMediaView, setReachMediaView] = useState<'digital' | 'tv' | 'multimedia'>('digital');
+  const [isReachChartExpanded, setIsReachChartExpanded] = useState(true);
+  const [isWOAChartExpanded, setIsWOAChartExpanded] = useState(true);
   
   // State for sidebar
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
@@ -306,12 +313,29 @@ export default function MediaSufficiencyDashboard() {
         params.append('lastUpdates', selectedLastUpdates.join(','));
       }
       
-      const response = await axios.get(`/api/dashboard/media-sufficiency-reach${params.toString() ? '?' + params.toString() : ''}`, {
+      const url = `/api/dashboard/media-sufficiency-reach${params.toString() ? '?' + params.toString() : ''}`;
+      console.log('📡 Fetching reach data from:', url);
+      
+      const response = await axios.get(url, {
         headers: getAuthHeaders()
       });
+      console.log('✅ Reach data received:', response.data);
       setMediaSufficiencyReachData(response.data);
-    } catch (error) {
-      console.error('Error fetching media sufficiency reach data:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching media sufficiency reach data:', error);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      // Set empty data on error to prevent crashes
+      setMediaSufficiencyReachData({
+        summary: { totalRecords: 0, countries: 0, campaigns: 0, totalWoa: 0, totalWoff: 0, totalWeeks: 0 },
+        tvReachData: [],
+        digitalReachData: [],
+        combinedReachData: [],
+        countryReachAnalysis: [],
+        categoryReachAnalysis: []
+      });
     } finally {
       setIsLoadingReach(false);
     }
@@ -823,6 +847,23 @@ export default function MediaSufficiencyDashboard() {
           const gamePlansWithDates = gamePlansData.map((plan: GamePlan) => {
             const year = parseInt(selectedYear);
             
+            // Normalize lastUpdate field - ensure it's always present as lastUpdate
+            if (!plan.lastUpdate && plan.last_update) {
+              plan.lastUpdate = plan.last_update;
+            }
+            
+            // Debug log to check lastUpdate field
+            if (gamePlansData.indexOf(plan) < 3) {
+              console.log('Game plan data check:', {
+                campaign: plan.campaign?.name,
+                lastUpdate: plan.lastUpdate,
+                last_update: plan.last_update,
+                normalizedLastUpdate: plan.lastUpdate?.name,
+                hasLastUpdate: !!plan.lastUpdate,
+                hasLast_update: !!plan.last_update
+              });
+            }
+            
             // Check if plan already has valid start and end dates
             if (plan.startDate && plan.endDate) {
               // Use existing dates
@@ -1035,20 +1076,26 @@ export default function MediaSufficiencyDashboard() {
   
   // Handle media type selection
   const toggleMediaType = (mediaType: string) => {
-    setSelectedMediaTypes(prev => 
-      prev.includes(mediaType) 
+    console.log('🔍 Toggling media type:', mediaType);
+    setSelectedMediaTypes(prev => {
+      const newValue = prev.includes(mediaType) 
         ? prev.filter(type => type !== mediaType) 
-        : [...prev, mediaType]
-    );
+        : [...prev, mediaType];
+      console.log('📊 New selected media types:', newValue);
+      return newValue;
+    });
   };
   
   // Handle country selection
   const toggleCountry = (country: string) => {
-    setSelectedCountries(prev => 
-      prev.includes(country) 
+    console.log('🔍 Toggling country:', country);
+    setSelectedCountries(prev => {
+      const newValue = prev.includes(country) 
         ? prev.filter(c => c !== country) 
-        : [...prev, country]
-    );
+        : [...prev, country];
+      console.log('🌍 New selected countries:', newValue);
+      return newValue;
+    });
   };
 
   // Handle range selection
@@ -1062,11 +1109,14 @@ export default function MediaSufficiencyDashboard() {
   
   // Handle category selection
   const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
+    console.log('🔍 Toggling category:', category);
+    setSelectedCategories(prev => {
+      const newValue = prev.includes(category) 
         ? prev.filter(cat => cat !== category) 
-        : [...prev, category]
-    );
+        : [...prev, category];
+      console.log('📁 New selected categories:', newValue);
+      return newValue;
+    });
   };
   
   // Handle last update selection
@@ -1098,13 +1148,24 @@ export default function MediaSufficiencyDashboard() {
     
     // Apply Business Unit filter
     if (selectedBusinessUnits.length > 0) {
+      const beforeFilter = filteredPlans.length;
       filteredPlans = filteredPlans.filter(plan => {
         // Check if the plan's category belongs to the selected business units
         const categoryBU = plan.category?.businessUnit?.name;
         const directBU = plan.businessUnit?.name;
-        return (categoryBU && selectedBusinessUnits.includes(categoryBU)) ||
-               (directBU && selectedBusinessUnits.includes(directBU));
+        const hasMatch = (categoryBU && selectedBusinessUnits.includes(categoryBU)) ||
+                         (directBU && selectedBusinessUnits.includes(directBU));
+        if (!hasMatch && filteredPlans.length < 10) {
+          console.log(`BU filter rejected plan:`, {
+            campaignName: plan.campaign?.name,
+            categoryBU,
+            directBU,
+            selectedBUs: selectedBusinessUnits
+          });
+        }
+        return hasMatch;
       });
+      console.log(`Business Unit filter: ${beforeFilter} -> ${filteredPlans.length} (selected: ${selectedBusinessUnits.join(', ')})`);
     }
     
     // Apply category filter
@@ -1121,11 +1182,29 @@ export default function MediaSufficiencyDashboard() {
       );
     }
     
-    // Apply Last Update filter
+    // Apply Last Update filter (Financial Cycle)
     if (selectedLastUpdates.length > 0) {
-      filteredPlans = filteredPlans.filter(plan => 
-        plan.lastUpdate?.name && selectedLastUpdates.includes(plan.lastUpdate.name)
-      );
+      console.log('Applying Financial Cycle filter:', selectedLastUpdates);
+      const beforeCount = filteredPlans.length;
+      
+      filteredPlans = filteredPlans.filter(plan => {
+        const lastUpdateName = plan.last_update?.name || plan.lastUpdate?.name;
+        
+        // Debug log for first few plans
+        if (filteredPlans.indexOf(plan) < 3) {
+          console.log('Plan FC check:', {
+            campaign: plan.campaign?.name,
+            last_update: plan.last_update?.name,
+            lastUpdate: plan.lastUpdate?.name,
+            detected: lastUpdateName,
+            shouldInclude: lastUpdateName && selectedLastUpdates.includes(lastUpdateName)
+          });
+        }
+        
+        return lastUpdateName && selectedLastUpdates.includes(lastUpdateName);
+      });
+      
+      console.log(`FC filter: ${beforeCount} -> ${filteredPlans.length} plans`);
     }
     
     return filteredPlans;
@@ -1257,7 +1336,29 @@ export default function MediaSufficiencyDashboard() {
   // Note: We need to include selectedCategories in the dependency array from the beginning
   // to avoid React errors about changing dependency array size
   useEffect(() => {
-    if (!gamePlanData || !gamePlans) return;
+    console.log('🎯 Filter useEffect triggered');
+    console.log('Current filters:', {
+      mediaTypes: selectedMediaTypes,
+      countries: selectedCountries,
+      categories: selectedCategories,
+      businessUnits: selectedBusinessUnits,
+      lastUpdates: selectedLastUpdates
+    });
+    
+    // Debug check first few game plans for lastUpdate field
+    if (gamePlans && gamePlans.length > 0) {
+      console.log('Sample game plans lastUpdate check:', gamePlans.slice(0, 3).map(p => ({
+        campaign: p.campaign?.name,
+        lastUpdate: p.lastUpdate,
+        last_update: p.last_update,
+        lastUpdateName: p.lastUpdate?.name || p.last_update?.name
+      })));
+    }
+    
+    if (!gamePlanData || !gamePlans) {
+      console.log('⚠️ No data available yet');
+      return;
+    }
     
     // Start with all data
     let filtered = { ...gamePlanData };
@@ -1270,6 +1371,7 @@ export default function MediaSufficiencyDashboard() {
     if (hasActiveFilters) {
       // Apply all filters to get filtered game plans
       const filteredPlans = applyAllFilters(gamePlans);
+      console.log(`✅ Filtered ${filteredPlans.length} plans from ${gamePlans.length} total`);
       
       // Recalculate all aggregations from filtered plans
       const recalculatedBudgetByMediaType: Record<string, number> = {};
@@ -1449,7 +1551,14 @@ export default function MediaSufficiencyDashboard() {
         {/* Sidebar */}
         <div className={`${sidebarExpanded ? 'w-64' : 'w-16'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}>
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 className={`${sidebarExpanded ? 'block' : 'hidden'} text-lg font-medium text-gray-700`}>Filters</h2>
+            <div className={`${sidebarExpanded ? 'flex' : 'hidden'} items-center gap-2`}>
+              <h2 className="text-lg font-medium text-gray-700">Filters</h2>
+              {(selectedMediaTypes.length > 0 || selectedCountries.length > 0 || selectedCategories.length > 0 || selectedBusinessUnits.length > 0 || selectedLastUpdates.length > 0) && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {selectedMediaTypes.length + selectedCountries.length + selectedCategories.length + selectedBusinessUnits.length + selectedLastUpdates.length} active
+                </span>
+              )}
+            </div>
             <button 
               onClick={toggleSidebar}
               className="p-1 rounded-md hover:bg-gray-100"
@@ -1467,11 +1576,44 @@ export default function MediaSufficiencyDashboard() {
           </div>
           
           <div className="p-4 overflow-y-auto flex-1">
+            {/* Show message when campaign is selected in Deep Dive mode */}
+            {activeTab === 'deepdive' && selectedCampaignForDeepDive && (
+              <div className={`${sidebarExpanded ? 'block' : 'hidden'} bg-blue-50 rounded-lg p-4 mb-4`}>
+                <p className="text-sm text-gray-700 font-medium">
+                  Analyzing: {selectedCampaignForDeepDive}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Use the country filter to focus on specific markets.
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedCampaignForDeepDive(null);
+                    clearAllFilters();
+                  }}
+                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  Clear campaign selection
+                </button>
+              </div>
+            )}
+            
+            {/* Show active filters message for PI Summary */}
+            {activeTab === 'pisummary' && (selectedCountries.length > 0 || selectedBusinessUnits.length > 0 || selectedCategories.length > 0) && (
+              <div className={`${sidebarExpanded ? 'block' : 'hidden'} bg-purple-50 rounded-lg p-4 mb-4`}>
+                <p className="text-sm text-gray-700 font-medium">
+                  Filters Active
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  PI data is filtered by your selections
+                </p>
+              </div>
+            )}
+            
             {/* Filters reordered: Financial Cycle, Business Unit, Country, Category, then others */}
             
             {/* Last Update / Financial Cycle Filter */}
             {availableUpdateOptions.length > 0 && (
-              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
+              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'} ${activeTab === 'deepdive' && selectedCampaignForDeepDive ? 'opacity-50 pointer-events-none' : ''}`}>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Financial Cycle</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {availableUpdateOptions.map((option) => (
@@ -1481,7 +1623,8 @@ export default function MediaSufficiencyDashboard() {
                         id={`lastupdate-${option.id}`}
                         checked={selectedLastUpdates.includes(option.name)}
                         onChange={() => toggleLastUpdate(option.name)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        disabled={activeTab === 'deepdive' && selectedCampaignForDeepDive !== null}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
                       />
                       <label htmlFor={`lastupdate-${option.id}`} className="ml-2 text-sm text-gray-700">
                         {option.name}
@@ -1494,7 +1637,7 @@ export default function MediaSufficiencyDashboard() {
             
             {/* Business Unit Filter */}
             {allBusinessUnits.length > 0 && (
-              <div className="p-4">
+              <div className={`p-4 ${activeTab === 'deepdive' && selectedCampaignForDeepDive ? 'opacity-50 pointer-events-none' : ''}`}>
                 <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Business Unit</h3>
                 <div className="space-y-2">
                   {allBusinessUnits.map((bu) => (
@@ -1503,11 +1646,21 @@ export default function MediaSufficiencyDashboard() {
                         type="checkbox"
                         id={`bu-${bu.name}`}
                         checked={selectedBusinessUnits.includes(bu.name)}
+                        disabled={activeTab === 'deepdive' && selectedCampaignForDeepDive !== null}
                         onChange={() => {
+                          console.log('🔍 Toggling business unit:', bu.name);
                           if (selectedBusinessUnits.includes(bu.name)) {
-                            setSelectedBusinessUnits(prev => prev.filter(b => b !== bu.name));
+                            setSelectedBusinessUnits(prev => {
+                              const newValue = prev.filter(b => b !== bu.name);
+                              console.log('🏢 New selected business units:', newValue);
+                              return newValue;
+                            });
                           } else {
-                            setSelectedBusinessUnits(prev => [...prev, bu.name]);
+                            setSelectedBusinessUnits(prev => {
+                              const newValue = [...prev, bu.name];
+                              console.log('🏢 New selected business units:', newValue);
+                              return newValue;
+                            });
                           }
                         }}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
@@ -1521,18 +1674,44 @@ export default function MediaSufficiencyDashboard() {
               </div>
             )}
             
-            {/* Country Filter */}
+            {/* Country Filter - Shows only countries where selected campaign exists */}
             {allCountries.length > 0 && (
               <div className="p-4">
-                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Country</h3>
+                <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>
+                  Country
+                  {activeTab === 'deepdive' && selectedCampaignForDeepDive && (
+                    <span className="text-xs text-blue-600 ml-1">(Campaign Markets)</span>
+                  )}
+                </h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {allCountries.map(country => (
-                    <div key={country} className="flex items-center">
-                      <input
-                        id={`country-${country}`}
-                        type="checkbox"
-                        checked={selectedCountries.includes(country)}
-                        onChange={() => toggleCountry(country)}
+                  {(() => {
+                    // If a campaign is selected in deep dive, only show countries where this campaign exists
+                    let countriesToShow = allCountries;
+                    if (activeTab === 'deepdive' && selectedCampaignForDeepDive) {
+                      const campaignCountries = new Set(
+                        gamePlans
+                          ?.filter(plan => plan.campaign?.name === selectedCampaignForDeepDive)
+                          .map(plan => plan.country?.name)
+                          .filter(Boolean)
+                      );
+                      countriesToShow = allCountries.filter(country => campaignCountries.has(country));
+                    }
+                    
+                    if (countriesToShow.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 italic">
+                          No countries available for this campaign
+                        </div>
+                      );
+                    }
+                    
+                    return countriesToShow.map(country => (
+                      <div key={country} className="flex items-center">
+                        <input
+                          id={`country-${country}`}
+                          type="checkbox"
+                          checked={selectedCountries.includes(country)}
+                          onChange={() => toggleCountry(country)}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
                       <label 
@@ -1542,14 +1721,15 @@ export default function MediaSufficiencyDashboard() {
                         {country}
                       </label>
                     </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </div>
             )}
             
             {/* Category Filter */}
             {filteredCategories.length > 0 && (
-              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'}`}>
+              <div className={`p-4 ${sidebarExpanded ? 'block' : 'hidden'} ${activeTab === 'deepdive' && selectedCampaignForDeepDive ? 'opacity-50 pointer-events-none' : ''}`}>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
                   Category 
                   {selectedBusinessUnits.length > 0 && (
@@ -1565,6 +1745,7 @@ export default function MediaSufficiencyDashboard() {
                         type="checkbox"
                         id={`category-${category}`}
                         checked={selectedCategories.includes(category)}
+                        disabled={activeTab === 'deepdive' && selectedCampaignForDeepDive !== null}
                         onChange={() => toggleCategory(category)}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
@@ -1579,7 +1760,7 @@ export default function MediaSufficiencyDashboard() {
             
             {/* Media Type Filter */}
             {allMediaTypes.length > 0 && (
-              <div className="p-4">
+              <div className={`p-4 ${activeTab === 'deepdive' && selectedCampaignForDeepDive ? 'opacity-50 pointer-events-none' : ''}`}>
                 <h3 className={`${sidebarExpanded ? 'block' : 'hidden'} text-sm font-medium text-gray-700 mb-2`}>Media Type</h3>
                 <div className="space-y-2">
                   {allMediaTypes.map(mediaType => (
@@ -1588,6 +1769,7 @@ export default function MediaSufficiencyDashboard() {
                         id={`media-${mediaType}`}
                         type="checkbox"
                         checked={selectedMediaTypes.includes(mediaType)}
+                        disabled={activeTab === 'deepdive' && selectedCampaignForDeepDive !== null}
                         onChange={() => toggleMediaType(mediaType)}
                         className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                       />
@@ -1631,7 +1813,15 @@ export default function MediaSufficiencyDashboard() {
             
             {/* Clear Filters Button */}
             <button
-              onClick={clearAllFilters}
+              onClick={() => {
+                if (activeTab === 'deepdive' && selectedCampaignForDeepDive) {
+                  // Only clear country filter when campaign is selected
+                  setSelectedCountries([]);
+                } else {
+                  // Clear all filters normally
+                  clearAllFilters();
+                }
+              }}
               className={`${sidebarExpanded ? 'block' : 'hidden'} w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md text-sm`}
             >
               Clear All Filters
@@ -1680,6 +1870,15 @@ export default function MediaSufficiencyDashboard() {
               >
                 Campaign Deep Dive
               </button>
+              <button
+                onClick={() => setActiveTab('pisummary')}
+                className={`${activeTab === 'pisummary' 
+                  ? 'border-blue-500 text-blue-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} 
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                PI Summary
+              </button>
             </nav>
           </div>
 
@@ -1700,10 +1899,29 @@ export default function MediaSufficiencyDashboard() {
                 // Get the filtered game plans
                 const filteredPlans = gamePlans ? applyAllFilters(gamePlans) : [];
                 
-                // Debug log to check filtered plans
-                console.log(`Number of filtered plans: ${filteredPlans.length}`);
+                // Debug log to check filtered plans and financial cycles
+                console.log(`===== TOP CARDS DATA ANALYSIS =====`);
+                console.log(`Total game plans available: ${gamePlans?.length || 0}`);
+                console.log(`Filtered plans count: ${filteredPlans.length}`);
+                
+                // Check which financial cycles are present
+                const financialCycles = new Set();
+                filteredPlans.forEach(plan => {
+                  const fcName = plan.last_update?.name || plan.lastUpdate?.name || 'Unknown';
+                  financialCycles.add(fcName);
+                });
+                console.log(`Financial cycles in filtered data: ${Array.from(financialCycles).join(', ')}`);
+                console.log(`Selected financial cycles filter: ${selectedLastUpdates.length > 0 ? selectedLastUpdates.join(', ') : 'NONE (showing all)'}`);
+                
                 if (filteredPlans.length > 0) {
-                  console.log('First few filtered plans:', filteredPlans.slice(0, 3));
+                  console.log('Sample plan structure:', {
+                    campaign: filteredPlans[0].campaign?.name,
+                    financialCycle: filteredPlans[0].last_update?.name || filteredPlans[0].lastUpdate?.name,
+                    totalBudget: filteredPlans[0].totalBudget,
+                    mediaType: filteredPlans[0].mediaSubType?.mediaType?.name,
+                    country: filteredPlans[0].country?.name,
+                    businessUnit: filteredPlans[0].category?.businessUnit?.name || filteredPlans[0].businessUnit?.name
+                  });
                 }
                 
                 // Calculate media shares directly from the budgetByMediaType in gamePlanData
@@ -1712,15 +1930,19 @@ export default function MediaSufficiencyDashboard() {
                 let totalBudget = 0;
                 
                 // Use the filtered data's budgetByMediaType if available
+                console.log(`\n===== TOP CARDS BUDGET CALCULATION =====`);
                 if (filteredData && filteredData.budgetByMediaType) {
+                  console.log('Budget by media type:', filteredData.budgetByMediaType);
                   Object.entries(filteredData.budgetByMediaType).forEach(([mediaType, budget]) => {
                     const budgetValue = Number(budget) || 0;
                     totalBudget += budgetValue;
                     
                     if (['TV', 'Radio', 'Print', 'OOH', 'Traditional'].includes(mediaType)) {
                       tvBudget += budgetValue;
+                      console.log(`  ${mediaType}: €${budgetValue} -> TV/Traditional`);
                     } else {
                       digitalBudget += budgetValue;
+                      console.log(`  ${mediaType}: €${budgetValue} -> Digital`);
                     }
                   });
                 }
@@ -1730,8 +1952,17 @@ export default function MediaSufficiencyDashboard() {
                 const digitalShare = totalBudget > 0 ? (digitalBudget / totalBudget) * 100 : 0;
                 
                 // Debug log the calculated values
-                console.log(`Top Cards - TV Budget: ${tvBudget}, Digital Budget: ${digitalBudget}, Total: ${totalBudget}`);
-                console.log(`Top Cards - TV Share: ${tvShare}%, Digital Share: ${digitalShare}%`);
+                console.log(`\nTop Cards Summary:`);
+                console.log(`  Total Budget: €${totalBudget.toLocaleString()}`);
+                console.log(`  TV/Traditional Budget: €${tvBudget.toLocaleString()} (${tvShare.toFixed(1)}%)`);
+                console.log(`  Digital Budget: €${digitalBudget.toLocaleString()} (${digitalShare.toFixed(1)}%)`);
+                console.log(`  Active Filters: ${JSON.stringify({
+                  financialCycle: selectedLastUpdates,
+                  countries: selectedCountries,
+                  businessUnits: selectedBusinessUnits,
+                  categories: selectedCategories,
+                  mediaTypes: selectedMediaTypes
+                })}`);
                 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1919,30 +2150,19 @@ export default function MediaSufficiencyDashboard() {
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {(() => {
-                              // Get unique countries from filtered plans
-                              let filteredPlans = [...gamePlans];
+                              // Use applyAllFilters to ensure all filters are applied consistently
+                              const filteredPlans = applyAllFilters(gamePlans);
                               
-                              // Apply filters
-                              if (selectedMediaTypes.length > 0) {
-                                filteredPlans = filteredPlans.filter(plan => 
-                                  plan.mediaSubType?.mediaType && 
-                                  selectedMediaTypes.includes(plan.mediaSubType.mediaType.name)
-                                );
-                              }
+                              console.log('Country Budget by Quarter - Filtered plans:', filteredPlans.length);
                               
-                              if (selectedCountries.length > 0) {
-                                filteredPlans = filteredPlans.filter(plan => 
-                                  plan.country && 
-                                  plan.country.name && 
-                                  selectedCountries.includes(plan.country.name)
-                                );
-                              }
-                              
-                              if (selectedCategories.length > 0) {
-                                filteredPlans = filteredPlans.filter(plan => 
-                                  plan.category && 
-                                  plan.category.name && 
-                                  selectedCategories.includes(plan.category.name)
+                              // If no plans after filtering, show a message
+                              if (filteredPlans.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                                      No data available for selected filters
+                                    </td>
+                                  </tr>
                                 );
                               }
                               
@@ -1951,6 +2171,19 @@ export default function MediaSufficiencyDashboard() {
                                 .filter(plan => plan.country && plan.country.name)
                                 .map(plan => plan.country!.name)))
                                 .slice(0, 5); // Limit to top 5 countries for compact view
+                              
+                              console.log('Countries found:', filteredCountries);
+                              
+                              // If no countries found, show a message
+                              if (filteredCountries.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={6} className="px-3 py-4 text-center text-gray-500">
+                                      No country data available for selected filters
+                                    </td>
+                                  </tr>
+                                );
+                              }
                               
                               // Process each country
                               return filteredCountries.map(country => {
@@ -2167,20 +2400,8 @@ export default function MediaSufficiencyDashboard() {
                       }
                     };
                     
-                    // Filter and sort campaigns
-                    let filteredPlans = [...gamePlans];
-                    
-                    // Apply filters
-                    if (selectedCountries.length > 0) {
-                      filteredPlans = filteredPlans.filter(plan => 
-                        plan.country && plan.country.name && selectedCountries.includes(plan.country.name)
-                      );
-                    }
-                    if (selectedCategories.length > 0) {
-                      filteredPlans = filteredPlans.filter(plan => 
-                        plan.category && plan.category.name && selectedCategories.includes(plan.category.name)
-                      );
-                    }
+                    // Use applyAllFilters to ensure all filters are applied consistently
+                    const filteredPlans = applyAllFilters(gamePlans);
                     
                     // Sort campaigns
                     const sortedPlans = filteredPlans.sort((a, b) => {
@@ -2609,38 +2830,13 @@ export default function MediaSufficiencyDashboard() {
                     <div className="overflow-x-auto" style={{ maxHeight: '280px' }}>
                       <table className="min-w-full divide-y divide-gray-200">
                         {(() => {
-                          // Filter game plans for selected financial cycle and digital media type only
-                          let filteredPlans = [...gamePlans];
-                          
-                          // Apply last update (financial cycle) filter
-                          if (selectedLastUpdates.length > 0) {
-                            filteredPlans = filteredPlans.filter(plan => 
-                              plan.lastUpdate && selectedLastUpdates.includes(plan.lastUpdate.name)
-                            );
-                          }
+                          // Use applyAllFilters first, then filter for digital media type only
+                          let filteredPlans = applyAllFilters(gamePlans);
                           
                           // Filter for digital media type only
                           filteredPlans = filteredPlans.filter(plan => 
                             plan.mediaSubType?.mediaType?.name?.toLowerCase() === 'digital'
                           );
-                          
-                          // Apply country filter
-                          if (selectedCountries.length > 0) {
-                            filteredPlans = filteredPlans.filter(plan => 
-                              plan.country && 
-                              plan.country.name && 
-                              selectedCountries.includes(plan.country.name)
-                            );
-                          }
-                          
-                          // Apply category filter
-                          if (selectedCategories.length > 0) {
-                            filteredPlans = filteredPlans.filter(plan => 
-                              plan.category && 
-                              plan.category.name && 
-                              selectedCategories.includes(plan.category.name)
-                            );
-                          }
                           
                           // Get unique digital sub-types
                           const digitalSubTypes = Array.from(new Set(
@@ -3050,6 +3246,30 @@ export default function MediaSufficiencyDashboard() {
                 
                 {/* Top Cards - Single Line */}
                 <div className="flex gap-4 mb-6">
+                  {/* Debug quarterly calculations */}
+                  {(() => {
+                    const filteredPlans = applyAllFilters(gamePlans);
+                    const q1 = filteredPlans.reduce((acc, plan) => acc + (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0), 0);
+                    const q2 = filteredPlans.reduce((acc, plan) => acc + (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0), 0);
+                    const q3 = filteredPlans.reduce((acc, plan) => acc + (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0), 0);
+                    const q4 = filteredPlans.reduce((acc, plan) => acc + (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0), 0);
+                    const quarterlyTotal = q1 + q2 + q3 + q4;
+                    const totalBudget = filteredPlans.reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
+                    
+                    console.log('Quarterly Budget Analysis:', {
+                      Q1: `€${q1.toLocaleString()} (${totalBudget > 0 ? Math.round((q1/totalBudget)*100) : 0}%)`,
+                      Q2: `€${q2.toLocaleString()} (${totalBudget > 0 ? Math.round((q2/totalBudget)*100) : 0}%)`,
+                      Q3: `€${q3.toLocaleString()} (${totalBudget > 0 ? Math.round((q3/totalBudget)*100) : 0}%)`,
+                      Q4: `€${q4.toLocaleString()} (${totalBudget > 0 ? Math.round((q4/totalBudget)*100) : 0}%)`,
+                      QuarterlySum: `€${quarterlyTotal.toLocaleString()}`,
+                      TotalBudget: `€${totalBudget.toLocaleString()}`,
+                      Difference: `€${(totalBudget - quarterlyTotal).toLocaleString()}`,
+                      PercentageAccountedFor: totalBudget > 0 ? `${Math.round((quarterlyTotal/totalBudget)*100)}%` : '0%'
+                    });
+                    
+                    return null;
+                  })()}
+                  
                   {/* WIP Total Card */}
                   <div className="bg-blue-800 text-white p-3 rounded-md flex flex-row items-center justify-center gap-3 flex-1">
                     <div className="text-xl font-bold">€ {applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0).toLocaleString()}</div>
@@ -3060,19 +3280,9 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-blue-700 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
                     <div className="text-lg font-bold">
                       {(() => {
-                        // Calculate Q1 budget based on campaigns running in Q1 (Jan-Mar)
+                        // Calculate Q1 budget using actual monthly budget fields
                         const q1Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
-                          if (!plan.startDate || !plan.endDate) return acc;
-                          const start = new Date(plan.startDate);
-                          const end = new Date(plan.endDate);
-                          // Check if campaign runs in Q1 (Jan 1 - Mar 31)
-                          const q1Start = new Date(start.getFullYear(), 0, 1);
-                          const q1End = new Date(start.getFullYear(), 2, 31);
-                          if (end >= q1Start && start <= q1End) {
-                            // Campaign runs in Q1, add its budget (proportionally if it spans multiple quarters)
-                            return acc + (plan.totalBudget || 0);
-                          }
-                          return acc;
+                          return acc + (plan.janBudget || 0) + (plan.febBudget || 0) + (plan.marBudget || 0);
                         }, 0);
                         const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
                         return totalBudget > 0 ? Math.round((q1Total / totalBudget) * 100) : 0;
@@ -3085,19 +3295,9 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-blue-600 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
                     <div className="text-lg font-bold">
                       {(() => {
-                        // Calculate Q2 budget based on campaigns running in Q2 (Apr-Jun)
+                        // Calculate Q2 budget using actual monthly budget fields
                         const q2Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
-                          if (!plan.startDate || !plan.endDate) return acc;
-                          const start = new Date(plan.startDate);
-                          const end = new Date(plan.endDate);
-                          // Check if campaign runs in Q2 (Apr 1 - Jun 30)
-                          const q2Start = new Date(start.getFullYear(), 3, 1);
-                          const q2End = new Date(start.getFullYear(), 5, 30);
-                          if (end >= q2Start && start <= q2End) {
-                            // Campaign runs in Q2, add its budget
-                            return acc + (plan.totalBudget || 0);
-                          }
-                          return acc;
+                          return acc + (plan.aprBudget || 0) + (plan.mayBudget || 0) + (plan.junBudget || 0);
                         }, 0);
                         const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
                         return totalBudget > 0 ? Math.round((q2Total / totalBudget) * 100) : 0;
@@ -3110,19 +3310,9 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-blue-500 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
                     <div className="text-lg font-bold">
                       {(() => {
-                        // Calculate Q3 budget based on campaigns running in Q3 (Jul-Sep)
+                        // Calculate Q3 budget using actual monthly budget fields
                         const q3Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
-                          if (!plan.startDate || !plan.endDate) return acc;
-                          const start = new Date(plan.startDate);
-                          const end = new Date(plan.endDate);
-                          // Check if campaign runs in Q3 (Jul 1 - Sep 30)
-                          const q3Start = new Date(start.getFullYear(), 6, 1);
-                          const q3End = new Date(start.getFullYear(), 8, 30);
-                          if (end >= q3Start && start <= q3End) {
-                            // Campaign runs in Q3, add its budget
-                            return acc + (plan.totalBudget || 0);
-                          }
-                          return acc;
+                          return acc + (plan.julBudget || 0) + (plan.augBudget || 0) + (plan.sepBudget || 0);
                         }, 0);
                         const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
                         return totalBudget > 0 ? Math.round((q3Total / totalBudget) * 100) : 0;
@@ -3135,19 +3325,9 @@ export default function MediaSufficiencyDashboard() {
                   <div className="bg-blue-400 text-white p-2 rounded-md flex flex-row items-center justify-center gap-2 flex-1">
                     <div className="text-lg font-bold">
                       {(() => {
-                        // Calculate Q4 budget based on campaigns running in Q4 (Oct-Dec)
+                        // Calculate Q4 budget using actual monthly budget fields
                         const q4Total = applyAllFilters(gamePlans).reduce((acc, plan) => {
-                          if (!plan.startDate || !plan.endDate) return acc;
-                          const start = new Date(plan.startDate);
-                          const end = new Date(plan.endDate);
-                          // Check if campaign runs in Q4 (Oct 1 - Dec 31)
-                          const q4Start = new Date(start.getFullYear(), 9, 1);
-                          const q4End = new Date(start.getFullYear(), 11, 31);
-                          if (end >= q4Start && start <= q4End) {
-                            // Campaign runs in Q4, add its budget
-                            return acc + (plan.totalBudget || 0);
-                          }
-                          return acc;
+                          return acc + (plan.octBudget || 0) + (plan.novBudget || 0) + (plan.decBudget || 0);
                         }, 0);
                         const totalBudget = applyAllFilters(gamePlans).reduce((acc, plan) => acc + (plan.totalBudget || 0), 0);
                         return totalBudget > 0 ? Math.round((q4Total / totalBudget) * 100) : 0;
@@ -4419,10 +4599,17 @@ export default function MediaSufficiencyDashboard() {
                   {/* Campaign Deep Dive Content */}
                   {selectedCampaignForDeepDive ? (
                     (() => {
-                      // Get all game plans for this campaign
-                      const campaignPlans = gamePlans?.filter(plan => 
+                      // Get all game plans for this campaign, filtered by selected countries
+                      let campaignPlans = gamePlans?.filter(plan => 
                         plan.campaign?.name === selectedCampaignForDeepDive
                       ) || [];
+                      
+                      // Apply country filter if countries are selected
+                      if (selectedCountries.length > 0) {
+                        campaignPlans = campaignPlans.filter(plan =>
+                          plan.country?.name && selectedCountries.includes(plan.country.name)
+                        );
+                      }
                       
                       // Calculate campaign metrics
                       const totalBudget = campaignPlans.reduce((sum, plan) => sum + (plan.totalBudget || 0), 0);
@@ -4660,8 +4847,25 @@ export default function MediaSufficiencyDashboard() {
                                   burstData[burst] = {
                                     digital: [],
                                     tv: [],
-                                    all: []
+                                    all: [],
+                                    startDate: null,
+                                    endDate: null
                                   };
+                                }
+                                
+                                // Track the earliest start date and latest end date for this burst
+                                if (plan.startDate) {
+                                  const planStartDate = new Date(plan.startDate);
+                                  if (!burstData[burst].startDate || planStartDate < burstData[burst].startDate) {
+                                    burstData[burst].startDate = planStartDate;
+                                  }
+                                }
+                                
+                                if (plan.endDate) {
+                                  const planEndDate = new Date(plan.endDate);
+                                  if (!burstData[burst].endDate || planEndDate > burstData[burst].endDate) {
+                                    burstData[burst].endDate = planEndDate;
+                                  }
                                 }
                                 
                                 // Categorize by media type - more granular for digital
@@ -4694,6 +4898,15 @@ export default function MediaSufficiencyDashboard() {
                                 });
                               };
                               
+                              // Helper function to format date range
+                              const formatDateRange = (startDate: Date | null, endDate: Date | null) => {
+                                if (!startDate || !endDate) return '';
+                                const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+                                const start = startDate.toLocaleDateString('en-US', options);
+                                const end = endDate.toLocaleDateString('en-US', options);
+                                return `${start} - ${end}`;
+                              };
+
                               // Prepare data based on selected view
                               const getChartData = () => {
                                 if (reachMediaView === 'digital') {
@@ -4719,9 +4932,11 @@ export default function MediaSufficiencyDashboard() {
                                       
                                       return {
                                         burst,
+                                        burstLabel: `${burst}\n${formatDateRange(data.startDate, data.endDate)}`,
                                         reach: calculateSainsburyReach(consolidatedChannelReaches),
                                         channels: Object.keys(channelReaches).join(', '),
-                                        count: data.digital.length
+                                        count: data.digital.length,
+                                        dateRange: formatDateRange(data.startDate, data.endDate)
                                       };
                                     });
                                 } else if (reachMediaView === 'tv') {
@@ -4733,8 +4948,10 @@ export default function MediaSufficiencyDashboard() {
                                       });
                                       return {
                                         burst,
+                                        burstLabel: `${burst}\n${formatDateRange(data.startDate, data.endDate)}`,
                                         reach: calculateSainsburyReach(reaches),
-                                        count: data.tv.length
+                                        count: data.tv.length,
+                                        dateRange: formatDateRange(data.startDate, data.endDate)
                                       };
                                     });
                                 } else { // multimedia
@@ -4764,10 +4981,12 @@ export default function MediaSufficiencyDashboard() {
                                       
                                       return {
                                         burst,
+                                        burstLabel: `${burst}\n${formatDateRange(data.startDate, data.endDate)}`,
                                         reach: combinedReach,
                                         digitalReach: digitalTotal,
                                         tvReach: tvTotal,
-                                        count: data.all.length
+                                        count: data.all.length,
+                                        dateRange: formatDateRange(data.startDate, data.endDate)
                                       };
                                     });
                                 }
@@ -4789,9 +5008,25 @@ export default function MediaSufficiencyDashboard() {
                               return (
                                 <>
                                   <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-base font-semibold text-gray-800">Reach Building by Burst</h3>
+                                    <div className="flex items-center space-x-2">
+                                      <button
+                                        onClick={() => setIsReachChartExpanded(!isReachChartExpanded)}
+                                        className="text-gray-500 hover:text-gray-700 transition-colors"
+                                      >
+                                        <svg 
+                                          className={`w-5 h-5 transform transition-transform ${isReachChartExpanded ? 'rotate-90' : ''}`} 
+                                          fill="none" 
+                                          stroke="currentColor" 
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </button>
+                                      <h3 className="text-base font-semibold text-gray-800">Reach Building by Burst</h3>
+                                    </div>
                                     {/* Media Type Toggle */}
-                                    <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+                                    {isReachChartExpanded && (
+                                      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
                                       <button
                                         onClick={() => setReachMediaView('digital')}
                                         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -4823,9 +5058,12 @@ export default function MediaSufficiencyDashboard() {
                                         Multimedia
                                       </button>
                                     </div>
+                                    )}
                                   </div>
                                   
-                                  <div className="h-80">
+                                  {isReachChartExpanded && (
+                                    <>
+                                    <div className="h-80">
                                     <ResponsiveContainer width="100%" height="100%">
                                       <BarChart data={chartData} margin={{ top: 20, right: 120, left: 20, bottom: 60 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -4833,7 +5071,38 @@ export default function MediaSufficiencyDashboard() {
                                           dataKey="burst" 
                                           axisLine={false} 
                                           tickLine={false}
-                                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                                          tick={(props: any) => {
+                                            const { x, y, payload } = props;
+                                            const data = chartData.find(d => d.burst === payload.value);
+                                            return (
+                                              <g transform={`translate(${x},${y})`}>
+                                                <text 
+                                                  x={0} 
+                                                  y={0} 
+                                                  dy={16} 
+                                                  textAnchor="middle" 
+                                                  fill="#374151"
+                                                  fontSize={11}
+                                                  fontWeight={600}
+                                                >
+                                                  {payload.value}
+                                                </text>
+                                                {data?.dateRange && (
+                                                  <text 
+                                                    x={0} 
+                                                    y={0} 
+                                                    dy={30} 
+                                                    textAnchor="middle" 
+                                                    fill="#9CA3AF"
+                                                    fontSize={9}
+                                                  >
+                                                    {data.dateRange}
+                                                  </text>
+                                                )}
+                                              </g>
+                                            );
+                                          }}
+                                          height={50}
                                         />
                                         <YAxis 
                                           axisLine={false} 
@@ -4851,6 +5120,9 @@ export default function MediaSufficiencyDashboard() {
                                               return (
                                                 <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
                                                   <p className="font-semibold text-sm mb-1">{label}</p>
+                                                  {data.dateRange && (
+                                                    <p className="text-xs text-gray-500 mb-1">{data.dateRange}</p>
+                                                  )}
                                                   <p className="text-sm">Reach: {Number(data.reach).toFixed(1)}%</p>
                                                   {reachMediaView === 'multimedia' && (
                                                     <>
@@ -4904,9 +5176,363 @@ export default function MediaSufficiencyDashboard() {
                                       <span>Combined TV & Digital reach (Sainsbury Formula: TV + Digital - Overlap)</span>
                                     )}
                                   </div>
+                                  </>
+                                  )}
                                 </>
                               );
                             })()}
+                          </div>
+
+                          {/* WOA Evolution Chart */}
+                          <div className="bg-white rounded-lg shadow p-6 mt-6">
+                            {(() => {
+                              // Calculate WOA (Weeks on Air) for each burst
+                              const woaData: { [key: string]: { weeks: number, startDate: Date | null, endDate: Date | null } } = {};
+                              
+                              campaignPlans.forEach(plan => {
+                                const burst = plan.burst || 'B1';
+                                
+                                if (!woaData[burst]) {
+                                  woaData[burst] = {
+                                    weeks: 0,
+                                    startDate: null,
+                                    endDate: null
+                                  };
+                                }
+                                
+                                // Calculate weeks for this plan
+                                if (plan.startDate && plan.endDate) {
+                                  const start = new Date(plan.startDate);
+                                  const end = new Date(plan.endDate);
+                                  const weeks = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7));
+                                  
+                                  // Add to total weeks for this burst (avoiding double counting by taking max)
+                                  if (weeks > woaData[burst].weeks) {
+                                    woaData[burst].weeks = weeks;
+                                  }
+                                  
+                                  // Track date range
+                                  if (!woaData[burst].startDate || start < woaData[burst].startDate) {
+                                    woaData[burst].startDate = start;
+                                  }
+                                  if (!woaData[burst].endDate || end > woaData[burst].endDate) {
+                                    woaData[burst].endDate = end;
+                                  }
+                                }
+                                
+                                // Alternative: use totalWoa if available
+                                if (plan.totalWoa && plan.totalWoa > woaData[burst].weeks) {
+                                  woaData[burst].weeks = plan.totalWoa;
+                                }
+                              });
+                              
+                              // Format data for chart
+                              const formatDateRange = (startDate: Date | null, endDate: Date | null) => {
+                                if (!startDate || !endDate) return '';
+                                const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+                                const start = startDate.toLocaleDateString('en-US', options);
+                                const end = endDate.toLocaleDateString('en-US', options);
+                                return `${start} - ${end}`;
+                              };
+                              
+                              const chartData = Object.entries(woaData)
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([burst, data]) => ({
+                                  burst,
+                                  weeks: data.weeks,
+                                  dateRange: formatDateRange(data.startDate, data.endDate),
+                                  status: data.weeks < 12 ? 'below' : data.weeks > 16 ? 'above' : 'optimal'
+                                }));
+                              
+                              // Define colors based on status
+                              const getBarColor = (status: string) => {
+                                switch(status) {
+                                  case 'below': return '#FCA5A5'; // Light red
+                                  case 'above': return '#FDBA74'; // Light orange
+                                  case 'optimal': return '#86EFAC'; // Light green
+                                  default: return '#D1D5DB'; // Gray
+                                }
+                              };
+                              
+                              return (
+                                <>
+                                  <div className="flex items-center space-x-2 mb-4">
+                                    <button
+                                      onClick={() => setIsWOAChartExpanded(!isWOAChartExpanded)}
+                                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                                    >
+                                      <svg 
+                                        className={`w-5 h-5 transform transition-transform ${isWOAChartExpanded ? 'rotate-90' : ''}`} 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                    <h3 className="text-base font-semibold text-gray-800">WOA Evolution by Burst</h3>
+                                  </div>
+                                  
+                                  {isWOAChartExpanded && (
+                                  <>
+                                  <div className="h-96">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart data={chartData} margin={{ top: 20, right: 120, left: 20, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                        <XAxis 
+                                          dataKey="burst" 
+                                          axisLine={false} 
+                                          tickLine={false}
+                                          tick={(props: any) => {
+                                            const { x, y, payload } = props;
+                                            const data = chartData.find(d => d.burst === payload.value);
+                                            return (
+                                              <g transform={`translate(${x},${y})`}>
+                                                <text 
+                                                  x={0} 
+                                                  y={0} 
+                                                  dy={16} 
+                                                  textAnchor="middle" 
+                                                  fill="#374151"
+                                                  fontSize={11}
+                                                  fontWeight={600}
+                                                >
+                                                  {payload.value}
+                                                </text>
+                                                {data?.dateRange && (
+                                                  <text 
+                                                    x={0} 
+                                                    y={0} 
+                                                    dy={30} 
+                                                    textAnchor="middle" 
+                                                    fill="#9CA3AF"
+                                                    fontSize={9}
+                                                  >
+                                                    {data.dateRange}
+                                                  </text>
+                                                )}
+                                              </g>
+                                            );
+                                          }}
+                                          height={50}
+                                        />
+                                        <YAxis 
+                                          axisLine={false} 
+                                          tickLine={false}
+                                          domain={[0, 25]}
+                                          ticks={[0, 5, 10, 12, 16, 20, 25]}
+                                          tickFormatter={(value) => `${value}w`}
+                                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                                          width={35}
+                                        />
+                                        <Tooltip 
+                                          content={({ active, payload, label }) => {
+                                            if (active && payload && payload.length) {
+                                              const data = payload[0].payload;
+                                              const status = data.weeks < 12 ? '⚠️ Below Minimum' : 
+                                                          data.weeks > 16 ? '⚠️ Above Maximum' : 
+                                                          '✅ Optimal Range';
+                                              return (
+                                                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                                                  <p className="font-semibold text-sm mb-1">{label}</p>
+                                                  {data.dateRange && (
+                                                    <p className="text-xs text-gray-500 mb-1">{data.dateRange}</p>
+                                                  )}
+                                                  <p className="text-sm">Weeks on Air: {data.weeks}w</p>
+                                                  <p className="text-xs mt-1" style={{ color: data.status === 'optimal' ? '#16A34A' : '#DC2626' }}>
+                                                    {status}
+                                                  </p>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          }}
+                                        />
+                                        <Bar dataKey="weeks" radius={[4, 4, 0, 0]}>
+                                          {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={getBarColor(entry.status)} />
+                                          ))}
+                                          <LabelList 
+                                            dataKey="weeks" 
+                                            position="top" 
+                                            formatter={(value: any) => `${value}w`}
+                                            style={{ fill: '#374151', fontSize: '12px', fontWeight: '600' }}
+                                          />
+                                        </Bar>
+                                        {/* Minimum WOA Line */}
+                                        <ReferenceLine 
+                                          y={12} 
+                                          stroke="#3B82F6" 
+                                          strokeDasharray="5 5"
+                                          strokeWidth={2}
+                                          label={{ 
+                                            value: "Min 12W", 
+                                            position: "right",
+                                            offset: 10,
+                                            style: { fill: '#3B82F6', fontSize: 11, fontWeight: 600 }
+                                          }}
+                                        />
+                                        {/* Maximum WOA Line */}
+                                        <ReferenceLine 
+                                          y={16} 
+                                          stroke="#EF4444" 
+                                          strokeDasharray="5 5"
+                                          strokeWidth={2}
+                                          label={{ 
+                                            value: "Max 16W", 
+                                            position: "right",
+                                            offset: 10,
+                                            style: { fill: '#EF4444', fontSize: 11, fontWeight: 600 }
+                                          }}
+                                        />
+                                      </BarChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  
+                                  <div className="mt-4 flex items-center justify-center space-x-6 text-xs">
+                                    <div className="flex items-center">
+                                      <div className="w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: '#86EFAC' }}></div>
+                                      <span className="text-gray-600">Optimal (12-16 weeks)</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <div className="w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: '#FCA5A5' }}></div>
+                                      <span className="text-gray-600">Below Minimum</span>
+                                    </div>
+                                    <div className="flex items-center">
+                                      <div className="w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: '#FDBA74' }}></div>
+                                      <span className="text-gray-600">Above Maximum</span>
+                                    </div>
+                                  </div>
+                                  </>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Burst Details Table */}
+                          <div className="bg-white rounded-lg shadow p-6 mt-6">
+                            <h3 className="text-base font-semibold text-gray-800 mb-4">Burst Details</h3>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Country
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Burst
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Media Type
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Media SubType
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      Start / End
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      WOA
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      R1+
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                      R3+
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {(() => {
+                                    // Sort campaign plans by country, then burst, then media type
+                                    const sortedPlans = [...campaignPlans].sort((a, b) => {
+                                      // First sort by country
+                                      const countryA = String(a.country?.name || '');
+                                      const countryB = String(b.country?.name || '');
+                                      const countryCompare = countryA.localeCompare(countryB);
+                                      if (countryCompare !== 0) return countryCompare;
+                                      
+                                      // Then by burst
+                                      const burstA = String(a.burst || 'B1');
+                                      const burstB = String(b.burst || 'B1');
+                                      const burstCompare = burstA.localeCompare(burstB);
+                                      if (burstCompare !== 0) return burstCompare;
+                                      
+                                      // Finally by media type
+                                      const mediaTypeA = String(a.mediaSubType?.mediaType?.name || '');
+                                      const mediaTypeB = String(b.mediaSubType?.mediaType?.name || '');
+                                      return mediaTypeA.localeCompare(mediaTypeB);
+                                    });
+
+                                    return sortedPlans.map((plan, index) => {
+                                      const startDate = plan.startDate ? new Date(plan.startDate) : null;
+                                      const endDate = plan.endDate ? new Date(plan.endDate) : null;
+                                      const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: '2-digit' };
+                                      
+                                      const dateRange = startDate && endDate
+                                        ? `${startDate.toLocaleDateString('en-US', dateOptions)} - ${endDate.toLocaleDateString('en-US', dateOptions)}`
+                                        : '-';
+                                      
+                                      // Color coding for WOA
+                                      const woa = plan.totalWoa || 0;
+                                      const woaColor = woa < 12 ? 'text-red-600' : woa > 16 ? 'text-orange-600' : 'text-green-600';
+                                      
+                                      return (
+                                        <tr key={plan.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {plan.country?.name || '-'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            {plan.burst || 'B1'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {plan.mediaSubType?.mediaType?.name || '-'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {plan.mediaSubType?.name || '-'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {dateRange}
+                                          </td>
+                                          <td className={`px-4 py-3 whitespace-nowrap text-sm text-center font-medium ${woaColor}`}>
+                                            {woa ? `${woa}w` : '-'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                                            {plan.totalR1Plus ? `${plan.totalR1Plus.toFixed(1)}%` : '-'}
+                                          </td>
+                                          <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                                            {plan.totalR3Plus ? `${plan.totalR3Plus.toFixed(1)}%` : '-'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    });
+                                  })()}
+                                </tbody>
+                              </table>
+                              
+                              {campaignPlans.length === 0 && (
+                                <div className="text-center py-8 text-gray-500">
+                                  No burst data available for this campaign
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Legend */}
+                            <div className="mt-4 flex items-center justify-end space-x-4 text-xs">
+                              <div className="flex items-center">
+                                <span className="text-green-600 mr-1">●</span>
+                                <span className="text-gray-600">Optimal WOA (12-16w)</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-red-600 mr-1">●</span>
+                                <span className="text-gray-600">Below Min (&lt; 12w)</span>
+                              </div>
+                              <div className="flex items-center">
+                                <span className="text-orange-600 mr-1">●</span>
+                                <span className="text-gray-600">Above Max (&gt; 16w)</span>
+                              </div>
+                            </div>
                           </div>
                         </>
                       );
@@ -4920,6 +5546,295 @@ export default function MediaSufficiencyDashboard() {
                       <p className="text-sm">Select a campaign from the dropdown above to see detailed analysis</p>
                     </div>
                   )}
+                </div>
+              </div>
+            ) : activeTab === 'pisummary' ? (
+              <div className="space-y-6">
+                {/* PI Summary Content */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">Paid Influencer Summary</h2>
+                  
+                  {/* Calculate PI metrics from filtered game plans */}
+                  {(() => {
+                    // Apply filters to game plans for PI summary - use applyAllFilters function
+                    const filteredPlans = applyAllFilters(gamePlans || []);
+                    
+                    // Calculate metrics from filtered plans
+                    const digitalPlans = filteredPlans.filter(plan => 
+                      plan.mediaSubType?.mediaType?.name && plan.mediaSubType.mediaType.name !== 'TV'
+                    );
+                    
+                    const totalDigitalBudget = digitalPlans
+                      .reduce((sum, plan) => sum + (plan.totalBudget || 0), 0);
+                    
+                    // Assume 12% of digital budget goes to PI
+                    const totalPISpend = totalDigitalBudget * 0.12;
+                    // Split: 66.7% for Amplification, 33.3% for Organic
+                    const piAmplification = totalPISpend * 0.667;
+                    const piOrganic = totalPISpend * 0.333;
+                    
+                    // Calculate actual percentages
+                    const piVsDigitalPercent = totalDigitalBudget > 0 ? 12 : 0; // PI is 12% of digital
+                    const organicPercent = 33.3; // Organic is 33.3% of PI
+                    const amplificationPercent = 66.7; // Amplification is 66.7% of PI
+                    
+                    return (
+                      <>
+                        {/* Show active filters notification */}
+                        {(selectedLastUpdates.length > 0 || selectedCountries.length > 0 || 
+                          selectedBusinessUnits.length > 0 || selectedCategories.length > 0 || 
+                          selectedMediaTypes.length > 0) && (
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 mb-4">
+                            <p className="text-sm text-purple-800">
+                              Filters active - PI metrics calculated based on filtered digital budget
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 text-white">
+                            <div className="text-sm font-medium opacity-90">Total PI Spend</div>
+                            <div className="text-2xl font-bold mt-1">
+                              € {(totalPISpend / 1000000).toFixed(1)}M
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">Amplification + Organic</div>
+                            <div className="mt-2 pt-2 border-t border-white/20">
+                              <div className="text-xs opacity-90">
+                                Amplification: € {(piAmplification / 1000000).toFixed(1)}M
+                              </div>
+                              <div className="text-xs opacity-90">
+                                Organic: € {(piOrganic / 1000000).toFixed(1)}M
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg p-4 text-white">
+                            <div className="text-sm font-medium opacity-90">% vs Digital Working Media</div>
+                            <div className="text-2xl font-bold mt-1">{piVsDigitalPercent.toFixed(1)}%</div>
+                            <div className="text-xs opacity-75 mt-1">PI as % of Digital</div>
+                            <div className="mt-2 pt-2 border-t border-white/20">
+                              <div className="text-xs opacity-90">
+                                Digital WM: € {(totalDigitalBudget / 1000000).toFixed(1)}M
+                              </div>
+                              <div className="text-xs opacity-90">
+                                PI Spend: € {(totalPISpend / 1000000).toFixed(1)}M
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg p-4 text-white">
+                            <div className="text-sm font-medium opacity-90">Organic %</div>
+                            <div className="text-2xl font-bold mt-1">{organicPercent.toFixed(1)}%</div>
+                            <div className="text-xs opacity-75 mt-1">Of total PI spend</div>
+                            <div className="mt-2 pt-2 border-t border-white/20">
+                              <div className="text-xs opacity-90">
+                                € {(piOrganic / 1000000).toFixed(1)}M of € {(totalPISpend / 1000000).toFixed(1)}M
+                              </div>
+                              <div className="text-xs opacity-90">Unpaid collaborations</div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg p-4 text-white">
+                            <div className="text-sm font-medium opacity-90">Amplification %</div>
+                            <div className="text-2xl font-bold mt-1">{amplificationPercent.toFixed(1)}%</div>
+                            <div className="text-xs opacity-75 mt-1">Of total PI spend</div>
+                            <div className="mt-2 pt-2 border-t border-white/20">
+                              <div className="text-xs opacity-90">
+                                € {(piAmplification / 1000000).toFixed(1)}M of € {(totalPISpend / 1000000).toFixed(1)}M
+                              </div>
+                              <div className="text-xs opacity-90">Paid partnerships</div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                  
+                  {/* Influencer Tier Distribution */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-3">Influencer Tier Distribution</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">Tier 1 (Mega)</span>
+                            <span className="text-sm font-medium">12 creators</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-purple-600 h-2 rounded-full" style={{width: '45%'}}></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">Tier 2 (Macro)</span>
+                            <span className="text-sm font-medium">48 creators</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-pink-600 h-2 rounded-full" style={{width: '35%'}}></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">Tier 3 (Micro)</span>
+                            <span className="text-sm font-medium">96 creators</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-indigo-600 h-2 rounded-full" style={{width: '20%'}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Platform Distribution */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-3">Platform Distribution</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">Instagram</span>
+                            <span className="text-sm font-medium">65%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full" style={{width: '65%'}}></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">TikTok</span>
+                            <span className="text-sm font-medium">25%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-black h-2 rounded-full" style={{width: '25%'}}></div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm text-gray-600">YouTube</span>
+                            <span className="text-sm font-medium">10%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-red-600 h-2 rounded-full" style={{width: '10%'}}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Top Performing Influencers Table */}
+                  <div className="mt-6">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3">Top Performing Influencers</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Influencer
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Platform
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Followers
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Engagement Rate
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Campaign
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Performance
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          <tr>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              @beautyqueen
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              Instagram
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              2.5M
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              5.8%
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              NIVEA Face Care
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Above Target
+                              </span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              @skincareguru
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              TikTok
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              1.8M
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              6.2%
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              NIVEA Body Care
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Above Target
+                              </span>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              @lifestylevlogger
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              YouTube
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              890K
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              4.1%
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                              Eucerin Face
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                On Target
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  
+                  {/* Note */}
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-blue-700">
+                          Paid Influencer data is currently showing sample data. Integration with influencer management platform is in progress.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : null

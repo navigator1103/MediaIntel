@@ -4,6 +4,10 @@ import { getUserFromToken } from '@/lib/getUserFromToken';
 
 export async function GET(request: NextRequest) {
   try {
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const lastUpdatesParam = searchParams.get('lastUpdates');
+    
     // Get user from token to check accessible countries
     const user = getUserFromToken(request);
     if (!user) {
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
       }
     }
     // Check if MediaSufficiency table has data
-    const count = await prisma.mediaSufficiency.count();
+    const count = await prisma.MediaSufficiency.count();
     
     if (count === 0) {
       // Return empty structure if no data
@@ -71,7 +75,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Build where clause based on accessible countries
+    // Build where clause based on accessible countries and lastUpdate filter
     const whereClause: any = {};
     if (accessibleCountryIds.length > 0) {
       whereClause.countryId = {
@@ -79,8 +83,31 @@ export async function GET(request: NextRequest) {
       };
     }
     
+    // Add lastUpdate filter if provided
+    if (lastUpdatesParam) {
+      const lastUpdateNames = lastUpdatesParam.split(',');
+      // First find the lastUpdate IDs for these names
+      const lastUpdates = await prisma.lastUpdate.findMany({
+        where: {
+          name: {
+            in: lastUpdateNames
+          }
+        },
+        select: {
+          id: true,
+          name: true
+        }
+      });
+      
+      if (lastUpdates.length > 0) {
+        whereClause.lastUpdateId = {
+          in: lastUpdates.map(lu => lu.id)
+        };
+      }
+    }
+    
     // Fetch all MediaSufficiency records with their reach data
-    const mediaSufficiencyData = await prisma.mediaSufficiency.findMany({
+    const mediaSufficiencyData = await prisma.MediaSufficiency.findMany({
       where: whereClause,
       select: {
         id: true,
@@ -111,6 +138,8 @@ export async function GET(request: NextRequest) {
     
     // Fetch game plans for these campaigns to get WOA and Weeks data
     let gamePlansData: any[] = [];
+    let campaignWoaMap: Record<string, { totalWoa: number; totalWoff: number; totalWeeks: number }> = {};
+    
     if (uniqueCampaigns.length > 0) {
       // Fetch campaigns first to get their IDs
       const campaigns = await prisma.campaign.findMany({
@@ -123,6 +152,11 @@ export async function GET(request: NextRequest) {
           id: true,
           name: true
         }
+      });
+      
+      const campaignIdToName: Record<number, string> = {};
+      campaigns.forEach(c => {
+        campaignIdToName[c.id] = c.name;
       });
       
       const campaignIds = campaigns.map(c => c.id);
@@ -141,6 +175,11 @@ export async function GET(request: NextRequest) {
         };
       }
       
+      // Add lastUpdate filter to match the media sufficiency filter
+      if (whereClause.lastUpdateId) {
+        gamePlanWhere.last_update_id = whereClause.lastUpdateId;
+      }
+      
       // Now fetch game plans for these campaign IDs
       gamePlansData = await prisma.gamePlan.findMany({
         where: gamePlanWhere,
@@ -149,6 +188,19 @@ export async function GET(request: NextRequest) {
           totalWoa: true,
           totalWoff: true,
           totalWeeks: true
+        }
+      });
+      
+      // Build campaign WOA map
+      gamePlansData.forEach(gp => {
+        const campaignName = campaignIdToName[gp.campaignId];
+        if (campaignName) {
+          if (!campaignWoaMap[campaignName]) {
+            campaignWoaMap[campaignName] = { totalWoa: 0, totalWoff: 0, totalWeeks: 0 };
+          }
+          campaignWoaMap[campaignName].totalWoa += gp.totalWoa || 0;
+          campaignWoaMap[campaignName].totalWoff += gp.totalWoff || 0;
+          campaignWoaMap[campaignName].totalWeeks += gp.totalWeeks || 0;
         }
       });
     }

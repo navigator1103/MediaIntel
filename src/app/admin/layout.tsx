@@ -17,8 +17,18 @@ export default function AdminLayout({
 
   useEffect(() => {
     const checkAdminAuth = () => {
+      console.log('Admin layout - checking auth for path:', pathname);
+      
       // Check if user is logged in and is an admin
       const user = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      console.log('Admin layout - auth check:', {
+        hasUser: !!user,
+        hasToken: !!token,
+        pathname
+      });
+      
       if (!user) {
         console.log('No user found, redirecting to login');
         router.push('/login');
