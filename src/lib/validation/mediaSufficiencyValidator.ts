@@ -8,6 +8,87 @@ export interface ValidationIssue {
   suggestedValue?: any;
 }
 
+// Shared campaigns that appear in multiple ranges via many-to-many relationships
+const SHARED_CAMPAIGNS = [
+  'Search AWON',
+  'Luminous Launch India',
+  'Orionis',
+  'Lucia', 
+  'Sirena',
+  '50 Shades',
+  'Stardust',
+  'Stargate',
+  'Midnight Gold',
+  'Polaris',
+  'Sirius'
+];
+
+// Helper function to validate shared campaigns against multiple ranges
+function validateSharedCampaignCategory(
+  campaignName: string, 
+  categoryName: string,
+  masterData: MasterData
+): boolean {
+  const rangeToCampaignsMap = masterData?.rangeToCampaignsMap || {};
+  const rangeToCategories = masterData?.rangeToCategories || {};
+  
+  // Find all ranges that contain this campaign
+  const campaignRanges: string[] = [];
+  Object.keys(rangeToCampaignsMap).forEach(rangeName => {
+    const campaigns = rangeToCampaignsMap[rangeName] || [];
+    const campaignExists = campaigns.some(c => c.toLowerCase() === campaignName.toLowerCase());
+    if (campaignExists) {
+      campaignRanges.push(rangeName);
+    }
+  });
+  
+  // Get all valid categories for all ranges this campaign belongs to
+  const validCategories: string[] = [];
+  campaignRanges.forEach(rangeName => {
+    const categoriesForRange = rangeToCategories[rangeName] || [];
+    categoriesForRange.forEach(cat => {
+      if (!validCategories.includes(cat)) {
+        validCategories.push(cat);
+      }
+    });
+  });
+  
+  // Check if the selected category is valid (case-insensitive)
+  const isValid = validCategories.some(cat => 
+    cat.toLowerCase() === categoryName.toLowerCase()
+  );
+  
+  if (!isValid) {
+    console.log(`Shared campaign '${campaignName}' belongs to ranges [${campaignRanges.join(', ')}] which are valid for categories: [${validCategories.join(', ')}], but selected category is '${categoryName}'`);
+  }
+  
+  return isValid;
+}
+
+// Helper function to validate shared campaigns against specific range
+function validateSharedCampaignRange(
+  campaignName: string,
+  rangeName: string, 
+  masterData: MasterData
+): boolean {
+  const rangeToCampaignsMap = masterData?.rangeToCampaignsMap || {};
+  
+  // Check if the campaign exists in the specified range
+  const campaignsInRange = rangeToCampaignsMap[rangeName] || [];
+  const campaignExists = campaignsInRange.some(c => 
+    c.toLowerCase() === campaignName.toLowerCase()
+  );
+  
+  if (!campaignExists) {
+    console.log(`Shared campaign '${campaignName}' not found in range '${rangeName}'. Available ranges: [${Object.keys(rangeToCampaignsMap).filter(r => {
+      const campaigns = rangeToCampaignsMap[r] || [];
+      return campaigns.some(c => c.toLowerCase() === campaignName.toLowerCase());
+    }).join(', ')}]`);
+  }
+  
+  return campaignExists;
+}
+
 // Define master data interface for better type safety
 interface MasterData {
   mediaTypes?: string[];
@@ -982,7 +1063,17 @@ export class MediaSufficiencyValidator {
         const campaignInput = value.toString().trim();
         const categoryInput = record.Category.toString().trim();
         
-        // Get the campaign-to-range mapping and range-to-category mapping
+        // Check if this is a shared campaign that needs special handling
+        const isSharedCampaign = SHARED_CAMPAIGNS.some(sharedCampaign => 
+          sharedCampaign.toLowerCase() === campaignInput.toLowerCase()
+        );
+        
+        if (isSharedCampaign) {
+          // Use many-to-many validation for shared campaigns
+          return validateSharedCampaignCategory(campaignInput, categoryInput, masterData);
+        }
+        
+        // Regular single-range validation for all other campaigns
         const campaignToRangeMap = masterData?.campaignToRangeMap || {};
         const rangeToCategories = masterData?.rangeToCategories || {};
         
@@ -1040,7 +1131,17 @@ export class MediaSufficiencyValidator {
         const campaignInput = value.toString().trim();
         const rangeInput = record.Range.toString().trim();
         
-        // Get the mappings from master data
+        // Check if this is a shared campaign that needs special handling
+        const isSharedCampaign = SHARED_CAMPAIGNS.some(sharedCampaign => 
+          sharedCampaign.toLowerCase() === campaignInput.toLowerCase()
+        );
+        
+        if (isSharedCampaign) {
+          // Use many-to-many validation for shared campaigns
+          return validateSharedCampaignRange(campaignInput, rangeInput, masterData);
+        }
+        
+        // Regular single-range validation for all other campaigns
         const campaignToRangeMap = masterData?.campaignToRangeMap || {};
         const rangeToCampaignsMap = masterData?.rangeToCampaignsMap || {};
         const campaignCompatibilityMap = masterData?.campaignCompatibilityMap || {};

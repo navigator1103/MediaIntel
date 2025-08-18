@@ -116,10 +116,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Build campaign-range mappings
+    // Build campaign-range mappings (including many-to-many from junction table)
     const campaignToRangeMap: Record<string, string> = {};
     const rangeToCampaignsMap: Record<string, string[]> = {};
     
+    // First, add direct range relationships
     campaigns.forEach(campaign => {
       if (campaign.range) {
         campaignToRangeMap[campaign.name] = campaign.range.name;
@@ -132,6 +133,35 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+    
+    // Then, add many-to-many relationships from junction table
+    try {
+      const rangeToCampaignJunctions = await prisma.rangeToCampaign.findMany({
+        include: {
+          range: true,
+          campaign: true
+        }
+      });
+      
+      rangeToCampaignJunctions.forEach(junction => {
+        // Additional null checks for safety
+        if (junction.range && junction.campaign && junction.range.name && junction.campaign.name) {
+          const rangeName = junction.range.name;
+          const campaignName = junction.campaign.name;
+          
+          if (!rangeToCampaignsMap[rangeName]) {
+            rangeToCampaignsMap[rangeName] = [];
+          }
+          if (!rangeToCampaignsMap[rangeName].includes(campaignName)) {
+            rangeToCampaignsMap[rangeName].push(campaignName);
+          }
+        }
+      });
+      
+      console.log(`Added ${rangeToCampaignJunctions.length} many-to-many campaign relationships`);
+    } catch (error) {
+      console.warn('Could not load many-to-many campaign relationships:', error);
+    }
 
     // Build media type to subtypes mapping
     const mediaToSubtypes: Record<string, string[]> = {};
