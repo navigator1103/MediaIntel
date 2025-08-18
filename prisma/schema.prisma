@@ -49,22 +49,22 @@ model Region {
 }
 
 model Country {
-  id          Int        @id @default(autoincrement())
-  name        String     @unique
-  regionId    Int        @map("region_id")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  subRegionId Int?       @map("sub_region_id")
-  clusterId   Int?       @map("cluster_id")
-  region      Region     @relation(fields: [regionId], references: [id])
-  subRegion   SubRegion? @relation(fields: [subRegionId], references: [id])
-  cluster     Cluster?   @relation(fields: [clusterId], references: [id])
-  gamePlans   GamePlan[]
-  shareOfVoice ShareOfVoice[]
-  tvTargetAudiences TvTargetAudience[]
-  tvDiminishingReturns TvDiminishingReturns[]
-  digitalTargetAudiences DigitalTargetAudience[]
-  digitalDiminishingReturns DigitalDiminishingReturns[]
-  multimediaTargetAudiences MultimediaTargetAudience[]
+  id                           Int                            @id @default(autoincrement())
+  name                         String                         @unique
+  regionId                     Int                            @map("region_id")
+  createdAt                    DateTime                       @default(now()) @map("created_at")
+  subRegionId                  Int?                           @map("sub_region_id")
+  clusterId                    Int?                           @map("cluster_id")
+  region                       Region                         @relation(fields: [regionId], references: [id])
+  subRegion                    SubRegion?                     @relation(fields: [subRegionId], references: [id])
+  cluster                      Cluster?                       @relation(fields: [clusterId], references: [id])
+  gamePlans                    GamePlan[]
+  shareOfVoice                 ShareOfVoice[]
+  tvTargetAudiences            TvTargetAudience[]
+  tvDiminishingReturns         TvDiminishingReturns[]
+  digitalTargetAudiences       DigitalTargetAudience[]
+  digitalDiminishingReturns    DigitalDiminishingReturns[]
+  multimediaTargetAudiences    MultimediaTargetAudience[]
   multimediaDiminishingReturns MultimediaDiminishingReturns[]
 
   @@map("countries")
@@ -197,18 +197,18 @@ model PMTypeToMediaSubType {
 }
 
 model BusinessUnit {
-  id           Int            @id @default(autoincrement())
-  name         String?        @unique(map: "sqlite_autoindex_business_units_1")
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @default(now()) @updatedAt @map("updated_at")
-  categories   Category[]
-  gamePlans    GamePlan[]
-  shareOfVoice ShareOfVoice[]
-  tvTargetAudiences TvTargetAudience[]
-  tvDiminishingReturns TvDiminishingReturns[]
-  digitalTargetAudiences DigitalTargetAudience[]
-  digitalDiminishingReturns DigitalDiminishingReturns[]
-  multimediaTargetAudiences MultimediaTargetAudience[]
+  id                           Int                            @id @default(autoincrement())
+  name                         String?                        @unique(map: "sqlite_autoindex_business_units_1")
+  createdAt                    DateTime                       @default(now()) @map("created_at")
+  updatedAt                    DateTime                       @default(now()) @updatedAt @map("updated_at")
+  categories                   Category[]
+  gamePlans                    GamePlan[]
+  shareOfVoice                 ShareOfVoice[]
+  tvTargetAudiences            TvTargetAudience[]
+  tvDiminishingReturns         TvDiminishingReturns[]
+  digitalTargetAudiences       DigitalTargetAudience[]
+  digitalDiminishingReturns    DigitalDiminishingReturns[]
+  multimediaTargetAudiences    MultimediaTargetAudience[]
   multimediaDiminishingReturns MultimediaDiminishingReturns[]
 
   @@map("business_units")
@@ -244,309 +244,249 @@ model CampaignArchetype {
 }
 
 model GamePlan {
-  id               Int          @id @default(autoincrement())
-  campaignId           Int                @map("campaign_id")
-  mediaSubTypeId       Int                @map("media_sub_type_id")
-  pmTypeId             Int?               @map("pm_type_id")
-  campaignArchetypeId  Int?               @map("campaign_archetype_id")
-  burst                Int
-  startDate        String       @map("start_date")
-  endDate          String       @map("end_date")
-  totalBudget      Float        @map("total_budget")
-  janBudget        Float?       @map("jan_budget")
-  febBudget        Float?       @map("feb_budget")
-  marBudget        Float?       @map("mar_budget")
-  aprBudget        Float?       @map("apr_budget")
-  mayBudget        Float?       @map("may_budget")
-  junBudget        Float?       @map("jun_budget")
-  julBudget        Float?       @map("jul_budget")
-  augBudget        Float?       @map("aug_budget")
-  sepBudget        Float?       @map("sep_budget")
-  octBudget        Float?       @map("oct_budget")
-  novBudget        Float?       @map("nov_budget")
-  decBudget        Float?       @map("dec_budget")
-  totalTrps        Float?       @map("total_trps")
-  totalR1Plus      Float?       @map("total_r1_plus")
-  totalR3Plus      Float?       @map("total_r3_plus")
-  totalWoa         Float?       @map("total_woa")
-  totalWoff        Float?       @map("total_woff")
-  totalWeeks       Float?       @map("total_weeks")
-  weeksOffAir      Float?       @map("weeks_off_air")
-  nsVsWm           String?      @map("ns_vs_wm")
-  createdAt        String       @default("CURRENT_TIMESTAMP") @map("created_at")
-  updatedAt        String       @default("CURRENT_TIMESTAMP") @map("updated_at")
-  year             Int?
-  countryId        Int?         @map("country_id")
-  business_unit_id Int?
-  region_id        Int?
-  sub_region_id    Int?
-  category_id      Int?
-  range_id         Int?
-  last_update_id   Int?
-  playbook_id      String?
-  weeksLive        Float?       @map("weeks_live")
-  campaign         Campaign           @relation(fields: [campaignId], references: [id])
-  mediaSubType     MediaSubType       @relation(fields: [mediaSubTypeId], references: [id])
-  pmType           PMType?            @relation(fields: [pmTypeId], references: [id])
-  campaignArchetype CampaignArchetype? @relation(fields: [campaignArchetypeId], references: [id])
-  country          Country?           @relation(fields: [countryId], references: [id])
-  lastUpdate       LastUpdate?        @relation(fields: [last_update_id], references: [id])
-  category         Category?          @relation(fields: [category_id], references: [id])
-  businessUnit     BusinessUnit?      @relation(fields: [business_unit_id], references: [id])
+  id                  Int                @id @default(autoincrement())
+  campaignId          Int                @map("campaign_id")
+  mediaSubTypeId      Int                @map("media_sub_type_id")
+  pmTypeId            Int?               @map("pm_type_id")
+  campaignArchetypeId Int?               @map("campaign_archetype_id")
+  burst               Int
+  startDate           String             @map("start_date")
+  endDate             String             @map("end_date")
+  totalBudget         Float              @map("total_budget")
+  janBudget           Float?             @map("jan_budget")
+  febBudget           Float?             @map("feb_budget")
+  marBudget           Float?             @map("mar_budget")
+  aprBudget           Float?             @map("apr_budget")
+  mayBudget           Float?             @map("may_budget")
+  junBudget           Float?             @map("jun_budget")
+  julBudget           Float?             @map("jul_budget")
+  augBudget           Float?             @map("aug_budget")
+  sepBudget           Float?             @map("sep_budget")
+  octBudget           Float?             @map("oct_budget")
+  novBudget           Float?             @map("nov_budget")
+  decBudget           Float?             @map("dec_budget")
+  totalTrps           Float?             @map("total_trps")
+  totalR1Plus         Float?             @map("total_r1_plus")
+  totalR3Plus         Float?             @map("total_r3_plus")
+  totalWoa            Float?             @map("total_woa")
+  weeksOffAir         Float?             @map("weeks_off_air")
+  nsVsWm              String?            @map("ns_vs_wm")
+  createdAt           String             @default("CURRENT_TIMESTAMP") @map("created_at")
+  updatedAt           String             @default("CURRENT_TIMESTAMP") @map("updated_at")
+  year                Int?
+  countryId           Int?               @map("country_id")
+  business_unit_id    Int?
+  region_id           Int?
+  sub_region_id       Int?
+  category_id         Int?
+  range_id            Int?
+  last_update_id      Int?
+  playbook_id         String?
+  weeksLive           Float?             @map("weeks_live")
+  totalWeeks          Float?             @map("total_weeks")
+  totalWoff           Float?             @map("total_woff")
+  campaign            Campaign           @relation(fields: [campaignId], references: [id])
+  mediaSubType        MediaSubType       @relation(fields: [mediaSubTypeId], references: [id])
+  pmType              PMType?            @relation(fields: [pmTypeId], references: [id])
+  campaignArchetype   CampaignArchetype? @relation(fields: [campaignArchetypeId], references: [id])
+  country             Country?           @relation(fields: [countryId], references: [id])
+  lastUpdate          LastUpdate?        @relation(fields: [last_update_id], references: [id])
+  category            Category?          @relation(fields: [category_id], references: [id])
+  businessUnit        BusinessUnit?      @relation(fields: [business_unit_id], references: [id])
 
   @@map("game_plans")
 }
 
 model MediaSufficiency {
-  id                             Int      @id @default(autoincrement())
-  lastUpdate                     String?  @map("last_update")
-  lastUpdateId                   Int?     @map("last_update_id")
-  subRegion                      String?  @map("sub_region")
-  subRegionId                    Int?     @map("sub_region_id")
-  country                        String?
-  countryId                      Int?     @map("country_id")
-  bu                             String?
-  buId                           Int?     @map("bu_id")
-  category                       String?
-  categoryId                     Int?     @map("category_id")
-  range                          String?
-  rangeId                        Int?     @map("range_id")
-  campaign                       String?
-  campaignId                     Int?     @map("campaign_id")
-  // TV Demographics & Targeting
-  tvDemoGender                   String?  @map("tv_demo_gender")
-  tvDemoMinAge                   Int?     @map("tv_demo_min_age")
-  tvDemoMaxAge                   Int?     @map("tv_demo_max_age")
-  tvSel                          String?  @map("tv_sel")
-  finalTvTarget                  String?  @map("final_tv_target")
-  tvTargetSize                   String?  @map("tv_target_size")
-  tvCopyLength                   String?  @map("tv_copy_length")
-  // TV Performance Metrics
-  tvPlannedR1Plus                String?  @map("tv_planned_r1_plus")
-  tvPlannedR3Plus                String?  @map("tv_planned_r3_plus")
-  tvPotentialR1Plus              String?  @map("tv_potential_r1_plus")
-  cpp2024                        Float?   @map("cpp_2024")
-  cpp2025                        Float?   @map("cpp_2025")
-  cpp2026                        Float?   @map("cpp_2026")
-  reportedCurrency               String?  @map("reported_currency")
-  // Digital Demographics & Targeting
-  isDigitalTargetSameAsTv        Boolean? @map("is_digital_target_same_as_tv")
-  digitalDemoGender              String?  @map("digital_demo_gender")
-  digitalDemoMinAge              Int?     @map("digital_demo_min_age")
-  digitalDemoMaxAge              Int?     @map("digital_demo_max_age")
-  digitalSel                     String?  @map("digital_sel")
-  finalDigitalTarget             String?  @map("final_digital_target")
-  digitalTargetSizeAbs           String?  @map("digital_target_size_abs")
-  // Digital Performance Metrics
-  digitalPlannedR1Plus           String?  @map("digital_planned_r1_plus")
-  digitalPotentialR1Plus         String?  @map("digital_potential_r1_plus")
-  // Combined Metrics
-  plannedCombinedReach           String?  @map("planned_combined_reach")
-  combinedPotentialReach         String?  @map("combined_potential_reach")
-  // System Fields
-  uploadedBy                     String?  @map("uploaded_by")
-  uploadSession                  String?  @map("upload_session")
-  createdAt                      DateTime @default(now()) @map("created_at")
-  updatedAt                      DateTime @updatedAt @map("updated_at")
+  id                      Int      @id @default(autoincrement())
+  lastUpdate              String?  @map("last_update")
+  lastUpdateId            Int?     @map("last_update_id")
+  subRegion               String?  @map("sub_region")
+  subRegionId             Int?     @map("sub_region_id")
+  country                 String?
+  countryId               Int?     @map("country_id")
+  bu                      String?
+  buId                    Int?     @map("bu_id")
+  category                String?
+  categoryId              Int?     @map("category_id")
+  range                   String?
+  rangeId                 Int?     @map("range_id")
+  campaign                String?
+  campaignId              Int?     @map("campaign_id")
+  tvDemoGender            String?  @map("tv_demo_gender")
+  tvDemoMinAge            Int?     @map("tv_demo_min_age")
+  tvDemoMaxAge            Int?     @map("tv_demo_max_age")
+  tvSel                   String?  @map("tv_sel")
+  finalTvTarget           String?  @map("final_tv_target")
+  tvTargetSize            String?  @map("tv_target_size")
+  tvCopyLength            String?  @map("tv_copy_length")
+  tvPlannedR1Plus         String?  @map("tv_planned_r1_plus")
+  tvPlannedR3Plus         String?  @map("tv_planned_r3_plus")
+  tvPotentialR1Plus       String?  @map("tv_potential_r1_plus")
+  cpp2024                 Float?   @map("cpp_2024")
+  cpp2025                 Float?   @map("cpp_2025")
+  cpp2026                 Float?   @map("cpp_2026")
+  reportedCurrency        String?  @map("reported_currency")
+  isDigitalTargetSameAsTv Boolean? @map("is_digital_target_same_as_tv")
+  digitalDemoGender       String?  @map("digital_demo_gender")
+  digitalDemoMinAge       Int?     @map("digital_demo_min_age")
+  digitalDemoMaxAge       Int?     @map("digital_demo_max_age")
+  digitalSel              String?  @map("digital_sel")
+  finalDigitalTarget      String?  @map("final_digital_target")
+  digitalTargetSizeAbs    String?  @map("digital_target_size_abs")
+  digitalPlannedR1Plus    String?  @map("digital_planned_r1_plus")
+  digitalPotentialR1Plus  String?  @map("digital_potential_r1_plus")
+  plannedCombinedReach    String?  @map("planned_combined_reach")
+  combinedPotentialReach  String?  @map("combined_potential_reach")
+  uploadedBy              String?  @map("uploaded_by")
+  uploadSession           String?  @map("upload_session")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@map("media_sufficiency")
 }
 
 model ShareOfVoice {
-  id                     Int         @id @default(autoincrement())
-  countryId              Int         @map("country_id")
-  businessUnitId         Int         @map("business_unit_id")
-  category               String      // "Face Care", "Hand Body", "Face Cleansing", etc. (Nivea) OR "Acne", "Anti Pigment", etc. (Derma)
-  company                String      // "Nivea", "Competitor 1", "Competitor 2", etc.
-  position               Int?        // Position within category (0=first, 1=second, etc.) - preserves order
-  
-  // TV SOV Data
-  totalTvInvestment      Float?      @map("total_tv_investment")
-  totalTvTrps            Float?      @map("total_tv_trps")
-  
-  // Digital SOV Data
-  totalDigitalSpend      Float?      @map("total_digital_spend")
-  totalDigitalImpressions Float?     @map("total_digital_impressions")
-  
-  // System Fields
-  uploadedBy             String?     @map("uploaded_by")
-  uploadSession          String?     @map("upload_session")
-  createdAt              DateTime    @default(now()) @map("created_at")
-  updatedAt              DateTime    @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
-  // Ensure unique combination per country, business unit, category and position
+  id                      Int          @id @default(autoincrement())
+  countryId               Int          @map("country_id")
+  businessUnitId          Int          @map("business_unit_id")
+  category                String
+  company                 String
+  totalTvInvestment       Float?       @map("total_tv_investment")
+  totalTvTrps             Float?       @map("total_tv_trps")
+  uploadedBy              String?      @map("uploaded_by")
+  uploadSession           String?      @map("upload_session")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+  totalDigitalImpressions Float?       @map("total_digital_impressions")
+  totalDigitalSpend       Float?       @map("total_digital_spend")
+  position                Int?
+  country                 Country      @relation(fields: [countryId], references: [id])
+  businessUnit            BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, category, position])
   @@map("share_of_voice")
 }
 
 model TvTargetAudience {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // Target Demographics
-  gender                 String   // "F", "M", "BG"
-  minAge                 Int      @map("min_age")
-  maxAge                 Int      @map("max_age")
-  sel                    String?  // "ABC", etc.
-  finalTarget            String   @map("final_target") // "F 18-45 ABC", "M 25-45"
-  saturationPoint        Float    @map("saturation_point") // 77.7
-  saturationTrp          Int?     @map("saturation_trp") // TRP level where saturation occurs
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
+  id              Int          @id @default(autoincrement())
+  countryId       Int          @map("country_id")
+  businessUnitId  Int          @map("business_unit_id")
+  gender          String
+  minAge          Int          @map("min_age")
+  maxAge          Int          @map("max_age")
+  sel             String?
+  finalTarget     String       @map("final_target")
+  saturationPoint Float        @map("saturation_point")
+  uploadedBy      String?      @map("uploaded_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  saturationTrp   Int?         @map("saturation_trp")
+  country         Country      @relation(fields: [countryId], references: [id])
+  businessUnit    BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, finalTarget])
   @@map("tv_target_audiences")
 }
 
 model DigitalTargetAudience {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // Target Demographics
-  gender                 String   // "F", "M", "BG"
-  minAge                 Int      @map("min_age")
-  maxAge                 Int      @map("max_age")
-  sel                    String?  // "ABC", etc.
-  finalTarget            String   @map("final_target") // "F 18-45 ABC", "M 25-45"
-  saturationPoint        Float    @map("saturation_point") // 77.7
-  saturationTrp          Int?     @map("saturation_trp") // TRP level where saturation occurs
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
+  id              Int          @id @default(autoincrement())
+  countryId       Int          @map("country_id")
+  businessUnitId  Int          @map("business_unit_id")
+  gender          String
+  minAge          Int          @map("min_age")
+  maxAge          Int          @map("max_age")
+  sel             String?
+  finalTarget     String       @map("final_target")
+  saturationPoint Float        @map("saturation_point")
+  saturationTrp   Int?         @map("saturation_trp")
+  uploadedBy      String?      @map("uploaded_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  country         Country      @relation(fields: [countryId], references: [id])
+  businessUnit    BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, finalTarget])
   @@map("digital_target_audiences")
 }
 
 model MultimediaTargetAudience {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // Target Demographics
-  gender                 String   // "F", "M", "BG"
-  minAge                 Int      @map("min_age")
-  maxAge                 Int      @map("max_age")
-  sel                    String?  // "ABC", etc.
-  finalTarget            String   @map("final_target") // "F 18-45 ABC", "M 25-45"
-  saturationPoint        Float    @map("saturation_point") // 77.7
-  saturationTrp          Int?     @map("saturation_trp") // TRP level where saturation occurs
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
+  id              Int          @id @default(autoincrement())
+  countryId       Int          @map("country_id")
+  businessUnitId  Int          @map("business_unit_id")
+  gender          String
+  minAge          Int          @map("min_age")
+  maxAge          Int          @map("max_age")
+  sel             String?
+  finalTarget     String       @map("final_target")
+  saturationPoint Float        @map("saturation_point")
+  saturationTrp   Int?         @map("saturation_trp")
+  uploadedBy      String?      @map("uploaded_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  country         Country      @relation(fields: [countryId], references: [id])
+  businessUnit    BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, finalTarget])
   @@map("multimedia_target_audiences")
 }
 
 model TvDiminishingReturns {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // TRP Level
-  trp                    Int      // 100, 150, 200, etc.
-  
-  // Reach values for up to 5 audiences (stored as JSON or separate columns)
-  audience1Reach         Float?   @map("audience1_reach")
-  audience2Reach         Float?   @map("audience2_reach") 
-  audience3Reach         Float?   @map("audience3_reach")
-  audience4Reach         Float?   @map("audience4_reach")
-  audience5Reach         Float?   @map("audience5_reach")
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
-  // Unique constraint for TRP per country/business unit
+  id             Int          @id @default(autoincrement())
+  countryId      Int          @map("country_id")
+  businessUnitId Int          @map("business_unit_id")
+  trp            Int
+  audience1Reach Float?       @map("audience1_reach")
+  audience2Reach Float?       @map("audience2_reach")
+  audience3Reach Float?       @map("audience3_reach")
+  audience4Reach Float?       @map("audience4_reach")
+  audience5Reach Float?       @map("audience5_reach")
+  uploadedBy     String?      @map("uploaded_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  country        Country      @relation(fields: [countryId], references: [id])
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, trp])
   @@map("tv_diminishing_returns")
 }
 
 model DigitalDiminishingReturns {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // TRP Level
-  trp                    Int      // 100, 150, 200, etc.
-  
-  // Reach values for up to 5 audiences (stored as JSON or separate columns)
-  audience1Reach         Float?   @map("audience1_reach")
-  audience2Reach         Float?   @map("audience2_reach") 
-  audience3Reach         Float?   @map("audience3_reach")
-  audience4Reach         Float?   @map("audience4_reach")
-  audience5Reach         Float?   @map("audience5_reach")
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
-  // Unique constraint for TRP per country/business unit
+  id             Int          @id @default(autoincrement())
+  countryId      Int          @map("country_id")
+  businessUnitId Int          @map("business_unit_id")
+  trp            Int
+  audience1Reach Float?       @map("audience1_reach")
+  audience2Reach Float?       @map("audience2_reach")
+  audience3Reach Float?       @map("audience3_reach")
+  audience4Reach Float?       @map("audience4_reach")
+  audience5Reach Float?       @map("audience5_reach")
+  uploadedBy     String?      @map("uploaded_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  country        Country      @relation(fields: [countryId], references: [id])
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, trp])
   @@map("digital_diminishing_returns")
 }
 
 model MultimediaDiminishingReturns {
-  id                     Int      @id @default(autoincrement())
-  countryId              Int      @map("country_id")
-  businessUnitId         Int      @map("business_unit_id")
-  
-  // TRP Level
-  trp                    Int      // 100, 150, 200, etc.
-  
-  // Reach values for up to 5 audiences (stored as JSON or separate columns)
-  audience1Reach         Float?   @map("audience1_reach")
-  audience2Reach         Float?   @map("audience2_reach") 
-  audience3Reach         Float?   @map("audience3_reach")
-  audience4Reach         Float?   @map("audience4_reach")
-  audience5Reach         Float?   @map("audience5_reach")
-  
-  // System Fields
-  uploadedBy             String?  @map("uploaded_by")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  country                Country     @relation(fields: [countryId], references: [id])
-  businessUnit           BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  
-  // Unique constraint for TRP per country/business unit
+  id             Int          @id @default(autoincrement())
+  countryId      Int          @map("country_id")
+  businessUnitId Int          @map("business_unit_id")
+  trp            Int
+  audience1Reach Float?       @map("audience1_reach")
+  audience2Reach Float?       @map("audience2_reach")
+  audience3Reach Float?       @map("audience3_reach")
+  audience4Reach Float?       @map("audience4_reach")
+  audience5Reach Float?       @map("audience5_reach")
+  uploadedBy     String?      @map("uploaded_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  country        Country      @relation(fields: [countryId], references: [id])
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
   @@unique([countryId, businessUnitId, trp])
   @@map("multimedia_diminishing_returns")
 }
