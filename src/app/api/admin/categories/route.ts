@@ -6,36 +6,63 @@ const prisma = new PrismaClient();
 // GET - List all categories
 export async function GET(request: NextRequest) {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: [
-        { name: 'asc' }
-      ],
+    // Fetch business units with their categories using the new many-to-many relationship
+    const businessUnits = await prisma.businessUnit.findMany({
+      orderBy: { name: 'asc' },
       include: {
-        ranges: {
+        businessUnitToCategories: {
           include: {
-            range: true
-          }
-        },
-        _count: {
-          select: {
-            gamePlans: true
+            category: {
+              include: {
+                ranges: {
+                  include: {
+                    range: {
+                      include: {
+                        campaigns: true
+                      }
+                    }
+                  }
+                },
+                _count: {
+                  select: {
+                    gamePlans: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: {
+            category: {
+              name: 'asc'
+            }
           }
         }
       }
     });
 
-    // Transform to match the expected interface
-    const categoriesData = categories.map(category => ({
-      id: category.id,
-      name: category.name,
-      createdAt: category.createdAt.toISOString(),
-      updatedAt: category.updatedAt.toISOString(),
-      ranges: category.ranges.map(r => r.range.name),
-      rangesCount: category.ranges.length,
-      gamePlansCount: category._count.gamePlans
+    // Transform to hierarchical structure
+    const hierarchicalData = businessUnits.map(bu => ({
+      id: bu.id,
+      name: bu.name,
+      categoriesCount: bu.businessUnitToCategories.length,
+      categories: bu.businessUnitToCategories.map(butc => ({
+        id: butc.category.id,
+        name: butc.category.name,
+        businessUnitId: bu.id,
+        businessUnitName: bu.name,
+        createdAt: butc.category.createdAt.toISOString(),
+        updatedAt: butc.category.updatedAt.toISOString(),
+        ranges: butc.category.ranges.map(r => ({
+          id: r.range.id,
+          name: r.range.name,
+          campaignsCount: r.range.campaigns?.length || 0
+        })),
+        rangesCount: butc.category.ranges.length,
+        gamePlansCount: butc.category._count.gamePlans
+      }))
     }));
 
-    return NextResponse.json(categoriesData);
+    return NextResponse.json(hierarchicalData);
   } catch (error) {
     console.error('Error fetching categories:', error);
     return NextResponse.json(
@@ -51,7 +78,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name } = body;
+    const { name, businessUnitId } = body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return NextResponse.json(
@@ -60,14 +87,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if name already exists
-    const existingCategory = await prisma.category.findUnique({
-      where: { name: name.trim() }
+    if (!businessUnitId) {
+      return NextResponse.json(
+        { error: 'Business Unit is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if name already exists for this business unit
+    const existingCategory = await prisma.category.findFirst({
+      where: { 
+        name: name.trim(),
+        businessUnitId: businessUnitId
+      }
     });
 
     if (existingCategory) {
       return NextResponse.json(
-        { error: 'A category with this name already exists' },
+        { error: 'A category with this name already exists for this business unit' },
         { status: 409 }
       );
     }
@@ -75,6 +112,14 @@ export async function POST(request: NextRequest) {
     const newCategory = await prisma.category.create({
       data: {
         name: name.trim()
+      }
+    });
+
+    // Create the business unit to category relationship
+    await prisma.businessUnitToCategory.create({
+      data: {
+        businessUnitId: businessUnitId,
+        categoryId: newCategory.id
       }
     });
 

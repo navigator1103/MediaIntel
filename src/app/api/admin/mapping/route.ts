@@ -13,23 +13,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all business units with their nested relationships
+    // Fetch all business units with their nested relationships using many-to-many
     const businessUnits = await prisma.businessUnit.findMany({
       include: {
-        categories: {
+        businessUnitToCategories: {
           include: {
-            ranges: {
+            category: {
               include: {
-                range: {
+                ranges: {
                   include: {
-                    campaigns: true
+                    range: {
+                      include: {
+                        campaigns: true
+                      }
+                    }
                   }
                 }
               }
             }
           },
           orderBy: {
-            name: 'asc'
+            category: {
+              name: 'asc'
+            }
           }
         }
       },
@@ -42,12 +48,12 @@ export async function GET(request: NextRequest) {
     const mappingData = businessUnits.map(bu => ({
       id: bu.id,
       name: bu.name,
-      categoriesCount: bu.categories.length,
-      categories: bu.categories.map(category => ({
-        id: category.id,
-        name: category.name,
-        rangesCount: category.ranges.length,
-        ranges: category.ranges.map(categoryRange => ({
+      categoriesCount: bu.businessUnitToCategories.length,
+      categories: bu.businessUnitToCategories.map(butc => ({
+        id: butc.category.id,
+        name: butc.category.name,
+        rangesCount: butc.category.ranges.length,
+        ranges: butc.category.ranges.map(categoryRange => ({
           id: categoryRange.range.id,
           name: categoryRange.range.name,
           campaignsCount: categoryRange.range.campaigns.length,
@@ -63,13 +69,13 @@ export async function GET(request: NextRequest) {
     // Calculate totals
     const totals = {
       businessUnits: businessUnits.length,
-      categories: businessUnits.reduce((sum, bu) => sum + bu.categories.length, 0),
+      categories: businessUnits.reduce((sum, bu) => sum + bu.businessUnitToCategories.length, 0),
       ranges: businessUnits.reduce((sum, bu) => 
-        sum + bu.categories.reduce((catSum, cat) => catSum + cat.ranges.length, 0), 0
+        sum + bu.businessUnitToCategories.reduce((catSum, butc) => catSum + butc.category.ranges.length, 0), 0
       ),
       campaigns: businessUnits.reduce((sum, bu) => 
-        sum + bu.categories.reduce((catSum, cat) => 
-          catSum + cat.ranges.reduce((rangeSum, categoryRange) => 
+        sum + bu.businessUnitToCategories.reduce((catSum, butc) => 
+          catSum + butc.category.ranges.reduce((rangeSum, categoryRange) => 
             rangeSum + categoryRange.range.campaigns.length, 0
           ), 0
         ), 0
@@ -272,6 +278,99 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     console.error('Error deleting entity:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Check if user is super_admin only
+    const user = getUserFromToken(request);
+    if (!user || user.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Super admin access required' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { type, name, rangeId } = body;
+
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+
+    // Currently only supporting campaign creation
+    if (type !== 'campaign') {
+      return NextResponse.json(
+        { error: 'Only campaign creation is supported through this endpoint' },
+        { status: 400 }
+      );
+    }
+
+    if (!rangeId) {
+      return NextResponse.json(
+        { error: 'Range ID is required for campaign creation' },
+        { status: 400 }
+      );
+    }
+
+    // Check if the range exists
+    const range = await prisma.range.findUnique({
+      where: { id: rangeId }
+    });
+
+    if (!range) {
+      return NextResponse.json(
+        { error: 'Range not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if campaign with this name already exists
+    const existingCampaign = await prisma.campaign.findFirst({
+      where: { 
+        name: name.trim()
+      }
+    });
+
+    if (existingCampaign) {
+      return NextResponse.json(
+        { error: 'A campaign with this name already exists' },
+        { status: 400 }
+      );
+    }
+
+    // Create the new campaign
+    const newCampaign = await prisma.campaign.create({
+      data: {
+        name: name.trim(),
+        status: 'Active'
+      }
+    });
+
+    // Link the campaign to the range
+    await prisma.rangeToCampaign.create({
+      data: {
+        rangeId: rangeId,
+        campaignId: newCampaign.id
+      }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      data: newCampaign,
+      message: `Campaign "${name}" added to range successfully`
+    });
+
+  } catch (error) {
+    console.error('Error creating campaign:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

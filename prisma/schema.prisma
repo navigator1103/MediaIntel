@@ -99,14 +99,15 @@ model Cluster {
 }
 
 model Category {
-  id             Int               @id @default(autoincrement())
-  name           String            @unique(map: "sqlite_autoindex_categories_1")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at")
-  businessUnitId Int?              @map("business_unit_id")
-  businessUnit   BusinessUnit?     @relation(fields: [businessUnitId], references: [id])
-  ranges         CategoryToRange[]
-  gamePlans      GamePlan[]
+  id                       Int                      @id @default(autoincrement())
+  name                     String                   @unique(map: "sqlite_autoindex_categories_1")
+  createdAt                DateTime                 @default(now()) @map("created_at")
+  updatedAt                DateTime                 @default(now()) @updatedAt @map("updated_at")
+  businessUnitId           Int?                     @map("business_unit_id")
+  businessUnit             BusinessUnit?            @relation(fields: [businessUnitId], references: [id])
+  businessUnitToCategories BusinessUnitToCategory[]
+  ranges                   CategoryToRange[]
+  gamePlans                GamePlan[]
 
   @@map("categories")
 }
@@ -138,6 +139,17 @@ model CategoryToRange {
 
   @@id([categoryId, rangeId])
   @@map("category_to_range")
+}
+
+model BusinessUnitToCategory {
+  businessUnitId Int          @map("business_unit_id")
+  categoryId     Int          @map("category_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  category       Category     @relation(fields: [categoryId], references: [id])
+
+  @@id([businessUnitId, categoryId])
+  @@map("business_unit_to_category")
 }
 
 model LastUpdate {
@@ -202,6 +214,7 @@ model BusinessUnit {
   createdAt                    DateTime                       @default(now()) @map("created_at")
   updatedAt                    DateTime                       @default(now()) @updatedAt @map("updated_at")
   categories                   Category[]
+  businessUnitToCategories     BusinessUnitToCategory[]
   gamePlans                    GamePlan[]
   shareOfVoice                 ShareOfVoice[]
   tvTargetAudiences            TvTargetAudience[]

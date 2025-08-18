@@ -2,40 +2,67 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiPlus, FiTag, FiEdit, FiTrash2, FiRefreshCw, FiLayers } from 'react-icons/fi';
+import { FiPlus, FiTag, FiEdit, FiTrash2, FiRefreshCw, FiLayers, FiChevronRight, FiChevronDown, FiX } from 'react-icons/fi';
 import Link from 'next/link';
+
+interface Range {
+  id: number;
+  name: string;
+  campaignsCount: number;
+}
 
 interface Category {
   id: number;
   name: string;
+  businessUnitId: number;
+  businessUnitName: string;
   createdAt: string;
   updatedAt: string;
-  ranges: string[];
+  ranges: Range[];
   rangesCount: number;
   gamePlansCount: number;
 }
 
+interface BusinessUnit {
+  id: number;
+  name: string;
+  categoriesCount: number;
+  categories: Category[];
+}
+
 export default function CategoriesAdmin() {
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: '' });
-  const [isCreating, setIsCreating] = useState(false);
+  const [expandedBUs, setExpandedBUs] = useState<Set<number>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+  
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<number | null>(null);
+  const [categoryName, setCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
-  // Load categories
+  // Load data
   useEffect(() => {
-    fetchCategories();
+    fetchData();
   }, []);
 
-  const fetchCategories = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/admin/categories');
       if (response.ok) {
         const data = await response.json();
-        setCategories(data);
+        setBusinessUnits(data);
+        // Auto-expand all business units for better visibility
+        const buIds = new Set(data.map((bu: BusinessUnit) => bu.id));
+        setExpandedBUs(buIds);
       } else {
         setError('Failed to load categories');
       }
@@ -46,279 +73,442 @@ export default function CategoriesAdmin() {
     }
   };
 
+  const toggleBU = (buId: number) => {
+    const newExpanded = new Set(expandedBUs);
+    if (newExpanded.has(buId)) {
+      newExpanded.delete(buId);
+    } else {
+      newExpanded.add(buId);
+    }
+    setExpandedBUs(newExpanded);
+  };
+
+  const toggleCategory = (categoryId: number) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId);
+    } else {
+      newExpanded.add(categoryId);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
   const handleCreateCategory = async () => {
-    if (!newCategory.name.trim()) {
-      alert('Please enter a category name');
+    if (!categoryName.trim() || !selectedBusinessUnit) {
+      alert('Please enter a category name and select a business unit');
       return;
     }
 
-    setIsCreating(true);
     try {
       const response = await fetch('/api/admin/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newCategory.name.trim()
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: categoryName.trim(),
+          businessUnitId: selectedBusinessUnit 
         }),
       });
 
       if (response.ok) {
-        setNewCategory({ name: '' });
-        fetchCategories();
-        alert('Category created successfully!');
+        setShowCreateModal(false);
+        setCategoryName('');
+        setSelectedBusinessUnit(null);
+        fetchData();
       } else {
-        const errorData = await response.json();
-        alert(`Failed to create category: ${errorData.error}`);
+        const error = await response.json();
+        alert(error.error || 'Failed to create category');
       }
     } catch (err) {
       alert('Failed to create category');
-    } finally {
-      setIsCreating(false);
     }
   };
 
   const handleUpdateCategory = async () => {
-    if (!editingCategory) return;
+    if (!editingCategory || !categoryName.trim()) return;
 
     try {
       const response = await fetch(`/api/admin/categories/${editingCategory.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: editingCategory.name
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: categoryName.trim() }),
       });
 
       if (response.ok) {
+        setShowEditModal(false);
         setEditingCategory(null);
-        fetchCategories();
-        alert('Category updated successfully!');
+        setCategoryName('');
+        fetchData();
       } else {
-        const errorData = await response.json();
-        alert(`Failed to update category: ${errorData.error}`);
+        const error = await response.json();
+        alert(error.error || 'Failed to update category');
       }
     } catch (err) {
       alert('Failed to update category');
     }
   };
 
-  const handleDeleteCategory = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to delete the category "${name}"? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
 
     try {
-      const response = await fetch(`/api/admin/categories/${id}`, {
+      const response = await fetch(`/api/admin/categories/${deletingCategory.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        fetchCategories();
-        alert('Category deleted successfully!');
+        setShowDeleteModal(false);
+        setDeletingCategory(null);
+        fetchData();
       } else {
-        const errorData = await response.json();
-        alert(`Failed to delete category: ${errorData.error}`);
+        const error = await response.json();
+        alert(error.error || 'Failed to delete category');
       }
     } catch (err) {
       alert('Failed to delete category');
     }
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch {
-      return dateString;
-    }
+  const openCreateModal = (buId: number) => {
+    setSelectedBusinessUnit(buId);
+    setCategoryName('');
+    setShowCreateModal(true);
   };
 
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Categories Management</h1>
-        <div className="flex space-x-4">
-          <button 
-            onClick={fetchCategories}
-            className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-          >
-            <FiRefreshCw className="mr-2" />
-            Refresh
-          </button>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-          >
-            Back to Dashboard
-          </Link>
+  const openEditModal = (category: Category) => {
+    setEditingCategory(category);
+    setCategoryName(category.name);
+    setShowEditModal(true);
+  };
+
+  const openDeleteModal = (category: Category) => {
+    setDeletingCategory(category);
+    setShowDeleteModal(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Loading categories...</div>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-        </div>
-      )}
-
-      {/* Create New Category */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">Create New Category</h2>
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category Name *
-            </label>
-            <input
-              type="text"
-              value={newCategory.name}
-              onChange={(e) => setNewCategory({ name: e.target.value })}
-              placeholder="e.g., Moisturizer"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              disabled={isCreating}
-            />
-          </div>
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <Link
+            href="/admin"
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+          >
+            ← Back to Admin Dashboard
+          </Link>
           
-          <div className="flex items-end">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <FiLayers className="mr-3 text-blue-600" />
+                Categories Management
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Manage categories organized by business units with their associated ranges
+              </p>
+            </div>
             <button
-              onClick={handleCreateCategory}
-              disabled={isCreating}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center"
+              onClick={fetchData}
+              className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center"
             >
-              <FiPlus className="mr-2" />
-              {isCreating ? 'Creating...' : 'Create Category'}
+              <FiRefreshCw className="mr-2" />
+              Refresh
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Categories List */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">Existing Categories</h2>
-        
-        {loading ? (
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+        {/* Stats Summary */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-lg p-4 shadow">
+            <div className="text-2xl font-bold text-blue-600">
+              {businessUnits.length}
+            </div>
+            <div className="text-sm text-gray-600">Business Units</div>
           </div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <FiTag className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p>No categories found</p>
-            <p className="text-sm">Create your first category above</p>
+          <div className="bg-white rounded-lg p-4 shadow">
+            <div className="text-2xl font-bold text-green-600">
+              {businessUnits.reduce((sum, bu) => sum + bu.categoriesCount, 0)}
+            </div>
+            <div className="text-sm text-gray-600">Total Categories</div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ranges
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Game Plans
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Updated
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {categories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingCategory?.id === category.id ? (
-                        <input
-                          type="text"
-                          value={editingCategory.name}
-                          onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                          className="px-2 py-1 border border-gray-300 rounded"
-                        />
-                      ) : (
-                        <div className="flex items-center">
-                          <FiLayers className="mr-2 text-indigo-500" />
-                          <span className="text-sm font-medium text-gray-900">{category.name}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500">
-                        {category.rangesCount > 0 ? (
-                          <div>
-                            <span className="font-medium">{category.rangesCount} range{category.rangesCount !== 1 ? 's' : ''}</span>
-                            {category.ranges.length > 0 && (
-                              <div className="text-xs mt-1">
-                                {category.ranges.slice(0, 3).join(', ')}
-                                {category.ranges.length > 3 && ` +${category.ranges.length - 3} more`}
-                              </div>
-                            )}
+          <div className="bg-white rounded-lg p-4 shadow">
+            <div className="text-2xl font-bold text-purple-600">
+              {businessUnits.reduce((sum, bu) => 
+                sum + bu.categories.reduce((catSum, cat) => catSum + cat.rangesCount, 0), 0
+              )}
+            </div>
+            <div className="text-sm text-gray-600">Total Ranges</div>
+          </div>
+        </div>
+
+        {/* Hierarchical List */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {businessUnits.map((bu) => (
+            <div key={bu.id} className="border-b last:border-b-0">
+              {/* Business Unit Level */}
+              <div className="px-6 py-4 bg-blue-50 hover:bg-blue-100 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div 
+                    className="flex items-center flex-1 cursor-pointer"
+                    onClick={() => toggleBU(bu.id)}
+                  >
+                    {expandedBUs.has(bu.id) ? (
+                      <FiChevronDown className="mr-2 text-gray-600" />
+                    ) : (
+                      <FiChevronRight className="mr-2 text-gray-600" />
+                    )}
+                    <span className="font-semibold text-lg text-blue-800">{bu.name}</span>
+                    <span className="ml-3 text-sm text-gray-600">
+                      ({bu.categoriesCount} categories)
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => openCreateModal(bu.id)}
+                    className="px-3 py-1 text-sm text-white bg-green-600 rounded hover:bg-green-700"
+                  >
+                    <FiPlus className="inline mr-1" />
+                    Add Category
+                  </button>
+                </div>
+              </div>
+
+              {/* Categories */}
+              {expandedBUs.has(bu.id) && (
+                <div className="bg-gray-50">
+                  {bu.categories.length === 0 ? (
+                    <div className="px-12 py-4 text-gray-500 italic">
+                      No categories in this business unit
+                    </div>
+                  ) : (
+                    bu.categories.map((category) => (
+                      <div key={category.id} className="border-t border-gray-200">
+                        {/* Category Level */}
+                        <div className="px-12 py-3 hover:bg-green-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div 
+                              className="flex items-center flex-1 cursor-pointer"
+                              onClick={() => toggleCategory(category.id)}
+                            >
+                              {category.rangesCount > 0 && (
+                                expandedCategories.has(category.id) ? (
+                                  <FiChevronDown className="mr-2 text-gray-500" />
+                                ) : (
+                                  <FiChevronRight className="mr-2 text-gray-500" />
+                                )
+                              )}
+                              {category.rangesCount === 0 && (
+                                <div className="w-4 mr-2" />
+                              )}
+                              <FiTag className="mr-2 text-green-600" />
+                              <span className="font-medium text-green-700">{category.name}</span>
+                              <span className="ml-3 text-sm text-gray-500">
+                                ({category.rangesCount} ranges, {category.gamePlansCount} game plans)
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openEditModal(category)}
+                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                              >
+                                <FiEdit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(category)}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded"
+                              >
+                                <FiTrash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-gray-400">No ranges</span>
+                        </div>
+
+                        {/* Ranges */}
+                        {expandedCategories.has(category.id) && category.ranges.length > 0 && (
+                          <div className="px-20 py-2 bg-white">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {category.ranges.map((range) => (
+                                <div 
+                                  key={range.id}
+                                  className="px-3 py-2 bg-purple-50 rounded text-sm"
+                                >
+                                  <span className="text-purple-700 font-medium">{range.name}</span>
+                                  <span className="ml-2 text-gray-500">
+                                    ({range.campaignsCount} campaigns)
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        category.gamePlansCount > 0 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {category.gamePlansCount}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(category.updatedAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        {editingCategory?.id === category.id ? (
-                          <>
-                            <button
-                              onClick={handleUpdateCategory}
-                              className="text-green-600 hover:text-green-900"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingCategory(null)}
-                              className="text-gray-600 hover:text-gray-900"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => setEditingCategory(category)}
-                              className="text-indigo-600 hover:text-indigo-900 flex items-center"
-                            >
-                              <FiEdit className="mr-1" />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCategory(category.id, category.name)}
-                              className="text-red-600 hover:text-red-900 flex items-center"
-                            >
-                              <FiTrash2 className="mr-1" />
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Create Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Create New Category</h2>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Business Unit: <strong>
+                    {businessUnits.find(bu => bu.id === selectedBusinessUnit)?.name}
+                  </strong>
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter category name"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateCategory}
+                  className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+                >
+                  Create Category
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && editingCategory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Edit Category</h2>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  Business Unit: <strong>{editingCategory.businessUnitName}</strong>
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateCategory}
+                  className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  Update Category
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Modal */}
+        {showDeleteModal && deletingCategory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-red-600">Delete Category</h2>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <p className="mb-4">
+                Are you sure you want to delete <strong>{deletingCategory.name}</strong>?
+              </p>
+              
+              <p className="text-sm text-gray-600 mb-4">
+                Business Unit: <strong>{deletingCategory.businessUnitName}</strong>
+              </p>
+              
+              {deletingCategory.rangesCount > 0 && (
+                <p className="text-sm text-red-600 mb-4">
+                  Warning: This category has {deletingCategory.rangesCount} ranges and {deletingCategory.gamePlansCount} game plans.
+                </p>
+              )}
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteCategory}
+                  className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+                >
+                  Delete Category
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
