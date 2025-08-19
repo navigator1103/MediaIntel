@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import path from 'path';
+import { parseReachPlanningExcel, isExcelFile, isCsvFile } from '@/lib/utils/excelParser';
 
 // Separate session management for reach planning imports
 const SESSIONS_DIR = path.join(process.cwd(), 'data', 'sessions');
@@ -76,9 +77,9 @@ export async function POST(request: NextRequest) {
       fileName = file.name;
       console.log(`File uploaded: ${fileName}, size: ${file.size} bytes`);
       
-      // Validate file type - only CSV files supported
-      if (!fileName.toLowerCase().endsWith('.csv')) {
-        return NextResponse.json({ error: 'Only CSV files are supported' }, { status: 400 });
+      // Validate file type - CSV and Excel files supported
+      if (!isCsvFile(fileName) && !isExcelFile(fileName)) {
+        return NextResponse.json({ error: 'Only CSV and Excel files are supported' }, { status: 400 });
       }
       
       // Validate file size (10MB limit)
@@ -86,8 +87,39 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 });
       }
       
-      // Read file content
-      fileContent = await file.text();
+      // Read file content based on type
+      if (isExcelFile(fileName)) {
+        // For Excel files, we'll parse directly to records
+        const fileBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(fileBuffer);
+        
+        console.log('Parsing Excel file for reach planning...');
+        const parseResult = parseReachPlanningExcel(buffer);
+        
+        // Convert parsed records back to CSV format for downstream processing
+        if (parseResult.records.length > 0) {
+          const headers = Object.keys(parseResult.records[0]);
+          const csvRows = [headers.join(',')];
+          parseResult.records.forEach(record => {
+            const row = headers.map(header => {
+              const value = record[header] || '';
+              // Escape values that contain commas or quotes
+              if (value.includes(',') || value.includes('"')) {
+                return `"${value.replace(/"/g, '""')}"`;
+              }
+              return value;
+            });
+            csvRows.push(row.join(','));
+          });
+          fileContent = csvRows.join('\n');
+          console.log(`Converted Excel file to CSV format: ${parseResult.records.length} records from sheet: ${parseResult.sheetUsed}`);
+        } else {
+          fileContent = '';
+        }
+      } else {
+        // For CSV files, read as text
+        fileContent = await file.text();
+      }
     } else if (contentType.includes('application/json')) {
       // Handle direct file path (for server-side uploads)
       console.log('Processing JSON request with direct file path');

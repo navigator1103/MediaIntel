@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { AutoCreateValidator } from '@/lib/validation/autoCreateValidator';
 import { PrismaClient } from '@prisma/client';
+import { parseGamePlansExcel, isExcelFile, isCsvFile } from '@/lib/utils/excelParser';
 
 // We'll use temporary file storage for upload sessions
 
@@ -199,19 +200,33 @@ export async function POST(request: NextRequest) {
       const fileContent = fs.readFileSync(filePath, 'utf8');
       console.log(`File read successfully, size: ${fileContent.length} bytes`);
       
-      // Parse CSV data
-      console.log('Parsing CSV data...');
+      // Parse file data (CSV or Excel)
+      console.log('Parsing file data...');
       let records;
       try {
-        records = parse(fileContent, {
-          columns: true,
-          skip_empty_lines: true
-        });
-        console.log(`Parsed ${records.length} records from CSV file`);
+        if (isExcelFile(fileName)) {
+          console.log('Parsing Excel file...');
+          const fileBuffer = fs.readFileSync(filePath);
+          const parseResult = parseGamePlansExcel(fileBuffer);
+          records = parseResult.records;
+          console.log(`Parsed ${records.length} records from Excel file using sheet: ${parseResult.sheetUsed}`);
+          if (parseResult.availableSheets.length > 1) {
+            console.log(`Available sheets: ${parseResult.availableSheets.join(', ')}`);
+          }
+        } else if (isCsvFile(fileName)) {
+          console.log('Parsing CSV file...');
+          records = parse(fileContent, {
+            columns: true,
+            skip_empty_lines: true
+          });
+          console.log(`Parsed ${records.length} records from CSV file`);
+        } else {
+          throw new Error('Unsupported file format. Please upload a CSV or Excel file.');
+        }
       } catch (parseError) {
-        console.error('Error parsing CSV:', parseError);
+        console.error('Error parsing file:', parseError);
         return NextResponse.json(
-          { error: `Failed to parse CSV: ${parseError instanceof Error ? parseError.message : 'Unknown error'}` },
+          { error: `Failed to parse file: ${parseError instanceof Error ? parseError.message : 'Unknown error'}` },
           { status: 400 }
         );
       }
@@ -346,39 +361,53 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check if file is CSV
-    if (!file.name.endsWith('.csv')) {
+    // Check if file is CSV or Excel
+    if (!isCsvFile(file.name) && !isExcelFile(file.name)) {
       return NextResponse.json(
-        { error: 'Only CSV files are supported' },
+        { error: 'Only CSV and Excel files are supported' },
         { status: 400 }
       );
     }
     
-    // Get the CSV content as text
+    // Get the file content
     console.log(`Reading file content: ${file.name}, size: ${file.size} bytes`);
     const fileBuffer = await file.arrayBuffer();
-    const fileContent = new TextDecoder().decode(fileBuffer);
-    console.log(`File content read successfully, length: ${fileContent.length} characters`);
+    const buffer = Buffer.from(fileBuffer);
+    console.log(`File content read successfully, size: ${buffer.length} bytes`);
     
-    // Parse CSV data using proper CSV parser to handle quotes and commas correctly
-    // Parse the CSV content
-    console.log('Starting CSV parsing...');
+    // Parse file data (CSV or Excel)
+    console.log('Starting file parsing...');
     let records;
     try {
-      records = parse(fileContent, {
-        columns: true, // Use first row as column headers
-        skip_empty_lines: true,
-        trim: true,
-        auto_parse: false, // Keep all values as strings initially
-        relax_column_count: true, // Allow inconsistent column counts
-        delimiter: ',',
-        quote: '"',
-        escape: '"'
-      });
+      if (isExcelFile(file.name)) {
+        console.log('Parsing Excel file...');
+        const parseResult = parseGamePlansExcel(buffer);
+        records = parseResult.records;
+        console.log(`Parsed ${records.length} records from Excel file using sheet: ${parseResult.sheetUsed}`);
+        if (parseResult.availableSheets.length > 1) {
+          console.log(`Available sheets: ${parseResult.availableSheets.join(', ')}`);
+        }
+      } else if (isCsvFile(file.name)) {
+        console.log('Parsing CSV file...');
+        const fileContent = new TextDecoder().decode(fileBuffer);
+        records = parse(fileContent, {
+          columns: true, // Use first row as column headers
+          skip_empty_lines: true,
+          trim: true,
+          auto_parse: false, // Keep all values as strings initially
+          relax_column_count: true, // Allow inconsistent column counts
+          delimiter: ',',
+          quote: '"',
+          escape: '"'
+        });
+        console.log(`Parsed ${records.length} records from CSV file`);
+      } else {
+        throw new Error('Unsupported file format');
+      }
     } catch (parseError) {
-      console.error('CSV parsing error:', parseError);
+      console.error('File parsing error:', parseError);
       return NextResponse.json(
-        { error: `CSV parsing failed: ${parseError instanceof Error ? parseError.message : 'Invalid CSV format'}` },
+        { error: `File parsing failed: ${parseError instanceof Error ? parseError.message : 'Invalid file format'}` },
         { status: 400 }
       );
     }

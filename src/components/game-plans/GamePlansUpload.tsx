@@ -142,8 +142,9 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
   const validateAndSetFile = (file: File) => {
     setError(null);
     
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      setError('Please upload a CSV file');
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      setError('Please upload a CSV or Excel file');
       return;
     }
     
@@ -281,7 +282,7 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           className="hidden"
         />
         
@@ -297,7 +298,7 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
               </button>
               {' '}or drag and drop
             </p>
-            <p className="mt-1 text-xs text-gray-500">CSV files up to 25MB</p>
+            <p className="mt-1 text-xs text-gray-500">CSV or Excel files up to 25MB</p>
           </div>
         ) : (
           <div>

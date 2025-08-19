@@ -242,7 +242,7 @@ export default function GamePlansUploadPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium mb-2 text-blue-900">File Format Requirements</h4>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Upload must be in CSV format (use Excel templates above, then save as CSV)</li>
+                        <li>• Upload CSV or Excel files (.csv, .xlsx, .xls) - Excel files will use the "NIVEA Game Plan Table" sheet</li>
                         <li>• Maximum file size: 10MB</li>
                         <li>• First row must contain column headers</li>
                         <li>• Date format: YYYY-MM-DD</li>

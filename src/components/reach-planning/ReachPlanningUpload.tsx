@@ -93,12 +93,13 @@ export default function ReachPlanningUpload({
     
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      if (droppedFile.name.toLowerCase().endsWith('.csv')) {
+      const fileName = droppedFile.name.toLowerCase();
+      if (fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
         validateAndUploadFile(droppedFile);
       } else {
         setUploadState({
           status: 'error',
-          error: 'Only CSV files are supported'
+          error: 'Only CSV and Excel files are supported'
         });
       }
     }
@@ -193,10 +194,11 @@ export default function ReachPlanningUpload({
       }
 
       // Validate file type
-      if (!file.name.toLowerCase().endsWith('.csv')) {
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
         setUploadState({
           status: 'error',
-          error: 'Only CSV files are supported'
+          error: 'Only CSV and Excel files are supported'
         });
         return;
       }
@@ -472,7 +474,7 @@ export default function ReachPlanningUpload({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -481,10 +483,10 @@ export default function ReachPlanningUpload({
                 {isDragging ? 'Drop the file here' : 'Upload Media Sufficiency Data'}
               </p>
               <p className="text-gray-500 mb-4">
-                Drag and drop your CSV file here, or click to browse
+                Drag and drop your CSV or Excel file here, or click to browse
               </p>
               <p className="text-sm text-gray-400">
-                Maximum file size: 25MB • CSV format required
+                Maximum file size: 25MB • CSV or Excel format required
               </p>
             </div>
           )}
