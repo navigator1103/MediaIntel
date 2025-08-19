@@ -147,8 +147,8 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
       return;
     }
     
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size exceeds 10MB limit');
+    if (file.size > 25 * 1024 * 1024) {
+      setError('File size exceeds 25MB limit');
       return;
     }
     
@@ -297,7 +297,7 @@ export default function GamePlansUpload({ onUploadComplete, onValidationComplete
               </button>
               {' '}or drag and drop
             </p>
-            <p className="mt-1 text-xs text-gray-500">CSV files up to 10MB</p>
+            <p className="mt-1 text-xs text-gray-500">CSV files up to 25MB</p>
           </div>
         ) : (
           <div>

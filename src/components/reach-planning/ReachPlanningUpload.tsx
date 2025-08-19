@@ -201,11 +201,11 @@ export default function ReachPlanningUpload({
         return;
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
+      // Validate file size (25MB limit)
+      if (file.size > 25 * 1024 * 1024) {
         setUploadState({
           status: 'error',
-          error: 'File size must be less than 10MB'
+          error: 'File size must be less than 25MB'
         });
         return;
       }
@@ -478,13 +478,13 @@ export default function ReachPlanningUpload({
               />
               <FiUpload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium mb-2">
-                {isDragging ? 'Drop the CSV file here' : 'Upload Media Sufficiency CSV'}
+                {isDragging ? 'Drop the file here' : 'Upload Media Sufficiency Data'}
               </p>
               <p className="text-gray-500 mb-4">
                 Drag and drop your CSV file here, or click to browse
               </p>
               <p className="text-sm text-gray-400">
-                Maximum file size: 10MB
+                Maximum file size: 25MB • CSV format required
               </p>
             </div>
           )}

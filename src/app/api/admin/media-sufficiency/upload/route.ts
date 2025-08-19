@@ -191,13 +191,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `File not found at path: ${filePath}` }, { status: 404 });
       }
       
+      // Extract filename from path
+      const fileName = filePath.split('/').pop() || 'upload.csv';
+      
       // Read file content
       console.log('Reading file from disk...');
       const fileContent = fs.readFileSync(filePath, 'utf8');
       console.log(`File read successfully, size: ${fileContent.length} bytes`);
-      
-      // Extract filename from path
-      const fileName = filePath.split('/').pop() || 'upload.csv';
       
       // Parse CSV data
       console.log('Parsing CSV data...');

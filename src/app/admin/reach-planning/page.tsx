@@ -248,7 +248,7 @@ export default function ReachPlanningPage() {
                     <div>
                       <div className="font-medium text-gray-900">{sessionSummary.fileName}</div>
                       <div className="text-sm text-gray-500">
-                        {sessionSummary.totalRecords} records • Session: {sessionSummary.sessionId}
+                        {sessionSummary.totalRecords} records " Session: {sessionSummary.sessionId}
                       </div>
                     </div>
                   </div>
@@ -363,9 +363,9 @@ export default function ReachPlanningPage() {
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Required Fields</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                        <span className="text-red-600">• Category</span>
-                        <span className="text-red-600">• Range</span>
-                        <span className="text-red-600">• Campaign</span>
+                        <span className="text-red-600">" Category</span>
+                        <span className="text-red-600">" Range</span>
+                        <span className="text-red-600">" Campaign</span>
                       </div>
                       <p className="text-sm text-green-700 mt-2">
                         Note: Last Update, Sub Region, Country, and BU are auto-populated during import.
@@ -375,35 +375,35 @@ export default function ReachPlanningPage() {
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Optional Fields</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                        <span>• BU</span>
-                        <span>• Franchise NS</span>
-                        <span>• Campaign Socio-Demo Target</span>
-                        <span>• TV Copy Length</span>
-                        <span>• Total TRPs</span>
-                        <span>• TV/Digital Reach metrics</span>
-                        <span>• CPP 2024/2025</span>
-                        <span>• WOA metrics</span>
-                        <span>• Reach Level Checks</span>
+                        <span>" BU</span>
+                        <span>" Franchise NS</span>
+                        <span>" Campaign Socio-Demo Target</span>
+                        <span>" TV Copy Length</span>
+                        <span>" Total TRPs</span>
+                        <span>" TV/Digital Reach metrics</span>
+                        <span>" CPP 2024/2025</span>
+                        <span>" WOA metrics</span>
+                        <span>" Reach Level Checks</span>
                       </div>
                     </div>
                     
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-medium mb-2 text-blue-900">File Format Requirements & Validation</h4>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• CSV format only</li>
-                        <li>• Maximum file size: 10MB</li>
-                        <li>• First row must contain column headers</li>
-                        <li>• Download the template above for the correct format and example data</li>
+                        <li>" CSV format only</li>
+                        <li>" Maximum file size: 10MB</li>
+                        <li>" First row must contain column headers</li>
+                        <li>" Download the template above for the correct format and example data</li>
                       </ul>
                       <h5 className="font-medium mt-3 mb-1 text-blue-900">Data Validation Rules:</h5>
                       <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• <strong>Text fields:</strong> Must contain text, not just numbers</li>
-                        <li>• <strong>Numeric fields:</strong> Must be valid numbers (commas allowed)</li>
-                        <li>• <strong>Percentage fields:</strong> 0-100% or 0-1 decimal format (includes Reach Level Check fields)</li>
-                        <li>• <strong>Reach Level Check fields:</strong> Should contain percentages (e.g., "1%", "6%", "3%")</li>
-                        <li>• <strong>Media compatibility:</strong> Media Sub Type must match Media type</li>
-                        <li>• <strong>Database validation:</strong> Country, Category, Range, Campaign, and Media values must exist in database</li>
-                        <li>• <strong>Relationship validation:</strong> Ranges must be compatible with Categories, Campaigns with Ranges, etc.</li>
+                        <li>" <strong>Text fields:</strong> Must contain text, not just numbers</li>
+                        <li>" <strong>Numeric fields:</strong> Must be valid numbers (commas allowed)</li>
+                        <li>" <strong>Percentage fields:</strong> 0-100% or 0-1 decimal format (includes Reach Level Check fields)</li>
+                        <li>" <strong>Reach Level Check fields:</strong> Should contain percentages (e.g., "1%", "6%", "3%")</li>
+                        <li>" <strong>Media compatibility:</strong> Media Sub Type must match Media type</li>
+                        <li>" <strong>Database validation:</strong> Country, Category, Range, Campaign, and Media values must exist in database</li>
+                        <li>" <strong>Relationship validation:</strong> Ranges must be compatible with Categories, Campaigns with Ranges, etc.</li>
                       </ul>
                     </div>
                   </div>

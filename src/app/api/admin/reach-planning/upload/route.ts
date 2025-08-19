@@ -42,9 +42,8 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') || '';
     console.log('Request content type:', contentType);
     
-    let fileContent: string;
+    let fileContent: string = '';
     let fileName: string;
-    
     let lastUpdateId: string | null = null;
     let countryId: string | null = null;
     let businessUnitId: string | null = null;
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest) {
       fileName = file.name;
       console.log(`File uploaded: ${fileName}, size: ${file.size} bytes`);
       
-      // Validate file type
+      // Validate file type - only CSV files supported
       if (!fileName.toLowerCase().endsWith('.csv')) {
         return NextResponse.json({ error: 'Only CSV files are supported' }, { status: 400 });
       }
@@ -87,6 +86,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 });
       }
       
+      // Read file content
       fileContent = await file.text();
     } else if (contentType.includes('application/json')) {
       // Handle direct file path (for server-side uploads)
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`File content length: ${fileContent.length} characters`);
     
-    // Parse CSV with enhanced error handling
+    // Parse CSV content
     console.log('Parsing CSV content...');
     let records: any[];
     try {
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       let friendlyMessage = parseError.message;
       
       if (parseError.message.includes('Invalid Record Length')) {
-        const match = parseError.message.match(/columns length is (\d+), got (\d+) on line (\d+)/);
+        const match = parseError.message.match(/columns length is (\\d+), got (\\d+) on line (\\d+)/);
         if (match) {
           const [, expected, actual, line] = match;
           friendlyMessage = `Row ${line} has ${actual} columns but expected ${expected} columns. Please check for missing commas or extra data in row ${line}.`;
